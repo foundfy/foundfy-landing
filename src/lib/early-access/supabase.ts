@@ -51,6 +51,17 @@ export async function insertEarlyAccessLead(
     .single();
 
   if (error || !data) {
+    if (error) {
+      console.error("[Early Access] Supabase insert failed:", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+    } else {
+      console.error("[Early Access] Supabase insert failed: no row returned");
+    }
+
     throw new Error("Failed to save early access lead.");
   }
 
