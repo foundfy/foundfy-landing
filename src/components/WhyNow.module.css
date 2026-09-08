@@ -370,6 +370,17 @@
   color: rgba(245, 243, 238, 0.45);
 }
 
+/* ─── Desktop headline line break ─── */
+@media (min-width: 1025px) {
+  .main {
+    grid-template-columns: auto 32%;
+  }
+
+  .headlineLine {
+    white-space: nowrap;
+  }
+}
+
 /* ─── Tablet ─── */
 @media (max-width: 1024px) {
   .main {

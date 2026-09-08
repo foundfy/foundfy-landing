@@ -1,3 +1,5 @@
+"use client";
+
 import styles from "./Logo.module.css";
 
 interface LogoProps {
@@ -7,11 +9,16 @@ interface LogoProps {
 
 export default function Logo({ variant = "light", className = "" }: LogoProps) {
   return (
-    <span
-      className={`${styles.logo} ${styles[variant]} ${className}`}
-      aria-label="Foundfy"
+    <a
+      href="/"
+      className={`${styles.logo} ${styles.link} ${styles[variant]} ${className}`}
+      aria-label="Foundfy — refresh page"
+      onClick={(event) => {
+        event.preventDefault();
+        window.location.reload();
+      }}
     >
       foundfy<span className={styles.dot}>.</span>
-    </span>
+    </a>
   );
 }

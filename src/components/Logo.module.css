@@ -6,6 +6,13 @@
   font-family: var(--font-inter), Inter, sans-serif;
 }
 
+.link {
+  display: inline-block;
+  text-decoration: none;
+  cursor: pointer;
+  color: inherit;
+}
+
 .light {
   color: var(--white);
 }

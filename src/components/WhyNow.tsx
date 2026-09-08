@@ -53,7 +53,7 @@ export default function WhyNow() {
 
           <div className={styles.main}>
             <h2 className={styles.headline}>
-              Search is changing.
+              <span className={styles.headlineLine}>Search is changing.</span>
               <br />
               So are we.
             </h2>
