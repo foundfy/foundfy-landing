@@ -1,0 +1,644 @@
+.section {
+  padding-top: clamp(40px, 5vw, 64px);
+  padding-bottom: clamp(40px, 5vw, 64px);
+}
+
+.inner {
+  position: relative;
+  z-index: 1;
+}
+
+.atmosphere {
+  position: absolute;
+  right: -6%;
+  bottom: -10%;
+  width: min(480px, 52vw);
+  height: min(380px, 42vw);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 74, 28, 0.11) 0%,
+    rgba(255, 74, 28, 0.04) 44%,
+    transparent 72%
+  );
+  filter: blur(52px);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 420ms ease;
+}
+
+.section:has(.form:focus-within) .atmosphere {
+  opacity: 1;
+}
+
+.atmosphereSuccess {
+  opacity: 1;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 74, 28, 0.14) 0%,
+    rgba(255, 74, 28, 0.05) 44%,
+    transparent 72%
+  );
+  animation: successGlow 2.8s ease both;
+}
+
+@keyframes successGlow {
+  0% {
+    opacity: 0;
+  }
+
+  35% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.55;
+  }
+}
+
+.layout {
+  align-items: start;
+}
+
+.copy {
+  padding-top: 0.25rem;
+}
+
+.copyOrange {
+  color: #ff4a1c;
+}
+
+.copyText {
+  color: var(--grey-dark);
+  margin-bottom: var(--space-lg);
+}
+
+.email {
+  color: var(--grey-muted);
+}
+
+.emailLink {
+  color: var(--black);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: opacity var(--transition);
+}
+
+.emailLink:hover {
+  opacity: 0.6;
+}
+
+.formArea {
+  min-height: clamp(320px, 38vh, 420px);
+  transition: min-height 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.form {
+  width: 100%;
+}
+
+.formStack {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.5rem, 2.5vw, 2rem);
+  transition: gap 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.stepCounter {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  color: rgba(10, 10, 10, 0.45);
+  margin-bottom: clamp(0.75rem, 1.5vw, 1rem);
+}
+
+.activeQuestion {
+  font-size: clamp(28px, 2.4vw, 36px);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: #0a0a0a;
+  margin-bottom: clamp(1rem, 2vw, 1.35rem);
+}
+
+.fieldShell {
+  position: relative;
+  width: 100%;
+  border-radius: 9px;
+}
+
+.fieldShell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9px;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  transition: opacity 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow:
+    0 0 0 1px rgba(255, 74, 28, 0.14),
+    0 4px 22px rgba(255, 74, 28, 0.08),
+    0 0 38px rgba(255, 74, 28, 0.06);
+}
+
+.fieldShell:focus-within::before {
+  opacity: 1;
+  animation: fieldFocusLumen 3.2s ease-in-out infinite;
+}
+
+@keyframes fieldFocusLumen {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(255, 74, 28, 0.16),
+      0 4px 20px rgba(255, 74, 28, 0.08),
+      0 0 36px rgba(255, 74, 28, 0.05);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(255, 74, 28, 0.26),
+      0 6px 28px rgba(255, 74, 28, 0.14),
+      0 0 52px rgba(255, 74, 28, 0.1);
+  }
+}
+
+.editorialSelect,
+.editorialInput {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  padding: clamp(18px, 2.2vw, 22px) clamp(20px, 2.2vw, 24px);
+  border: 1px solid rgba(255, 74, 28, 0.16);
+  border-radius: 8px;
+  background: #ffffff;
+  font-family: var(--font-inter), Inter, sans-serif;
+  font-size: clamp(14px, 1.1vw, 16px);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: #0a0a0a;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transition:
+    border-color 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.editorialSelect {
+  appearance: none;
+  padding-right: 3rem;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23ff4a1c' stroke-opacity='0.45' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1.25rem center;
+}
+
+@media (hover: hover) {
+  .editorialSelect:hover:not(:disabled),
+  .editorialInput:hover:not(:disabled) {
+    border-color: rgba(255, 74, 28, 0.2);
+  }
+}
+
+.editorialSelect:focus,
+.editorialInput:focus {
+  outline: none;
+  border-color: rgba(255, 74, 28, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.editorialInput::placeholder {
+  color: rgba(0, 0, 0, 0.32);
+}
+
+.previousBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: clamp(0.85rem, 1.6vw, 1.1rem);
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: rgba(10, 10, 10, 0.42);
+  transition:
+    color 250ms ease,
+    opacity 250ms ease;
+}
+
+.previousArrow {
+  display: inline-block;
+  transition: transform 250ms ease;
+}
+
+@media (hover: hover) {
+  .previousBtn:hover:not(:disabled) {
+    color: #ff4a1c;
+  }
+
+  .previousBtn:hover:not(:disabled) .previousArrow {
+    transform: translateX(-4px);
+  }
+}
+
+.previousBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.stepActive {
+  overflow: hidden;
+  transform-origin: top center;
+}
+
+.stepEnter {
+  animation: stepEnter 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.stepExit {
+  animation: stepExit 340ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  pointer-events: none;
+}
+
+.stepChild {
+  animation: stepChildEnter 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.stepEnter .stepChild:nth-child(1) {
+  animation-delay: 40ms;
+}
+
+.stepEnter .stepChild:nth-child(2) {
+  animation-delay: 110ms;
+}
+
+.stepEnter .stepChild:nth-child(3) {
+  animation-delay: 180ms;
+}
+
+.stepEnter .stepChild:nth-child(4) {
+  animation-delay: 250ms;
+}
+
+.stepEnter .stepChild:nth-child(5) {
+  animation-delay: 320ms;
+}
+
+@keyframes stepEnter {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+    filter: blur(4px);
+    max-height: 0;
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+    max-height: 480px;
+  }
+}
+
+@keyframes stepExit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+    max-height: 480px;
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.985);
+    filter: blur(4px);
+    max-height: 0;
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+}
+
+@keyframes stepChildEnter {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stepCompleted {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  opacity: 0.58;
+  transform-origin: top center;
+  animation: stepComplete 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: opacity 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (hover: hover) {
+  .stepCompleted:hover {
+    opacity: 0.78;
+  }
+}
+
+@keyframes stepComplete {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(1.015);
+    filter: blur(3px);
+  }
+
+  to {
+    opacity: 0.58;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.completedMeta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  color: rgba(10, 10, 10, 0.38);
+  margin-bottom: 0.25rem;
+}
+
+.completedMeta span:first-child {
+  color: rgba(10, 10, 10, 0.28);
+  flex-shrink: 0;
+}
+
+.completedValue {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-left: 1.35rem;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(10, 10, 10, 0.72);
+  line-height: 1.4;
+}
+
+.checkmark {
+  font-size: 11px;
+  color: #ff4a1c;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.stepActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  margin-top: clamp(0.85rem, 1.6vw, 1.1rem);
+  flex-wrap: wrap;
+}
+
+.stepActions .previousBtn,
+.stepActions .submitBtnOrange {
+  margin-top: 0;
+}
+
+@property --btn-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.submitBtnOrange {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  height: 46px;
+  margin-top: clamp(0.85rem, 1.6vw, 1.1rem);
+  padding: 0 clamp(22px, 1.6vw, 28px);
+  border: 1px solid rgba(255, 74, 28, 0.2);
+  border-radius: 100px;
+  background: rgba(255, 74, 28, 0.04);
+  cursor: default;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 74, 28, 0.32);
+  box-shadow: none;
+  transition:
+    color 250ms ease,
+    border-color 250ms ease,
+    background-color 250ms ease,
+    transform 250ms ease;
+}
+
+.submitBtnOrangeActive {
+  color: #ff4a1c;
+  border-color: rgba(255, 74, 28, 0.28);
+  background: rgba(255, 74, 28, 0.06);
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.submitBtnOrangeActive::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--btn-angle),
+    rgba(255, 74, 28, 0.24) 0deg,
+    rgba(255, 74, 28, 0.24) 235deg,
+    rgba(255, 74, 28, 0.58) 265deg,
+    rgba(255, 74, 28, 0.88) 300deg,
+    #ff4a1c 330deg,
+    rgba(255, 74, 28, 0.88) 360deg
+  );
+  opacity: 0;
+  animation: none;
+  pointer-events: none;
+  z-index: 0;
+  will-change: --btn-angle, opacity;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  transition: opacity 280ms ease;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+
+.submitBtnOrangeActive > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes btnOutlineSpin {
+  to {
+    --btn-angle: 360deg;
+  }
+}
+
+.submitArrow {
+  display: inline-block;
+  transition: transform 250ms ease;
+}
+
+.submitBtnOrangeActive .submitArrow {
+  animation: submitArrowNudge 2.4s ease-in-out infinite;
+}
+
+@keyframes submitArrowNudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  50% {
+    transform: translateX(4px);
+  }
+}
+
+@media (hover: hover) {
+  .submitBtnOrangeActive:hover {
+    border-color: transparent;
+    background: rgba(255, 74, 28, 0.09);
+    box-shadow: none;
+  }
+
+  .submitBtnOrangeActive:hover::before {
+    opacity: 1;
+    animation: btnOutlineSpin 4.5s linear infinite;
+  }
+
+  .submitBtnOrangeActive:hover .submitArrow {
+    animation: none;
+    transform: translateX(6px);
+  }
+}
+
+.submitBtnOrange:disabled {
+  cursor: default;
+}
+
+.submitBtnOrangeSubmitting {
+  opacity: 0.72;
+  cursor: wait;
+}
+
+.submitError {
+  margin-top: 0.65rem;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(255, 74, 28, 0.85);
+  text-align: right;
+}
+
+.successState {
+  animation: stepEnter 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  padding-top: 0.25rem;
+}
+
+.successHeadline {
+  font-size: clamp(28px, 2.4vw, 36px);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  text-transform: uppercase;
+  color: #0a0a0a;
+  margin-bottom: 0.75rem;
+}
+
+.successSubline {
+  font-size: clamp(16px, 1.1vw, 18px);
+  font-weight: 400;
+  line-height: 1.45;
+  color: rgba(10, 10, 10, 0.58);
+}
+
+@media (max-width: 768px) {
+  .copy {
+    margin-bottom: var(--space-lg);
+  }
+
+  .formArea {
+    min-height: clamp(280px, 50vh, 380px);
+  }
+
+  .atmosphere {
+    right: -12%;
+    bottom: -8%;
+    width: min(360px, 72vw);
+    height: min(280px, 50vw);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atmosphere,
+  .atmosphereSuccess,
+  .formArea,
+  .formStack,
+  .stepActive,
+  .stepEnter,
+  .stepExit,
+  .stepChild,
+  .stepCompleted,
+  .successState,
+  .editorialSelect,
+  .editorialInput,
+  .fieldShell::before,
+  .previousBtn,
+  .previousArrow,
+  .submitBtnOrangeActive,
+  .submitBtnOrangeActive::before,
+  .submitBtnOrange,
+  .submitArrow {
+    animation: none;
+    transition: none;
+  }
+
+  .submitBtnOrangeActive:hover {
+    transform: none;
+  }
+
+  .submitBtnOrangeActive:hover .submitArrow {
+    transform: none;
+  }
+
+  .atmosphereSuccess {
+    opacity: 0.55;
+  }
+}

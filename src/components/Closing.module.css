@@ -1,0 +1,57 @@
+.closing {
+  position: relative;
+  background: #080808;
+  overflow: hidden;
+}
+
+.backgroundArtwork {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.backgroundImage {
+  position: absolute;
+  inset: -2%;
+  background-image: url("/closing-bg.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: blur(var(--bg-image-blur));
+}
+
+.backgroundGrain {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 180px 180px;
+  opacity: 0.12;
+  mix-blend-mode: overlay;
+}
+
+.inner {
+  position: relative;
+  z-index: 2;
+}
+
+.content {
+  max-width: 640px;
+  margin-bottom: clamp(32px, 4vw, 48px);
+}
+
+.headline {
+  margin-bottom: 0;
+}
+
+@media (max-width: 768px) {
+  .content {
+    margin-bottom: clamp(24px, 4vw, 32px);
+  }
+
+  .backgroundImage {
+    background-position: 70% center;
+  }
+}

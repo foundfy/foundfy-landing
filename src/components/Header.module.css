@@ -1,0 +1,27 @@
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: var(--space-md) var(--section-padding-x);
+}
+
+.inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@media (max-width: 768px) {
+  .header {
+    padding: var(--space-sm) var(--section-padding-x);
+  }
+
+  .inner .btn {
+    padding: 0.625rem 1.25rem;
+    font-size: 13px;
+  }
+}

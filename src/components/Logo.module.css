@@ -1,0 +1,19 @@
+.logo {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-family: var(--font-inter), Inter, sans-serif;
+}
+
+.light {
+  color: var(--white);
+}
+
+.dark {
+  color: var(--black);
+}
+
+.dot {
+  color: #ff4a1c;
+}
