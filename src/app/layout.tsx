@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import BackToTop from "@/components/BackToTop";
 import "./globals.css";
 
@@ -41,6 +43,8 @@ export default function RootLayout({
         </svg>
         {children}
         <BackToTop />
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
