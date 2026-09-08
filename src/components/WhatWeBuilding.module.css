@@ -244,12 +244,20 @@
 @media (max-width: 768px) {
   .grid {
     padding: clamp(56px, 10vw, 72px) 22px;
+    overflow: visible;
   }
 
   .intro {
     grid-template-columns: 1fr;
     gap: clamp(24px, 4vw, 32px);
     margin-bottom: clamp(40px, 6vw, 56px);
+    overflow: visible;
+  }
+
+  .heading {
+    line-height: 1.05;
+    padding-top: 0.08em;
+    overflow: visible;
   }
 
   .supporting {
@@ -259,19 +267,27 @@
 
   .features {
     grid-template-columns: 1fr;
-    row-gap: clamp(32px, 5vw, 40px);
+    row-gap: 0;
   }
 
-  .feature,
-  .feature:first-child,
-  .feature:last-child {
+  .features .feature,
+  .features .feature:first-child,
+  .features .feature:last-child,
+  .features .feature:nth-child(odd),
+  .features .feature:nth-child(even),
+  .features .feature + .feature {
     padding: 0;
+    padding-left: 0;
+    padding-right: 0;
     border-left: none;
-    padding-bottom: clamp(32px, 5vw, 40px);
+  }
+
+  .features .feature:not(:last-child) {
+    padding-bottom: clamp(28px, 4vw, 36px);
     border-bottom: 1px solid rgba(0, 0, 0, 0.12);
   }
 
-  .feature:last-child {
+  .features .feature:last-child {
     padding-bottom: 0;
     border-bottom: none;
   }

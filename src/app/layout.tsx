@@ -11,10 +11,39 @@ const inter = Inter({
   display: "swap",
 });
 
+const siteTitle = "Foundfy | Be found wherever people search.";
+const siteDescription =
+  "Improve your search visibility across Google and AI search. Foundfy turns SEO insights into clear actions and new opportunities.";
+
 export const metadata: Metadata = {
-  title: "Foundfy — Be found wherever people search",
-  description:
-    "A simpler way to improve your search visibility across Google and the next generation of AI.",
+  metadataBase: new URL("https://www.foundfy.me"),
+  title: siteTitle,
+  description: siteDescription,
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: siteTitle,
+    description: siteDescription,
+    url: "/",
+    siteName: "Foundfy",
+    locale: "en_US",
+    type: "website",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: siteTitle,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteTitle,
+    description: siteDescription,
+    images: ["/og-image.jpg"],
+  },
 };
 
 export default function RootLayout({

@@ -385,16 +385,30 @@
 @media (max-width: 768px) {
   .section {
     min-height: auto;
+    overflow-x: clip;
+    overflow-y: visible;
   }
 
   .grid {
     min-height: auto;
-    padding: clamp(56px, 10vw, 72px) 22px clamp(48px, 8vw, 64px);
+    padding: clamp(48px, 8vw, 64px) 22px clamp(40px, 7vw, 56px);
+    overflow: visible;
   }
 
   .main {
     grid-template-columns: 1fr;
-    gap: clamp(28px, 5vw, 36px);
+    gap: clamp(24px, 4vw, 32px);
+  }
+
+  .headline {
+    line-height: 1.02;
+    padding-top: 0.06em;
+    overflow: visible;
+  }
+
+  .supporting {
+    margin-left: 0;
+    padding-top: 0;
   }
 
   .supporting p {
@@ -403,8 +417,20 @@
 
   .cards {
     grid-template-columns: 1fr;
-    gap: clamp(12px, 2vw, 16px);
-    margin-top: clamp(32px, 5vw, 40px);
+    gap: clamp(10px, 2vw, 14px);
+    margin-top: clamp(24px, 4vw, 32px);
+  }
+
+  .card {
+    padding: clamp(16px, 4vw, 22px);
+  }
+
+  .cardIcon {
+    margin-bottom: clamp(12px, 3vw, 16px);
+  }
+
+  .cardDesc {
+    line-height: 1.5;
   }
 
   .backgroundImage {
@@ -415,7 +441,7 @@
   .bottom {
     flex-direction: column;
     align-items: flex-start;
-    margin-top: clamp(28px, 4vw, 36px);
+    margin-top: clamp(24px, 4vw, 32px);
   }
 
   .statements {

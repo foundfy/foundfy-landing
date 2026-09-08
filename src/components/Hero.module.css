@@ -374,6 +374,7 @@
 @media (max-width: 768px) {
   .grid {
     padding: 28px 22px 32px;
+    overflow: visible;
   }
 
   .headerCta {
@@ -389,9 +390,16 @@
     padding-bottom: clamp(28px, 5vh, 40px);
   }
 
+  .content {
+    max-width: 100%;
+    overflow: visible;
+  }
+
   .headline {
     font-size: clamp(52px, 14vw, 64px);
-    line-height: 0.95;
+    line-height: 1;
+    padding-top: 0.05em;
+    overflow: visible;
   }
 
   .descriptionBreak {
