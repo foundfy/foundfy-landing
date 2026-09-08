@@ -270,26 +270,35 @@
     row-gap: 0;
   }
 
+  /* Strip all desktop/tablet vertical dividers and partial borders */
   .features .feature,
   .features .feature:first-child,
   .features .feature:last-child,
   .features .feature:nth-child(odd),
   .features .feature:nth-child(even),
+  .features .feature:nth-child(3),
+  .features .feature:nth-child(4),
   .features .feature + .feature {
-    padding: 0;
     padding-left: 0;
     padding-right: 0;
-    border-left: none;
-  }
-
-  .features .feature:not(:last-child) {
-    padding-bottom: clamp(28px, 4vw, 36px);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.12);
-  }
-
-  .features .feature:last-child {
     padding-bottom: 0;
+    padding-top: 0;
+    border: none;
+    border-left: none;
+    border-right: none;
     border-bottom: none;
+  }
+
+  .features .feature::before,
+  .features .feature::after {
+    content: none;
+    display: none;
+  }
+
+  /* One full-width horizontal separator between consecutive items */
+  .features .feature + .feature {
+    border-top: 1px solid rgba(0, 0, 0, 0.12);
+    padding-top: clamp(28px, 4vw, 36px);
   }
 
   .footer {
