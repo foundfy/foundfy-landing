@@ -1,6 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { getCrawlRunSummary } from "@/lib/crawler/db/repository";
 import { processCrawlRun } from "@/lib/crawler/worker/process-run";
+import { loadObservationsForCompletedRun } from "@/lib/observations/api/load-for-run";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,6 +40,11 @@ export async function GET(_request: Request, context: RouteContext) {
       });
     }
 
+    const observations =
+      summary.status === "completed"
+        ? await loadObservationsForCompletedRun(id)
+        : undefined;
+
     return NextResponse.json(
       {
         id: summary.id,
@@ -52,6 +58,7 @@ export async function GET(_request: Request, context: RouteContext) {
         startedAt: summary.startedAt,
         completedAt: summary.completedAt,
         createdAt: summary.createdAt,
+        observations,
       },
       {
         headers: {

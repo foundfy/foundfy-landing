@@ -5,10 +5,19 @@ import { useAnalysis } from "@/contexts/AnalysisContext";
 import { useAnimatedPlaceholder } from "@/hooks/useAnimatedPlaceholder";
 import { useCrawlPolling } from "@/hooks/useCrawlPolling";
 import { validateDomainInput } from "@/lib/analysis/domain";
+import AnalysisAnalyzingView from "./AnalysisAnalyzingView";
+import AnalysisResultsView from "./AnalysisResultsView";
 import styles from "./WebsiteAnalysisEntry.module.css";
 
 export default function WebsiteAnalysisEntry() {
-  const { domain, phase, errorMessage, startAnalysis, resetAnalysis } = useAnalysis();
+  const {
+    domain,
+    phase,
+    observations,
+    errorMessage,
+    startAnalysis,
+    resetAnalysis,
+  } = useAnalysis();
   const [input, setInput] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,53 +110,17 @@ export default function WebsiteAnalysisEntry() {
   }
 
   return (
-    <div className={styles.wrapper}>
+    <div
+      className={`${styles.wrapper} ${isCompleted ? styles.wrapperResults : ""}`.trim()}
+    >
       {isAnalyzing ? (
-        <div className={styles.analyzingGroup} aria-live="polite">
-          <div className={`${styles.form} ${styles.formAnalyzing}`}>
-            <div className={styles.analyzingMain}>
-              <span className={styles.pulse} aria-hidden="true" />
-              <p className={styles.analyzingTitle}>
-                Analyzing{" "}
-                <span className={styles.analyzingDomain}>{domain?.hostname}</span>
-                ...
-              </p>
-            </div>
-          </div>
-          <p className={styles.analyzingStatus}>
-            Crawling pages · checking structure · understanding visibility
-          </p>
-          <button
-            type="button"
-            className={styles.resetButton}
-            onClick={handleReset}
-          >
-            Try another website
-          </button>
-        </div>
+        <AnalysisAnalyzingView onReset={handleReset} />
       ) : isCompleted ? (
-        <div className={styles.analyzingGroup} aria-live="polite">
-          <div className={`${styles.form} ${styles.formAnalyzing}`}>
-            <div className={styles.analyzingMain}>
-              <span className={styles.completedDot} aria-hidden="true" />
-              <p className={styles.analyzingTitle}>Analysis complete.</p>
-            </div>
-          </div>
-          <p className={styles.analyzingStatus}>
-            We&apos;ve finished examining{" "}
-            <span className={styles.analyzingDomain}>{domain?.hostname}</span>.
-          </p>
-          <p className={styles.completedSecondary}>
-            Your full Foundfy analysis is coming next.
-          </p>
-          <button
-            type="button"
-            className={styles.resetButton}
-            onClick={handleReset}
-          >
-            Try another website
-          </button>
-        </div>
+        <AnalysisResultsView
+          hostname={domain.hostname}
+          observations={observations}
+          onReset={handleReset}
+        />
       ) : (
         <>
           <form

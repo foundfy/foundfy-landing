@@ -359,6 +359,143 @@
 
 .formAnalyzing {
   cursor: default;
+  position: relative;
+  isolation: isolate;
+  animation: none;
+  border-color: color-mix(
+    in srgb,
+    rgba(245, 243, 238, 0.16) calc((1 - var(--pill-progress, 0)) * 100%),
+    rgba(255, 110, 70, 0.22) calc(var(--pill-progress, 0) * 100%)
+  );
+  transition:
+    border-color 0.7s cubic-bezier(0.45, 0.05, 0.25, 1),
+    box-shadow 0.7s cubic-bezier(0.45, 0.05, 0.25, 1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 0 28px rgba(255, 74, 28, 0.1),
+    0 0 56px rgba(255, 74, 28, 0.05),
+    inset calc(var(--pill-progress, 0) * 18px) 0 32px -28px rgba(255, 74, 28, 0.05);
+}
+
+.formAnalyzing::before {
+  opacity: 0.18;
+}
+
+.pillLightField {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.pillLightTint {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 92, 48, 0.025) 0%,
+    rgba(255, 82, 42, 0.035) calc(max(0%, var(--pill-progress, 0) * 100% - 18%)),
+    rgba(255, 74, 28, 0.02) calc(var(--pill-progress, 0) * 100% + 14%),
+    transparent calc(var(--pill-progress, 0) * 100% + 28%)
+  );
+  opacity: 0.9;
+  transition: opacity 0.7s cubic-bezier(0.45, 0.05, 0.25, 1);
+}
+
+.pillLightTrail {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: calc(max(0%, var(--pill-progress, 0) * 100% + 6%));
+  height: 160%;
+  transform: translateY(-50%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 74, 28, 0.012) 28%,
+    rgba(255, 74, 28, 0.028) 72%,
+    rgba(255, 100, 58, 0.04) 100%
+  );
+  filter: blur(14px);
+  opacity: 0.75;
+  transition: width 0.7s cubic-bezier(0.45, 0.05, 0.25, 1);
+}
+
+.pillLightBloom {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--pill-progress, 0) * 100%);
+  width: clamp(80px, 22vw, 120px);
+  height: 220%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 110, 62, 0.11) 0%,
+    rgba(255, 74, 28, 0.06) 32%,
+    rgba(255, 74, 28, 0.025) 52%,
+    transparent 72%
+  );
+  filter: blur(22px);
+  opacity: 0.88;
+  transition: left 0.7s cubic-bezier(0.45, 0.05, 0.25, 1);
+}
+
+.pillLightCore {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--pill-progress, 0) * 100%);
+  width: clamp(28px, 8vw, 42px);
+  height: 150%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 168, 118, 0.14) 0%,
+    rgba(255, 94, 48, 0.07) 38%,
+    transparent 68%
+  );
+  filter: blur(10px);
+  opacity: 0.72;
+  transition: left 0.7s cubic-bezier(0.45, 0.05, 0.25, 1);
+}
+
+.pillLightSettle {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    ellipse 95% 85% at calc(var(--pill-progress, 0) * 100%) 50%,
+    rgba(255, 74, 28, 0.045) 0%,
+    rgba(255, 74, 28, 0.02) 42%,
+    transparent 74%
+  );
+  filter: blur(10px);
+  opacity: calc(var(--pill-progress, 0) * 0.65);
+  transition:
+    opacity 0.7s cubic-bezier(0.45, 0.05, 0.25, 1),
+    background 0.7s cubic-bezier(0.45, 0.05, 0.25, 1);
+}
+
+.formAnalyzing .analyzingMain {
+  position: relative;
+  z-index: 2;
+}
+
+.formAnalyzing .analyzingTitle,
+.formAnalyzing .analyzingDomain {
+  text-shadow:
+    0 1px 12px rgba(8, 8, 8, 0.78),
+    0 0 1px rgba(8, 8, 8, 0.9);
+}
+
+.wrapperResults {
+  max-width: 560px;
+}
+
+.wrapperResults::before,
+.wrapperResults::after {
+  border-radius: 24px;
 }
 
 .analyzingMain {
@@ -427,6 +564,186 @@
   color: rgba(245, 243, 238, 0.32);
 }
 
+.resultsGroup {
+  width: 100%;
+}
+
+.resultsCard {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  padding: clamp(18px, 2.4vw, 22px);
+  border: 1px solid rgba(245, 243, 238, 0.16);
+  border-radius: 16px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(245, 243, 238, 0.08) 0%,
+      rgba(245, 243, 238, 0.03) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 0 28px rgba(255, 74, 28, 0.12),
+    0 0 56px rgba(255, 74, 28, 0.06);
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity 0.45s ease,
+    transform 0.45s ease;
+}
+
+.resultsCardVisible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.resultsHeader {
+  display: grid;
+  gap: 8px;
+}
+
+.resultsHeadingRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.resultsTitle {
+  font-size: clamp(16px, 1.05vw, 18px);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  color: #f5f3ee;
+}
+
+.resultsSummary {
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.45;
+  color: rgba(245, 243, 238, 0.72);
+}
+
+.resultsDomain {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1.45;
+  color: rgba(245, 243, 238, 0.42);
+}
+
+.resultsEmpty {
+  margin-top: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(245, 243, 238, 0.48);
+}
+
+.observationList {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.observationCard {
+  padding: 14px 16px;
+  border: 1px solid rgba(245, 243, 238, 0.1);
+  border-radius: 12px;
+  background: rgba(8, 8, 8, 0.22);
+}
+
+.observationCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.observationTitle {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+  color: #f5f3ee;
+}
+
+.observationSeverity {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.severity_info {
+  color: rgba(245, 243, 238, 0.58);
+  background: rgba(245, 243, 238, 0.06);
+}
+
+.severity_warning {
+  color: rgba(255, 196, 148, 0.88);
+  background: rgba(255, 140, 60, 0.1);
+}
+
+.severity_error {
+  color: rgba(255, 164, 138, 0.92);
+  background: rgba(255, 74, 28, 0.12);
+}
+
+.observationDescription {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(245, 243, 238, 0.58);
+}
+
+.observationEvidence {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(245, 243, 238, 0.08);
+}
+
+.observationEvidenceLabel {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(245, 243, 238, 0.34);
+}
+
+.observationEvidenceText {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(245, 243, 238, 0.72);
+  word-break: break-word;
+}
+
+.resultsActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 18px;
+  margin-top: 18px;
+  padding-top: 4px;
+}
+
+.resultsActions .resetButton {
+  margin-top: 0;
+  padding-left: 0;
+}
+
+.resultsFutureLink {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: rgba(245, 243, 238, 0.28);
+  cursor: default;
+}
+
 @keyframes analysisPulse {
   0%,
   100% {
@@ -492,6 +809,14 @@
     padding-left: 16px;
   }
 
+  .resultsCard {
+    border-radius: 16px;
+  }
+
+  .resultsTitle {
+    font-size: 16px;
+  }
+
   .button {
     height: 48px;
     padding: 0 18px;
@@ -507,7 +832,14 @@
   .button,
   .button::before,
   .pulse,
-  .placeholderCursor {
+  .placeholderCursor,
+  .pillLightTrail,
+  .pillLightBloom,
+  .pillLightCore,
+  .pillLightSettle,
+  .formAnalyzing,
+  .resultsCard {
     animation: none;
+    transition: none;
   }
 }

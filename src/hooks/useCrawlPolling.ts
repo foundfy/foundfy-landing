@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { resolveCrawlPollOutcome } from "@/lib/analysis/crawl-poll-outcome";
+import type { CrawlStatusPayload } from "@/lib/analysis/crawl-status";
 import { useAnalysis } from "@/contexts/AnalysisContext";
 
 const POLL_INTERVAL_MS = 2500;
@@ -11,26 +12,24 @@ const FETCH_OPTIONS: RequestInit = {
   cache: "no-store",
 };
 
-type CrawlStatusResponse = {
-  status: "queued" | "running" | "completed" | "failed";
-  errorMessage?: string | null;
-};
-
 export function useCrawlPolling() {
   const {
     phase,
     domain,
     crawlRunId,
     setCrawlRunId,
+    updateCrawlProgress,
     completeAnalysis,
     failAnalysis,
   } = useAnalysis();
 
   const completeAnalysisRef = useRef(completeAnalysis);
   const failAnalysisRef = useRef(failAnalysis);
+  const updateCrawlProgressRef = useRef(updateCrawlProgress);
 
   completeAnalysisRef.current = completeAnalysis;
   failAnalysisRef.current = failAnalysis;
+  updateCrawlProgressRef.current = updateCrawlProgress;
 
   const domainUrl = domain?.url ?? null;
 
@@ -108,7 +107,7 @@ export function useCrawlPolling() {
           `/api/crawl/${activeCrawlRunId}`,
           FETCH_OPTIONS,
         );
-        const payload = (await response.json()) as CrawlStatusResponse & {
+        const payload = (await response.json()) as CrawlStatusPayload & {
           error?: string;
         };
 
@@ -121,12 +120,18 @@ export function useCrawlPolling() {
           return false;
         }
 
+        if (!cancelled) {
+          updateCrawlProgressRef.current({
+            status: payload.status,
+            pagesCrawled: payload.pagesCrawled,
+            maxPages: payload.maxPages,
+            observations: payload.observations,
+          });
+        }
+
         const outcome = resolveCrawlPollOutcome(payload.status);
 
         if (outcome === "completed") {
-          if (!cancelled) {
-            completeAnalysisRef.current();
-          }
           return false;
         }
 
