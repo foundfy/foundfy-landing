@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import {
   createCrawlRun,
   enqueueUrl,
@@ -6,8 +6,10 @@ import {
 } from "@/lib/crawler/db/repository";
 import { MAX_PAGES_PER_CRAWL } from "@/lib/crawler/types";
 import { validatePublicHttpUrl } from "@/lib/crawler/url/normalize";
+import { processCrawlRun } from "@/lib/crawler/worker/process-run";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 type CrawlRequestBody = {
   url?: string;
@@ -43,6 +45,15 @@ export async function POST(request: Request) {
       url: validated.url,
       depth: 0,
       priority: 100,
+    });
+
+    after(async () => {
+      try {
+        await processCrawlRun(crawlRun.id);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Background crawl failed.";
+        console.error("[Crawl] Background processing failed:", message);
+      }
     });
 
     return NextResponse.json({ crawlRunId: crawlRun.id }, { status: 201 });

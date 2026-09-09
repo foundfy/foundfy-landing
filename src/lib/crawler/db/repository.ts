@@ -213,53 +213,51 @@ export async function getCrawlRunSummary(crawlRunId: string): Promise<CrawlRunSu
 export async function claimNextQueuedRun(preferredRunId?: string): Promise<CrawlRunRow | null> {
   const supabase = getSupabaseAdmin();
 
-  let query = supabase
+  let candidateQuery = supabase
     .from("crawl_runs")
-    .select(
-      "id, website_id, status, seed_url, max_pages, pages_crawled, pages_discovered, error_message, started_at, completed_at, created_at, websites(id, url, hostname)",
-    )
+    .select("id")
     .eq("status", "queued")
     .order("created_at", { ascending: true })
     .limit(1);
 
   if (preferredRunId) {
-    query = supabase
+    candidateQuery = supabase
       .from("crawl_runs")
-      .select(
-        "id, website_id, status, seed_url, max_pages, pages_crawled, pages_discovered, error_message, started_at, completed_at, created_at, websites(id, url, hostname)",
-      )
+      .select("id")
       .eq("id", preferredRunId)
       .eq("status", "queued")
       .limit(1);
   }
 
-  const { data, error } = await query.maybeSingle();
+  const { data: candidate, error: candidateError } = await candidateQuery.maybeSingle();
 
-  if (error) {
-    throw new Error(`Failed to claim crawl run: ${error.message}`);
+  if (candidateError) {
+    throw new Error(`Failed to claim crawl run: ${candidateError.message}`);
   }
 
-  if (!data) {
+  if (!candidate) {
     return null;
   }
 
-  const row = data as CrawlRunRow;
-
-  const { error: updateError } = await supabase
+  const { data: claimed, error: claimError } = await supabase
     .from("crawl_runs")
     .update({
       status: "running",
       started_at: new Date().toISOString(),
       error_message: null,
     })
-    .eq("id", row.id)
-    .eq("status", "queued");
+    .eq("id", candidate.id)
+    .eq("status", "queued")
+    .select(
+      "id, website_id, status, seed_url, max_pages, pages_crawled, pages_discovered, error_message, started_at, completed_at, created_at, websites(id, url, hostname)",
+    )
+    .maybeSingle();
 
-  if (updateError) {
-    throw new Error(`Failed to mark crawl run running: ${updateError.message}`);
+  if (claimError) {
+    throw new Error(`Failed to mark crawl run running: ${claimError.message}`);
   }
 
-  return row;
+  return (claimed as CrawlRunRow | null) ?? null;
 }
 
 export async function markCrawlRunCompleted(crawlRunId: string, websiteId: string): Promise<void> {

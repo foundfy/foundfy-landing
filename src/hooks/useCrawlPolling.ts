@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useAnalysis } from "@/contexts/AnalysisContext";
 
 const POLL_INTERVAL_MS = 2500;
+const POLL_TIMEOUT_MS = 3 * 60 * 1000;
 
 type CrawlStatusResponse = {
   status: "queued" | "running" | "completed" | "failed";
@@ -80,8 +81,18 @@ export function useCrawlPolling() {
     }
 
     let cancelled = false;
+    const pollStartedAt = Date.now();
 
     async function pollStatus() {
+      if (Date.now() - pollStartedAt >= POLL_TIMEOUT_MS) {
+        if (!cancelled) {
+          failAnalysis(
+            "Analysis is taking longer than expected. Please try again in a moment.",
+          );
+        }
+        return false;
+      }
+
       try {
         const response = await fetch(`/api/crawl/${crawlRunId}`);
         const payload = (await response.json()) as CrawlStatusResponse & {
@@ -92,35 +103,45 @@ export function useCrawlPolling() {
           if (!cancelled) {
             failAnalysis(payload.error ?? "Unable to fetch crawl status.");
           }
-          return;
+          return false;
         }
 
         if (payload.status === "completed") {
           if (!cancelled) {
             completeAnalysis();
           }
+          return false;
         }
 
         if (payload.status === "failed") {
           if (!cancelled) {
             failAnalysis(payload.errorMessage ?? "Crawl failed.");
           }
+          return false;
         }
+
+        return true;
       } catch {
         if (!cancelled) {
           failAnalysis("Unable to fetch crawl status.");
         }
+        return false;
       }
     }
 
-    void pollStatus();
-    const intervalId = setInterval(() => {
-      void pollStatus();
-    }, POLL_INTERVAL_MS);
+    void (async () => {
+      let shouldContinue = await pollStatus();
+
+      while (shouldContinue && !cancelled) {
+        await new Promise((resolve) => {
+          setTimeout(resolve, POLL_INTERVAL_MS);
+        });
+        shouldContinue = await pollStatus();
+      }
+    })();
 
     return () => {
       cancelled = true;
-      clearInterval(intervalId);
     };
   }, [phase, crawlRunId, completeAnalysis, failAnalysis]);
 }

@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { getCrawlRunSummary } from "@/lib/crawler/db/repository";
+import { processCrawlRun } from "@/lib/crawler/worker/process-run";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,18 @@ export async function GET(_request: Request, context: RouteContext) {
 
     if (!summary) {
       return NextResponse.json({ error: "Crawl run not found." }, { status: 404 });
+    }
+
+    if (summary.status === "queued") {
+      after(async () => {
+        try {
+          await processCrawlRun(id);
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Status poll recovery failed.";
+          console.error("[Crawl] Queued run recovery failed:", message);
+        }
+      });
     }
 
     return NextResponse.json({
