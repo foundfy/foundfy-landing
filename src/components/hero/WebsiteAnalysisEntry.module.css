@@ -408,6 +408,25 @@
   animation: analysisPulse 1.8s ease-in-out infinite;
 }
 
+.completedDot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 74, 28, 0.82);
+  box-shadow: 0 0 12px rgba(255, 74, 28, 0.32);
+}
+
+.completedSecondary {
+  margin-top: 6px;
+  padding-left: clamp(18px, 2.4vw, 22px);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1.45;
+  color: rgba(245, 243, 238, 0.32);
+}
+
 @keyframes analysisPulse {
   0%,
   100% {
@@ -467,6 +486,7 @@
   }
 
   .analyzingStatus,
+  .completedSecondary,
   .resetButton,
   .error {
     padding-left: 16px;

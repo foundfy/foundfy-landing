@@ -15,8 +15,8 @@ export default function WebsiteAnalysisEntry() {
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const animatedPlaceholder = useAnimatedPlaceholder(!input && !isFocused);
   const showAnimatedPlaceholder = !input && !isFocused;
-  const isAnalyzing =
-    (phase === "starting" || phase === "completed") && !!domain;
+  const isAnalyzing = phase === "starting" && !!domain;
+  const isCompleted = phase === "completed" && !!domain;
 
   useCrawlPolling();
 
@@ -116,6 +116,29 @@ export default function WebsiteAnalysisEntry() {
           </div>
           <p className={styles.analyzingStatus}>
             Crawling pages · checking structure · understanding visibility
+          </p>
+          <button
+            type="button"
+            className={styles.resetButton}
+            onClick={handleReset}
+          >
+            Try another website
+          </button>
+        </div>
+      ) : isCompleted ? (
+        <div className={styles.analyzingGroup} aria-live="polite">
+          <div className={`${styles.form} ${styles.formAnalyzing}`}>
+            <div className={styles.analyzingMain}>
+              <span className={styles.completedDot} aria-hidden="true" />
+              <p className={styles.analyzingTitle}>Analysis complete.</p>
+            </div>
+          </div>
+          <p className={styles.analyzingStatus}>
+            We&apos;ve finished examining{" "}
+            <span className={styles.analyzingDomain}>{domain?.hostname}</span>.
+          </p>
+          <p className={styles.completedSecondary}>
+            Your full Foundfy analysis is coming next.
           </p>
           <button
             type="button"
