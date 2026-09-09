@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
 import type { EarlyAccessSubmission } from "./constants";
 
 type EarlyAccessLeadRow = {
@@ -9,30 +9,6 @@ type EarlyAccessLeadRow = {
   email: string;
   created_at: string;
 };
-
-let supabaseAdmin: SupabaseClient | null = null;
-
-function getSupabaseAdmin() {
-  if (supabaseAdmin) {
-    return supabaseAdmin;
-  }
-
-  const url = process.env.SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !serviceRoleKey) {
-    throw new Error("Supabase configuration is missing.");
-  }
-
-  supabaseAdmin = createClient(url, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
-
-  return supabaseAdmin;
-}
 
 export async function insertEarlyAccessLead(
   submission: EarlyAccessSubmission,

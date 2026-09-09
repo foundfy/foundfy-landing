@@ -4,6 +4,7 @@ import {
   IconTarget,
   IconPulse,
 } from "./Icons";
+import Reveal from "./Reveal";
 import styles from "./WhyNow.module.css";
 
 const statements = [
@@ -40,10 +41,11 @@ export default function WhyNow() {
     <section className={styles.section}>
       <div className={styles.backgroundArtwork} aria-hidden="true">
         <div className={styles.backgroundImage} />
+        <div className={styles.backgroundGlow} />
         <div className={styles.backgroundGrain} />
       </div>
 
-      <div className={styles.content}>
+      <Reveal className={styles.content}>
         <div className={styles.grid}>
           <p className={styles.eyebrow}>
             02
@@ -87,7 +89,7 @@ export default function WhyNow() {
             </div>
           </div>
         </div>
-      </div>
+      </Reveal>
     </section>
   );
 }

@@ -6,24 +6,39 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "crawl:worker": "tsx --env-file=.env.local scripts/crawl-worker.ts",
+    "crawl:verify-setup": "tsx --env-file=.env.local scripts/verify-crawl-setup.ts",
+    "crawl:test-post": "tsx --env-file=.env.local scripts/test-crawl-post.ts",
+    "observations:generate": "tsx --env-file=.env.local scripts/generate-observations.ts",
+    "observations:preview": "tsx --env-file=.env.local scripts/preview-observations.ts",
+    "observations:verify-idempotency": "tsx --env-file=.env.local scripts/verify-observations-idempotency.ts",
+    "observations:latest-run": "tsx --env-file=.env.local scripts/find-latest-crawl-run.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
+    "cheerio": "^1.2.0",
+    "fast-xml-parser": "^5.11.1",
+    "ipaddr.js": "^2.5.0",
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "resend": "^6.26.0"
   },
   "devDependencies": {
+    "@types/cheerio": "^0.22.35",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.1.0",
     "playwright": "^1.63.0",
-    "typescript": "^5.0.0"
+    "tsx": "^4.23.13",
+    "typescript": "^5.0.0",
+    "vitest": "^4.1.11"
   }
 }

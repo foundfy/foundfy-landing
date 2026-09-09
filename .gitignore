@@ -31,8 +31,15 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files
-.env*
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production
+.env.production.local
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+.vercel
+.env*

@@ -1,3 +1,4 @@
+import Reveal from "./Reveal";
 import SectionFooter from "./SectionFooter";
 import styles from "./Closing.module.css";
 
@@ -6,10 +7,11 @@ export default function Closing() {
     <section className={`section section-dark ${styles.closing}`}>
       <div className={styles.backgroundArtwork} aria-hidden="true">
         <div className={styles.backgroundImage} />
+        <div className={styles.backgroundGlow} />
         <div className={styles.backgroundGrain} />
       </div>
 
-      <div className={`section-inner ${styles.inner}`}>
+      <Reveal className={`section-inner ${styles.inner}`}>
         <div className={styles.content}>
           <h2 className={`heading-xl ${styles.headline}`}>
             Found today.
@@ -24,7 +26,7 @@ export default function Closing() {
           variant="dark"
           text="Be found wherever people search."
         />
-      </div>
+      </Reveal>
     </section>
   );
 }

@@ -1,4 +1,5 @@
 import Logo from "./Logo";
+import Reveal from "./Reveal";
 import {
   IconFind,
   IconUnderstand,
@@ -33,7 +34,7 @@ const features = [
 export default function WhatWeBuilding() {
   return (
     <section className={styles.section}>
-      <div className={styles.grid}>
+      <Reveal className={styles.grid}>
         <p className={styles.eyebrow}>What we&apos;re building</p>
 
         <div className={styles.intro}>
@@ -66,7 +67,7 @@ export default function WhatWeBuilding() {
             Foundfy changes with it.
           </p>
         </div>
-      </div>
+      </Reveal>
     </section>
   );
 }
