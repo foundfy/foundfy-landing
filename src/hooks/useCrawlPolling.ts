@@ -1,10 +1,15 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { resolveCrawlPollOutcome } from "@/lib/analysis/crawl-poll-outcome";
 import { useAnalysis } from "@/contexts/AnalysisContext";
 
 const POLL_INTERVAL_MS = 2500;
 const POLL_TIMEOUT_MS = 3 * 60 * 1000;
+
+const FETCH_OPTIONS: RequestInit = {
+  cache: "no-store",
+};
 
 type CrawlStatusResponse = {
   status: "queued" | "running" | "completed" | "failed";
@@ -20,30 +25,32 @@ export function useCrawlPolling() {
     completeAnalysis,
     failAnalysis,
   } = useAnalysis();
-  const startedRef = useRef(false);
+
+  const completeAnalysisRef = useRef(completeAnalysis);
+  const failAnalysisRef = useRef(failAnalysis);
+
+  completeAnalysisRef.current = completeAnalysis;
+  failAnalysisRef.current = failAnalysis;
+
+  const domainUrl = domain?.url ?? null;
 
   useEffect(() => {
-    if (phase !== "starting" || !domain) {
-      startedRef.current = false;
+    if (phase !== "starting" || !domainUrl) {
       return;
     }
 
-    if (startedRef.current) {
-      return;
-    }
-
-    startedRef.current = true;
-    const activeDomain = domain;
     let cancelled = false;
+    const activeDomainUrl = domainUrl;
 
     async function startCrawl() {
       try {
         const response = await fetch("/api/crawl", {
+          ...FETCH_OPTIONS,
           method: "POST",
           headers: {
             "content-type": "application/json",
           },
-          body: JSON.stringify({ url: activeDomain.url }),
+          body: JSON.stringify({ url: activeDomainUrl }),
         });
 
         const payload = (await response.json()) as {
@@ -53,7 +60,9 @@ export function useCrawlPolling() {
 
         if (!response.ok || !payload.crawlRunId) {
           if (!cancelled) {
-            failAnalysis(payload.error ?? "Unable to start analysis.");
+            failAnalysisRef.current(
+              payload.error ?? "Unable to start analysis.",
+            );
           }
           return;
         }
@@ -63,7 +72,7 @@ export function useCrawlPolling() {
         }
       } catch {
         if (!cancelled) {
-          failAnalysis("Unable to start analysis.");
+          failAnalysisRef.current("Unable to start analysis.");
         }
       }
     }
@@ -73,7 +82,7 @@ export function useCrawlPolling() {
     return () => {
       cancelled = true;
     };
-  }, [phase, domain, setCrawlRunId, failAnalysis]);
+  }, [phase, domainUrl, setCrawlRunId]);
 
   useEffect(() => {
     if (phase !== "starting" || !crawlRunId) {
@@ -81,12 +90,13 @@ export function useCrawlPolling() {
     }
 
     let cancelled = false;
+    const activeCrawlRunId = crawlRunId;
     const pollStartedAt = Date.now();
 
     async function pollStatus() {
       if (Date.now() - pollStartedAt >= POLL_TIMEOUT_MS) {
         if (!cancelled) {
-          failAnalysis(
+          failAnalysisRef.current(
             "Analysis is taking longer than expected. Please try again in a moment.",
           );
         }
@@ -94,28 +104,35 @@ export function useCrawlPolling() {
       }
 
       try {
-        const response = await fetch(`/api/crawl/${crawlRunId}`);
+        const response = await fetch(
+          `/api/crawl/${activeCrawlRunId}`,
+          FETCH_OPTIONS,
+        );
         const payload = (await response.json()) as CrawlStatusResponse & {
           error?: string;
         };
 
         if (!response.ok) {
           if (!cancelled) {
-            failAnalysis(payload.error ?? "Unable to fetch crawl status.");
+            failAnalysisRef.current(
+              payload.error ?? "Unable to fetch crawl status.",
+            );
           }
           return false;
         }
 
-        if (payload.status === "completed") {
+        const outcome = resolveCrawlPollOutcome(payload.status);
+
+        if (outcome === "completed") {
           if (!cancelled) {
-            completeAnalysis();
+            completeAnalysisRef.current();
           }
           return false;
         }
 
-        if (payload.status === "failed") {
+        if (outcome === "failed") {
           if (!cancelled) {
-            failAnalysis(payload.errorMessage ?? "Crawl failed.");
+            failAnalysisRef.current(payload.errorMessage ?? "Crawl failed.");
           }
           return false;
         }
@@ -123,7 +140,7 @@ export function useCrawlPolling() {
         return true;
       } catch {
         if (!cancelled) {
-          failAnalysis("Unable to fetch crawl status.");
+          failAnalysisRef.current("Unable to fetch crawl status.");
         }
         return false;
       }
@@ -143,5 +160,5 @@ export function useCrawlPolling() {
     return () => {
       cancelled = true;
     };
-  }, [phase, crawlRunId, completeAnalysis, failAnalysis]);
+  }, [phase, crawlRunId]);
 }

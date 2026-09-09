@@ -3,6 +3,8 @@ import { getCrawlRunSummary } from "@/lib/crawler/db/repository";
 import { processCrawlRun } from "@/lib/crawler/worker/process-run";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -37,19 +39,26 @@ export async function GET(_request: Request, context: RouteContext) {
       });
     }
 
-    return NextResponse.json({
-      id: summary.id,
-      status: summary.status,
-      hostname: summary.hostname,
-      seedUrl: summary.seedUrl,
-      maxPages: summary.maxPages,
-      pagesCrawled: summary.pagesCrawled,
-      pagesDiscovered: summary.pagesDiscovered,
-      errorMessage: summary.errorMessage,
-      startedAt: summary.startedAt,
-      completedAt: summary.completedAt,
-      createdAt: summary.createdAt,
-    });
+    return NextResponse.json(
+      {
+        id: summary.id,
+        status: summary.status,
+        hostname: summary.hostname,
+        seedUrl: summary.seedUrl,
+        maxPages: summary.maxPages,
+        pagesCrawled: summary.pagesCrawled,
+        pagesDiscovered: summary.pagesDiscovered,
+        errorMessage: summary.errorMessage,
+        startedAt: summary.startedAt,
+        completedAt: summary.completedAt,
+        createdAt: summary.createdAt,
+      },
+      {
+        headers: {
+          "Cache-Control": "private, no-store, no-cache, must-revalidate",
+        },
+      },
+    );
   } catch (error) {
     console.error("[Crawl] Failed to fetch crawl status:", error);
     return NextResponse.json(

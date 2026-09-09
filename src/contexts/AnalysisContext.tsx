@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useMemo,
   useState,
@@ -31,37 +32,57 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
   const [crawlRunId, setCrawlRunIdState] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const startAnalysis = useCallback((nextDomain: NormalizedDomain) => {
+    setDomain(nextDomain);
+    setPhase("starting");
+    setCrawlRunIdState(null);
+    setErrorMessage(null);
+  }, []);
+
+  const setCrawlRunId = useCallback((nextCrawlRunId: string) => {
+    setCrawlRunIdState(nextCrawlRunId);
+  }, []);
+
+  const completeAnalysis = useCallback(() => {
+    setPhase("completed");
+    setErrorMessage(null);
+  }, []);
+
+  const failAnalysis = useCallback((message: string) => {
+    setPhase("failed");
+    setErrorMessage(message);
+  }, []);
+
+  const resetAnalysis = useCallback(() => {
+    setDomain(null);
+    setPhase("idle");
+    setCrawlRunIdState(null);
+    setErrorMessage(null);
+  }, []);
+
   const value = useMemo<AnalysisContextValue>(
     () => ({
       domain,
       phase,
       crawlRunId,
       errorMessage,
-      startAnalysis: (nextDomain) => {
-        setDomain(nextDomain);
-        setPhase("starting");
-        setCrawlRunIdState(null);
-        setErrorMessage(null);
-      },
-      setCrawlRunId: (nextCrawlRunId) => {
-        setCrawlRunIdState(nextCrawlRunId);
-      },
-      completeAnalysis: () => {
-        setPhase("completed");
-        setErrorMessage(null);
-      },
-      failAnalysis: (message) => {
-        setPhase("failed");
-        setErrorMessage(message);
-      },
-      resetAnalysis: () => {
-        setDomain(null);
-        setPhase("idle");
-        setCrawlRunIdState(null);
-        setErrorMessage(null);
-      },
+      startAnalysis,
+      setCrawlRunId,
+      completeAnalysis,
+      failAnalysis,
+      resetAnalysis,
     }),
-    [domain, phase, crawlRunId, errorMessage],
+    [
+      domain,
+      phase,
+      crawlRunId,
+      errorMessage,
+      startAnalysis,
+      setCrawlRunId,
+      completeAnalysis,
+      failAnalysis,
+      resetAnalysis,
+    ],
   );
 
   return (
