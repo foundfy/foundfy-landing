@@ -30,11 +30,12 @@ export async function findPreviousCompletedCrawlRun(input: {
 
   const { data, error } = await supabase
     .from("crawl_runs")
-    .select("id, completed_at")
+    .select("id, completed_at, pages_crawled")
     .eq("website_id", input.websiteId)
     .eq("status", "completed")
     .neq("id", input.currentCrawlRunId)
     .lte("completed_at", currentRun.completed_at)
+    .gt("pages_crawled", 0)
     .order("completed_at", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(1)

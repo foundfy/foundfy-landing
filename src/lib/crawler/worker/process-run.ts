@@ -5,6 +5,7 @@ import {
   parseRobotsTxt,
 } from "../discover/robots";
 import { isSitemapIndex, parseSitemapXml } from "../discover/sitemap";
+import { ZERO_PAGE_CRAWL_FAILURE_MESSAGE } from "../crawl-usability";
 import {
   claimNextQueuedRun,
   enqueueUrl,
@@ -290,6 +291,14 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
       await incrementCrawlProgress(run.id, 1, 0);
       await syncDiscoveredCount(run.id, discoveredUrls.size);
       await updateQueueItem(queueItem.id, "done");
+    }
+
+    const finalSummary = await getCrawlRunSummary(run.id);
+    if (!finalSummary || finalSummary.pagesCrawled === 0) {
+      await markCrawlRunFailed(run.id, ZERO_PAGE_CRAWL_FAILURE_MESSAGE, {
+        expectedStartedAt: claimedStartedAt,
+      });
+      return run.id;
     }
 
     await markCrawlRunCompleted(run.id, run.websiteId, {

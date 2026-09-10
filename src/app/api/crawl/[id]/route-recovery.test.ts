@@ -128,6 +128,35 @@ describe("GET /api/crawl/[id] recovery integration", () => {
     );
   });
 
+  it("does not expose legacy completed zero-page runs as normal results", async () => {
+    getCrawlRunSummaryMock.mockResolvedValue({
+      id: "6380777a-2599-4f95-9334-e32553c49e04",
+      status: "completed",
+      hostname: "arngren.net",
+      seedUrl: "https://arngren.net/",
+      maxPages: 10,
+      pagesCrawled: 0,
+      pagesDiscovered: 1,
+      errorMessage: null,
+      startedAt: "2026-09-10T21:16:06.077+00:00",
+      completedAt: "2026-09-10T21:16:49.58+00:00",
+      createdAt: "2026-09-10T21:16:05.457577+00:00",
+    });
+    maybeRecoverStaleCrawlRunMock.mockResolvedValue({ recovered: false });
+
+    const response = await GET(new Request("https://example.test"), {
+      params: Promise.resolve({ id: "6380777a-2599-4f95-9334-e32553c49e04" }),
+    });
+    const payload = await response.json();
+
+    expect(payload.status).toBe("failed");
+    expect(payload.errorMessage).toContain("couldn't successfully crawl any pages");
+    expect(loadCompletedCrawlResultsMock).not.toHaveBeenCalled();
+    expect(scheduleExplanationEnrichmentIfNeededMock).not.toHaveBeenCalled();
+    expect(payload.findings).toBeUndefined();
+    expect(payload.comparison).toBeUndefined();
+  });
+
   it("preserves existing queued recovery behavior", async () => {
     getCrawlRunSummaryMock.mockResolvedValue({
       id: RUN_ID,

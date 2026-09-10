@@ -1,4 +1,8 @@
 import { after, NextResponse } from "next/server";
+import {
+  isUsableCompletedCrawl,
+  normalizeCrawlStatusForApiResponse,
+} from "@/lib/crawler/crawl-usability";
 import { getCrawlRunSummary } from "@/lib/crawler/db/repository";
 import { maybeRecoverStaleCrawlRun } from "@/lib/crawler/worker/recover-stale-run";
 import { processCrawlRun } from "@/lib/crawler/worker/process-run";
@@ -48,10 +52,9 @@ export async function GET(_request: Request, context: RouteContext) {
       });
     }
 
-    const completedFindings =
-      summary.status === "completed"
-        ? await loadCompletedCrawlResults(id)
-        : undefined;
+    const completedFindings = isUsableCompletedCrawl(summary)
+      ? await loadCompletedCrawlResults(id)
+      : undefined;
 
     if (completedFindings) {
       after(async () => {
@@ -73,19 +76,21 @@ export async function GET(_request: Request, context: RouteContext) {
       });
     }
 
+    const responseSummary = normalizeCrawlStatusForApiResponse(summary);
+
     return NextResponse.json(
       {
-        id: summary.id,
-        status: summary.status,
-        hostname: summary.hostname,
-        seedUrl: summary.seedUrl,
-        maxPages: summary.maxPages,
-        pagesCrawled: summary.pagesCrawled,
-        pagesDiscovered: summary.pagesDiscovered,
-        errorMessage: summary.errorMessage,
-        startedAt: summary.startedAt,
-        completedAt: summary.completedAt,
-        createdAt: summary.createdAt,
+        id: responseSummary.id,
+        status: responseSummary.status,
+        hostname: responseSummary.hostname,
+        seedUrl: responseSummary.seedUrl,
+        maxPages: responseSummary.maxPages,
+        pagesCrawled: responseSummary.pagesCrawled,
+        pagesDiscovered: responseSummary.pagesDiscovered,
+        errorMessage: responseSummary.errorMessage,
+        startedAt: responseSummary.startedAt,
+        completedAt: responseSummary.completedAt,
+        createdAt: responseSummary.createdAt,
         findings: completedFindings?.findings,
         findingsSummary: completedFindings?.findingsSummary,
         comparison: completedFindings?.comparison,

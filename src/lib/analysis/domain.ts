@@ -1,3 +1,8 @@
+import {
+  normalizeCrawlUrl,
+  normalizeSiteHostname,
+} from "@/lib/crawler/url/normalize";
+
 export type NormalizedDomain = {
   raw: string;
   hostname: string;
@@ -41,19 +46,21 @@ export function normalizeDomainInput(raw: string): NormalizedDomain | null {
       return null;
     }
 
-    const hostname = parsed.hostname.toLowerCase().replace(/^www\./, "");
+    const hostname = normalizeSiteHostname(parsed.hostname);
 
     if (!isValidHostname(hostname)) {
       return null;
     }
 
-    const pathname =
-      parsed.pathname && parsed.pathname !== "/" ? parsed.pathname : "";
+    const seedUrl = normalizeCrawlUrl(parsed.toString());
+    if (!seedUrl) {
+      return null;
+    }
 
     return {
       raw: trimmed,
       hostname,
-      url: `https://${hostname}${pathname}`,
+      url: seedUrl,
     };
   } catch {
     return null;

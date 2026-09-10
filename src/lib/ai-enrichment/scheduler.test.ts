@@ -33,6 +33,24 @@ describe("scheduleExplanationEnrichmentIfNeeded", () => {
     expect(generateMock).not.toHaveBeenCalled();
   });
 
+  it("does not schedule enrichment for zero-page crawls", async () => {
+    process.env.AI_ENRICHMENT_ENABLED = "true";
+
+    await scheduleExplanationEnrichmentIfNeeded({
+      crawlRunId: "run-1",
+      hostname: "example.com",
+      pagesCrawled: 0,
+      findings: [{ id: "finding-1" } as never],
+      findingsSummary: {
+        totalCount: 2,
+        highlightedFindingIds: ["finding-1"],
+        highlightGroups: [],
+      },
+    });
+
+    expect(generateMock).not.toHaveBeenCalled();
+  });
+
   it("skips LOW-only crawls with no highlighted findings", async () => {
     process.env.AI_ENRICHMENT_ENABLED = "true";
 

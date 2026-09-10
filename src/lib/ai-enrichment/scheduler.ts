@@ -16,6 +16,10 @@ export async function scheduleExplanationEnrichmentIfNeeded(input: {
     return;
   }
 
+  if (input.pagesCrawled <= 0) {
+    return;
+  }
+
   if (
     !shouldAutoGenerateExplanationEnrichment({
       highlightedFindingIds: input.findingsSummary.highlightedFindingIds,
