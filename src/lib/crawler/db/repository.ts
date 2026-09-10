@@ -465,6 +465,79 @@ export async function updateQueueItem(
   }
 }
 
+const PAGE_REQUESTED_URL_UNIQUE_CONSTRAINT = "pages_crawl_run_requested_url_unique";
+
+export function isPageRequestedUrlUniqueConflict(
+  error: { code?: string; message?: string } | null | undefined,
+): boolean {
+  if (!error || error.code !== "23505") {
+    return false;
+  }
+
+  return Boolean(error.message?.includes(PAGE_REQUESTED_URL_UNIQUE_CONSTRAINT));
+}
+
+export async function findPageByRequestedUrl(
+  crawlRunId: string,
+  requestedUrl: string,
+): Promise<{ id: string; finalUrl: string } | null> {
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase
+    .from("pages")
+    .select("id, final_url")
+    .eq("crawl_run_id", crawlRunId)
+    .eq("requested_url", requestedUrl)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to lookup page: ${error.message}`);
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return {
+    id: data.id,
+    finalUrl: data.final_url,
+  };
+}
+
+export async function countPagesForCrawlRun(crawlRunId: string): Promise<number> {
+  const supabase = getSupabaseAdmin();
+
+  const { count, error } = await supabase
+    .from("pages")
+    .select("id", { count: "exact", head: true })
+    .eq("crawl_run_id", crawlRunId);
+
+  if (error) {
+    throw new Error(`Failed to count pages: ${error.message}`);
+  }
+
+  return count ?? 0;
+}
+
+/**
+ * Reconcile counter drift when a page was persisted but never counted before
+ * worker termination. Increments at most once per call when pages exceed the counter.
+ */
+export async function reconcileOrphanedPageProgress(crawlRunId: string): Promise<boolean> {
+  const summary = await getCrawlRunSummary(crawlRunId);
+  if (!summary) {
+    return false;
+  }
+
+  const pageCount = await countPagesForCrawlRun(crawlRunId);
+  if (pageCount <= summary.pagesCrawled) {
+    return false;
+  }
+
+  await incrementCrawlProgress(crawlRunId, 1, 0);
+  return true;
+}
+
 export async function incrementCrawlProgress(
   crawlRunId: string,
   pagesCrawledDelta: number,
@@ -524,8 +597,27 @@ export async function saveParsedPage(input: {
     .select("id")
     .single();
 
-  if (error || !data) {
-    throw new Error(`Failed to save page: ${error?.message ?? "unknown error"}`);
+  if (error) {
+    if (isPageRequestedUrlUniqueConflict(error)) {
+      const existing = await findPageByRequestedUrl(
+        input.crawlRunId,
+        input.parsed.requestedUrl,
+      );
+
+      if (!existing) {
+        throw new Error(
+          "Failed to save page: unique conflict detected but existing page was not found.",
+        );
+      }
+
+      return existing.id;
+    }
+
+    throw new Error(`Failed to save page: ${error.message}`);
+  }
+
+  if (!data) {
+    throw new Error("Failed to save page: unknown error");
   }
 
   return data.id;

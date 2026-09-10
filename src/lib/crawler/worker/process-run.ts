@@ -9,11 +9,13 @@ import { ZERO_PAGE_CRAWL_FAILURE_MESSAGE } from "../crawl-usability";
 import {
   claimNextQueuedRun,
   enqueueUrl,
+  findPageByRequestedUrl,
   getCrawlRunSummary,
   getNextQueueItem,
   incrementCrawlProgress,
   markCrawlRunCompleted,
   markCrawlRunFailed,
+  reconcileOrphanedPageProgress,
   saveLinks,
   saveParsedPage,
   saveSiteArtifact,
@@ -212,6 +214,18 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
 
       if (!isAllowedByRobots(pathname, robotsRules)) {
         await updateQueueItem(queueItem.id, "skipped", "robots_disallow");
+        continue;
+      }
+
+      const existingPage = await findPageByRequestedUrl(run.id, queueItem.url);
+      if (existingPage) {
+        finalUrlDedup.registerCrawledPage({
+          requestedUrl: queueItem.url,
+          finalUrl: existingPage.finalUrl,
+          redirectChain: [],
+        });
+        await reconcileOrphanedPageProgress(run.id);
+        await updateQueueItem(queueItem.id, "done");
         continue;
       }
 
