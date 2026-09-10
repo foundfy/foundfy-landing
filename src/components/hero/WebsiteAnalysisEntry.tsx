@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useAnalysis } from "@/contexts/AnalysisContext";
 import { useAnimatedPlaceholder } from "@/hooks/useAnimatedPlaceholder";
 import { useCrawlPolling } from "@/hooks/useCrawlPolling";
+import { useExplanationEnrichmentPolling } from "@/hooks/useExplanationEnrichmentPolling";
 import { validateDomainInput } from "@/lib/analysis/domain";
 import AnalysisAnalyzingView from "./AnalysisAnalyzingView";
 import AnalysisResultsView from "./AnalysisResultsView";
@@ -29,6 +30,7 @@ export default function WebsiteAnalysisEntry() {
   const isCompleted = phase === "completed" && !!domain;
 
   useCrawlPolling();
+  useExplanationEnrichmentPolling();
 
   useEffect(() => {
     if (phase === "failed" && errorMessage) {
@@ -124,6 +126,7 @@ export default function WebsiteAnalysisEntry() {
             findingsSummary ?? {
               totalCount: findings.length,
               highlightedFindingIds: [],
+              highlightGroups: [],
             }
           }
           onReset={handleReset}

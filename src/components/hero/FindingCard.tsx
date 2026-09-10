@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import {
   formatFindingEvidence,
   formatFindingPath,
@@ -15,9 +18,11 @@ export default function FindingCard({
   finding,
   variant = "default",
 }: FindingCardProps) {
+  const [showExplanation, setShowExplanation] = useState(false);
   const evidence = formatFindingEvidence(finding);
   const pagePath = formatFindingPath(finding.pageUrl);
   const isHighlight = variant === "highlight";
+  const hasExplanation = !!finding.explanationEnrichment;
 
   return (
     <article
@@ -42,6 +47,14 @@ export default function FindingCard({
         <p className={styles.findingPath}>{pagePath}</p>
       ) : null}
 
+      {isHighlight &&
+      finding.highlightAggregation &&
+      finding.highlightAggregation.affectedPageCount > 1 ? (
+        <p className={styles.findingAffectedCount}>
+          Found on {finding.highlightAggregation.affectedPageCount} pages
+        </p>
+      ) : null}
+
       {isHighlight && finding.priority ? (
         <div className={styles.findingHighlightBody}>
           <p className={styles.findingWhyItMatters}>
@@ -62,6 +75,29 @@ export default function FindingCard({
           ) : null}
         </>
       )}
+
+      {hasExplanation ? (
+        <div className={styles.findingExplanationSection}>
+          <button
+            type="button"
+            className={styles.findingExplanationToggle}
+            aria-expanded={showExplanation}
+            onClick={() => setShowExplanation((current) => !current)}
+          >
+            {showExplanation ? "Hide clearer explanation" : "Explain further"}
+          </button>
+          {showExplanation ? (
+            <div className={styles.findingExplanationBody}>
+              <p className={styles.findingExplanationText}>
+                {finding.explanationEnrichment?.contextualExplanation}
+              </p>
+              <p className={styles.findingExplanationTextMuted}>
+                {finding.explanationEnrichment?.evidenceExplanation}
+              </p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </article>
   );
 }

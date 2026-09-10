@@ -10,6 +10,16 @@ export type FindingPriority = {
   verification: string | null;
 };
 
+export type FindingExplanationEnrichment = {
+  contextualExplanation: string;
+  evidenceExplanation: string;
+  citedEvidenceKeys: string[];
+};
+
+export type HighlightAggregation = {
+  affectedPageCount: number;
+};
+
 export type AnalysisFinding = {
   id: string;
   ruleKey: string;
@@ -20,11 +30,21 @@ export type AnalysisFinding = {
   pageUrl: string | null;
   evidence: Record<string, unknown>;
   priority: FindingPriority | null;
+  explanationEnrichment?: FindingExplanationEnrichment | null;
+  highlightAggregation?: HighlightAggregation | null;
+};
+
+export type HighlightGroupSummary = {
+  representativeFindingId: string;
+  memberFindingIds: string[];
+  rawFindingCount: number;
+  affectedPageCount: number;
 };
 
 export type FindingsSummary = {
   totalCount: number;
   highlightedFindingIds: string[];
+  highlightGroups: HighlightGroupSummary[];
 };
 
 export type CrawlStatusPayload = {
@@ -38,4 +58,10 @@ export type CrawlStatusPayload = {
   errorMessage: string | null;
   findings?: AnalysisFinding[];
   findingsSummary?: FindingsSummary;
+  explanationEnrichmentStatus?:
+    | "disabled"
+    | "skipped"
+    | "pending"
+    | "ready"
+    | "failed";
 };

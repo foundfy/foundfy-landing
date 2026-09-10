@@ -127,6 +127,7 @@ export function useCrawlPolling() {
             maxPages: payload.maxPages,
             findings: payload.findings,
             findingsSummary: payload.findingsSummary,
+            explanationEnrichmentStatus: payload.explanationEnrichmentStatus,
           });
         }
 

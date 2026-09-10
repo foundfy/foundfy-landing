@@ -1,7 +1,8 @@
 import { after, NextResponse } from "next/server";
 import { getCrawlRunSummary } from "@/lib/crawler/db/repository";
 import { processCrawlRun } from "@/lib/crawler/worker/process-run";
-import { loadFindingsForCompletedRun } from "@/lib/findings/load-for-run";
+import { scheduleExplanationEnrichmentIfNeeded } from "@/lib/ai-enrichment/scheduler";
+import { loadCompletedCrawlResults } from "@/lib/findings/load-completed-results";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,8 +43,28 @@ export async function GET(_request: Request, context: RouteContext) {
 
     const completedFindings =
       summary.status === "completed"
-        ? await loadFindingsForCompletedRun(id)
+        ? await loadCompletedCrawlResults(id)
         : undefined;
+
+    if (completedFindings) {
+      after(async () => {
+        try {
+          await scheduleExplanationEnrichmentIfNeeded({
+            crawlRunId: id,
+            hostname: summary.hostname,
+            pagesCrawled: summary.pagesCrawled,
+            findings: completedFindings.findings,
+            findingsSummary: completedFindings.findingsSummary,
+          });
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Explanation enrichment scheduling failed.";
+          console.error("[AI Enrichment] Async scheduling failed:", message);
+        }
+      });
+    }
 
     return NextResponse.json(
       {
@@ -60,6 +81,8 @@ export async function GET(_request: Request, context: RouteContext) {
         createdAt: summary.createdAt,
         findings: completedFindings?.findings,
         findingsSummary: completedFindings?.findingsSummary,
+        explanationEnrichmentStatus:
+          completedFindings?.explanationEnrichmentStatus,
       },
       {
         headers: {

@@ -25,8 +25,32 @@ export default function AnalysisResultsView({
   findingsSummary,
   onReset,
 }: AnalysisResultsViewProps) {
+  const highlightGroupByRepresentativeId = new Map(
+    findingsSummary.highlightGroups.map((group) => [
+      group.representativeFindingId,
+      group,
+    ]),
+  );
+
   const highlightedFindings = findingsSummary.highlightedFindingIds
-    .map((findingId) => findings.find((finding) => finding.id === findingId))
+    .map((findingId) => {
+      const finding = findings.find((item) => item.id === findingId);
+      if (!finding) {
+        return undefined;
+      }
+
+      const group = highlightGroupByRepresentativeId.get(findingId);
+      if (!group || group.affectedPageCount <= 1) {
+        return finding;
+      }
+
+      return {
+        ...finding,
+        highlightAggregation: {
+          affectedPageCount: group.affectedPageCount,
+        },
+      };
+    })
     .filter((finding): finding is AnalysisFinding => finding !== undefined);
 
   const zeroFindingsCopy = formatZeroFindingsCopy();

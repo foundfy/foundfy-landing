@@ -12,6 +12,7 @@ import type { NormalizedDomain } from "@/lib/analysis/domain";
 import type {
   AnalysisFinding,
   CrawlLifecycleStatus,
+  CrawlStatusPayload,
   FindingsSummary,
 } from "@/lib/analysis/crawl-status";
 
@@ -40,6 +41,7 @@ type AnalysisContextValue = {
     maxPages?: number;
     findings?: AnalysisFinding[];
     findingsSummary?: FindingsSummary;
+    explanationEnrichmentStatus?: CrawlStatusPayload["explanationEnrichmentStatus"];
   }) => void;
   completeAnalysis: (input: CompleteAnalysisInput) => void;
   failAnalysis: (message: string) => void;
@@ -51,6 +53,7 @@ const AnalysisContext = createContext<AnalysisContextValue | null>(null);
 const EMPTY_FINDINGS_SUMMARY: FindingsSummary = {
   totalCount: 0,
   highlightedFindingIds: [],
+  highlightGroups: [],
 };
 
 export function AnalysisProvider({ children }: { children: ReactNode }) {

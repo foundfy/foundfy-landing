@@ -11,8 +11,11 @@ import {
   listPriorities,
 } from "@/lib/priorities/db/repository";
 import type { StoredPriority } from "@/lib/priorities/types";
+import {
+  selectHighlightGroups,
+  toHighlightGroupSummaries,
+} from "./highlight-groups";
 import { sortFindings } from "./order";
-import { selectHighlightedFindingIds } from "./select-highlights";
 import { serializeFinding } from "./serialize";
 
 function buildPriorityMap(
@@ -68,11 +71,16 @@ export async function loadFindingsForCompletedRun(crawlRunId: string): Promise<{
     ),
   );
 
+  const highlightGroups = selectHighlightGroups(findings);
+
   return {
     findings,
     findingsSummary: {
       totalCount: findings.length,
-      highlightedFindingIds: selectHighlightedFindingIds(findings),
+      highlightedFindingIds: highlightGroups.map(
+        (group) => group.representativeFindingId,
+      ),
+      highlightGroups: toHighlightGroupSummaries(highlightGroups),
     },
   };
 }

@@ -767,6 +767,13 @@
   color: rgba(245, 243, 238, 0.42);
 }
 
+.findingAffectedCount {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(245, 243, 238, 0.56);
+}
+
 .findingHighlightBody {
   display: grid;
   gap: 8px;
@@ -813,6 +820,47 @@
   line-height: 1.45;
   color: rgba(245, 243, 238, 0.72);
   word-break: break-word;
+}
+
+.findingExplanationSection {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(245, 243, 238, 0.08);
+}
+
+.findingExplanationToggle {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: rgba(245, 243, 238, 0.58);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.findingExplanationToggle:hover {
+  color: rgba(245, 243, 238, 0.82);
+}
+
+.findingExplanationBody {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.findingExplanationText {
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(245, 243, 238, 0.72);
+}
+
+.findingExplanationTextMuted {
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(245, 243, 238, 0.48);
 }
 
 .resultsActions {

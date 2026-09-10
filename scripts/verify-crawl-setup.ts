@@ -10,6 +10,7 @@ const REQUIRED_TABLES = [
   "crawl_site_artifacts",
   "observations",
   "observation_priorities",
+  "finding_ai_explanations",
 ] as const;
 
 async function main() {

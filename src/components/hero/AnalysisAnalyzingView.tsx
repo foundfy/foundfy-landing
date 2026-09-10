@@ -41,6 +41,7 @@ export default function AnalysisAnalyzingView({
       findingsSummary: findingsSummary ?? {
         totalCount: findings.length,
         highlightedFindingIds: [],
+        highlightGroups: [],
       },
     });
   }, [completeAnalysis, crawlStatus, findings, findingsSummary]);
