@@ -16,6 +16,7 @@ export default function WebsiteAnalysisEntry() {
     phase,
     findings,
     findingsSummary,
+    comparison,
     errorMessage,
     startAnalysis,
     resetAnalysis,
@@ -129,6 +130,7 @@ export default function WebsiteAnalysisEntry() {
               highlightGroups: [],
             }
           }
+          comparison={comparison}
           onReset={handleReset}
         />
       ) : (

@@ -88,6 +88,7 @@ export async function GET(_request: Request, context: RouteContext) {
         createdAt: summary.createdAt,
         findings: completedFindings?.findings,
         findingsSummary: completedFindings?.findingsSummary,
+        comparison: completedFindings?.comparison,
         explanationEnrichmentStatus:
           completedFindings?.explanationEnrichmentStatus,
       },

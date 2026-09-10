@@ -26,6 +26,27 @@ export type HighlightAggregation = {
   affectedPageCount: number;
 };
 
+export type FindingChangeStatus = "new" | "still_present";
+
+export type FixedFindingSnapshot = {
+  ruleKey: string;
+  title: string;
+  pageUrl: string | null;
+};
+
+export type CrawlComparisonSummary = {
+  previousCrawlRunId: string;
+  previousCompletedAt: string;
+  fixed: number;
+  stillPresent: number;
+  new: number;
+  unverified: number;
+};
+
+export type CrawlComparison = CrawlComparisonSummary & {
+  fixedFindings: FixedFindingSnapshot[];
+};
+
 export type AnalysisFinding = {
   id: string;
   ruleKey: string;
@@ -39,6 +60,7 @@ export type AnalysisFinding = {
   recommendation?: FindingRecommendation | null;
   explanationEnrichment?: FindingExplanationEnrichment | null;
   highlightAggregation?: HighlightAggregation | null;
+  changeStatus?: FindingChangeStatus;
 };
 
 export type HighlightGroupSummary = {
@@ -65,6 +87,7 @@ export type CrawlStatusPayload = {
   errorMessage: string | null;
   findings?: AnalysisFinding[];
   findingsSummary?: FindingsSummary;
+  comparison?: CrawlComparison;
   explanationEnrichmentStatus?:
     | "disabled"
     | "skipped"

@@ -5,17 +5,21 @@ import {
   formatFindingsCount,
   formatZeroFindingsCopy,
 } from "@/lib/analysis/finding-display";
+import { formatComparisonSummary } from "@/lib/analysis/comparison-display";
 import type {
   AnalysisFinding,
+  CrawlComparison,
   FindingsSummary,
 } from "@/lib/analysis/crawl-status";
 import FindingCard from "./FindingCard";
+import FixedFindingsSection from "./FixedFindingsSection";
 import styles from "./WebsiteAnalysisEntry.module.css";
 
 type AnalysisResultsViewProps = {
   hostname: string;
   findings: AnalysisFinding[];
   findingsSummary: FindingsSummary;
+  comparison?: CrawlComparison | null;
   onReset: () => void;
 };
 
@@ -23,6 +27,7 @@ export default function AnalysisResultsView({
   hostname,
   findings,
   findingsSummary,
+  comparison,
   onReset,
 }: AnalysisResultsViewProps) {
   const highlightGroupByRepresentativeId = new Map(
@@ -71,7 +76,16 @@ export default function AnalysisResultsView({
             Examined{" "}
             <span className={styles.analyzingDomain}>{hostname}</span>
           </p>
+          {comparison ? (
+            <p className={styles.comparisonSummary}>
+              Since last scan: {formatComparisonSummary(comparison)}
+            </p>
+          ) : null}
         </div>
+
+        {comparison ? (
+          <FixedFindingsSection fixedFindings={comparison.fixedFindings} />
+        ) : null}
 
         {findings.length === 0 ? (
           <div className={styles.resultsEmptyBlock}>

@@ -11,6 +11,7 @@ import {
 import type { NormalizedDomain } from "@/lib/analysis/domain";
 import type {
   AnalysisFinding,
+  CrawlComparison,
   CrawlLifecycleStatus,
   CrawlStatusPayload,
   FindingsSummary,
@@ -21,6 +22,7 @@ export type AnalysisPhase = "idle" | "starting" | "completed" | "failed";
 type CompleteAnalysisInput = {
   findings: AnalysisFinding[];
   findingsSummary: FindingsSummary;
+  comparison?: CrawlComparison;
 };
 
 type AnalysisContextValue = {
@@ -32,6 +34,7 @@ type AnalysisContextValue = {
   maxPages: number;
   findings: AnalysisFinding[];
   findingsSummary: FindingsSummary | null;
+  comparison: CrawlComparison | null;
   errorMessage: string | null;
   startAnalysis: (domain: NormalizedDomain) => void;
   setCrawlRunId: (crawlRunId: string) => void;
@@ -41,6 +44,7 @@ type AnalysisContextValue = {
     maxPages?: number;
     findings?: AnalysisFinding[];
     findingsSummary?: FindingsSummary;
+    comparison?: CrawlComparison;
     explanationEnrichmentStatus?: CrawlStatusPayload["explanationEnrichmentStatus"];
   }) => void;
   completeAnalysis: (input: CompleteAnalysisInput) => void;
@@ -68,6 +72,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
   const [findings, setFindings] = useState<AnalysisFinding[]>([]);
   const [findingsSummary, setFindingsSummary] =
     useState<FindingsSummary | null>(null);
+  const [comparison, setComparison] = useState<CrawlComparison | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const startAnalysis = useCallback((nextDomain: NormalizedDomain) => {
@@ -79,6 +84,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     setMaxPages(0);
     setFindings([]);
     setFindingsSummary(null);
+    setComparison(null);
     setErrorMessage(null);
   }, []);
 
@@ -93,6 +99,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       maxPages?: number;
       findings?: AnalysisFinding[];
       findingsSummary?: FindingsSummary;
+      comparison?: CrawlComparison;
     }) => {
       setCrawlStatus(input.status);
 
@@ -111,6 +118,10 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       if (input.findingsSummary) {
         setFindingsSummary(input.findingsSummary);
       }
+
+      if (input.comparison) {
+        setComparison(input.comparison);
+      }
     },
     [],
   );
@@ -120,6 +131,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     setCrawlStatus("completed");
     setFindings(input.findings);
     setFindingsSummary(input.findingsSummary);
+    setComparison(input.comparison ?? null);
     setErrorMessage(null);
   }, []);
 
@@ -137,6 +149,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     setMaxPages(0);
     setFindings([]);
     setFindingsSummary(null);
+    setComparison(null);
     setErrorMessage(null);
   }, []);
 
@@ -150,6 +163,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       maxPages,
       findings,
       findingsSummary,
+      comparison,
       errorMessage,
       startAnalysis,
       setCrawlRunId,
@@ -167,6 +181,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       maxPages,
       findings,
       findingsSummary,
+      comparison,
       errorMessage,
       startAnalysis,
       setCrawlRunId,

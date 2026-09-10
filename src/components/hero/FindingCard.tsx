@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatChangeStatusLabel } from "@/lib/analysis/comparison-display";
 import {
   formatFindingPath,
   formatPriorityLabel,
@@ -22,6 +23,9 @@ export default function FindingCard({
   const isHighlight = variant === "highlight";
   const hasExplanation = !!finding.explanationEnrichment;
   const recommendation = finding.recommendation ?? null;
+  const changeStatusLabel = finding.changeStatus
+    ? formatChangeStatusLabel(finding.changeStatus)
+    : null;
 
   return (
     <article
@@ -44,6 +48,18 @@ export default function FindingCard({
 
       {pagePath ? (
         <p className={styles.findingPath}>{pagePath}</p>
+      ) : null}
+
+      {changeStatusLabel ? (
+        <p
+          className={`${styles.findingChangeStatus} ${
+            finding.changeStatus === "new"
+              ? styles.findingChangeStatusNew
+              : styles.findingChangeStatusStillPresent
+          }`.trim()}
+        >
+          {changeStatusLabel}
+        </p>
       ) : null}
 
       {isHighlight &&

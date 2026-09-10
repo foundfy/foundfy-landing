@@ -632,6 +632,63 @@
   color: rgba(245, 243, 238, 0.42);
 }
 
+.comparisonSummary {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.45;
+  color: rgba(245, 243, 238, 0.52);
+}
+
+.fixedFindingsSection {
+  margin-top: 12px;
+}
+
+.fixedFindingsToggle {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(160, 210, 170, 0.82);
+  cursor: pointer;
+  text-align: left;
+}
+
+.fixedFindingsToggle:hover {
+  color: rgba(180, 225, 188, 0.92);
+}
+
+.fixedFindingsList {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fixedFindingItem {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid rgba(160, 210, 170, 0.12);
+  border-radius: 10px;
+  background: rgba(8, 8, 8, 0.16);
+}
+
+.fixedFindingTitle {
+  font-size: 13px;
+  line-height: 1.4;
+  color: rgba(245, 243, 238, 0.78);
+}
+
+.fixedFindingPath {
+  font-size: 11px;
+  line-height: 1.4;
+  color: rgba(245, 243, 238, 0.38);
+}
+
 .resultsEmptyBlock {
   display: grid;
   gap: 6px;
@@ -765,6 +822,21 @@
   font-size: 12px;
   line-height: 1.4;
   color: rgba(245, 243, 238, 0.42);
+}
+
+.findingChangeStatus {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+}
+
+.findingChangeStatusNew {
+  color: rgba(245, 243, 238, 0.56);
+}
+
+.findingChangeStatusStillPresent {
+  color: rgba(245, 243, 238, 0.32);
 }
 
 .findingAffectedCount {
