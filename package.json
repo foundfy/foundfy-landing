@@ -15,7 +15,11 @@
     "observations:generate": "tsx --env-file=.env.local scripts/generate-observations.ts",
     "observations:preview": "tsx --env-file=.env.local scripts/preview-observations.ts",
     "observations:verify-idempotency": "tsx --env-file=.env.local scripts/verify-observations-idempotency.ts",
-    "observations:latest-run": "tsx --env-file=.env.local scripts/find-latest-crawl-run.ts"
+    "observations:latest-run": "tsx --env-file=.env.local scripts/find-latest-crawl-run.ts",
+    "priorities:generate": "tsx --env-file=.env.local scripts/generate-priorities.ts",
+    "priorities:preview": "tsx --env-file=.env.local scripts/preview-priorities.ts",
+    "priorities:verify-idempotency": "tsx --env-file=.env.local scripts/verify-priorities-idempotency.ts",
+    "priorities:apply-migration": "tsx --env-file=.env.local scripts/apply-priorities-migration.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

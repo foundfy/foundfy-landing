@@ -632,34 +632,97 @@
   color: rgba(245, 243, 238, 0.42);
 }
 
-.resultsEmpty {
+.resultsEmptyBlock {
+  display: grid;
+  gap: 6px;
   margin-top: 16px;
+}
+
+.resultsEmptyTitle {
+  font-size: 14px;
+  line-height: 1.45;
+  color: rgba(245, 243, 238, 0.72);
+}
+
+.resultsEmpty {
   font-size: 13px;
   line-height: 1.5;
   color: rgba(245, 243, 238, 0.48);
 }
 
-.observationList {
+.findingsSection {
   display: grid;
-  gap: 10px;
-  margin-top: 18px;
+  gap: 12px;
+  margin-top: 20px;
 }
 
-.observationCard {
+.findingsSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.findingsSectionTitle {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgba(245, 243, 238, 0.58);
+}
+
+.findingsSectionCount {
+  font-size: 12px;
+  color: rgba(245, 243, 238, 0.34);
+}
+
+.findingsHighlightList,
+.findingsList {
+  display: grid;
+  gap: 10px;
+}
+
+.findingsHighlightEmpty {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px dashed rgba(245, 243, 238, 0.12);
+  border-radius: 12px;
+  background: rgba(8, 8, 8, 0.14);
+}
+
+.findingsHighlightEmptyTitle {
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(245, 243, 238, 0.68);
+}
+
+.findingsHighlightEmptyText {
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(245, 243, 238, 0.42);
+}
+
+.findingCard {
   padding: 14px 16px;
   border: 1px solid rgba(245, 243, 238, 0.1);
   border-radius: 12px;
   background: rgba(8, 8, 8, 0.22);
 }
 
-.observationCardHeader {
+.findingCardHighlight {
+  border-color: rgba(255, 140, 60, 0.18);
+  background: rgba(255, 74, 28, 0.05);
+}
+
+.findingCardHeader {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
 }
 
-.observationTitle {
+.findingTitle {
   font-size: 14px;
   font-weight: 500;
   letter-spacing: -0.01em;
@@ -667,7 +730,7 @@
   color: #f5f3ee;
 }
 
-.observationSeverity {
+.priorityBadge {
   flex-shrink: 0;
   padding: 3px 8px;
   border-radius: 999px;
@@ -677,35 +740,65 @@
   text-transform: uppercase;
 }
 
-.severity_info {
+.priority_critical {
+  color: rgba(255, 164, 138, 0.96);
+  background: rgba(255, 74, 28, 0.16);
+}
+
+.priority_high {
+  color: rgba(255, 196, 148, 0.92);
+  background: rgba(255, 140, 60, 0.12);
+}
+
+.priority_medium {
+  color: rgba(245, 243, 238, 0.78);
+  background: rgba(245, 243, 238, 0.08);
+}
+
+.priority_low {
+  color: rgba(245, 243, 238, 0.52);
+  background: rgba(245, 243, 238, 0.05);
+}
+
+.findingPath {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(245, 243, 238, 0.42);
+}
+
+.findingHighlightBody {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.findingWhyItMatters {
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(245, 243, 238, 0.72);
+}
+
+.findingRecommendedAction {
+  font-size: 13px;
+  line-height: 1.5;
   color: rgba(245, 243, 238, 0.58);
-  background: rgba(245, 243, 238, 0.06);
 }
 
-.severity_warning {
-  color: rgba(255, 196, 148, 0.88);
-  background: rgba(255, 140, 60, 0.1);
-}
-
-.severity_error {
-  color: rgba(255, 164, 138, 0.92);
-  background: rgba(255, 74, 28, 0.12);
-}
-
-.observationDescription {
+.findingDescription {
   margin-top: 8px;
   font-size: 13px;
   line-height: 1.5;
   color: rgba(245, 243, 238, 0.58);
 }
 
-.observationEvidence {
+.findingEvidence {
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid rgba(245, 243, 238, 0.08);
 }
 
-.observationEvidenceLabel {
+.findingEvidenceLabel {
   display: block;
   font-size: 11px;
   font-weight: 500;
@@ -714,7 +807,7 @@
   color: rgba(245, 243, 238, 0.34);
 }
 
-.observationEvidenceText {
+.findingEvidenceText {
   margin-top: 4px;
   font-size: 12px;
   line-height: 1.45;

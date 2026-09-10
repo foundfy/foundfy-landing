@@ -1,6 +1,16 @@
 export type CrawlLifecycleStatus = "queued" | "running" | "completed" | "failed";
 
-export type AnalysisObservation = {
+export type PriorityLevel = "critical" | "high" | "medium" | "low";
+
+export type FindingPriority = {
+  level: PriorityLevel;
+  rank: number;
+  whyItMatters: string;
+  recommendedAction: string;
+  verification: string | null;
+};
+
+export type AnalysisFinding = {
   id: string;
   ruleKey: string;
   category: string;
@@ -9,6 +19,12 @@ export type AnalysisObservation = {
   description: string;
   pageUrl: string | null;
   evidence: Record<string, unknown>;
+  priority: FindingPriority | null;
+};
+
+export type FindingsSummary = {
+  totalCount: number;
+  highlightedFindingIds: string[];
 };
 
 export type CrawlStatusPayload = {
@@ -20,5 +36,6 @@ export type CrawlStatusPayload = {
   pagesCrawled: number;
   pagesDiscovered: number;
   errorMessage: string | null;
-  observations?: AnalysisObservation[];
+  findings?: AnalysisFinding[];
+  findingsSummary?: FindingsSummary;
 };

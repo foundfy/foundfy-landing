@@ -18,7 +18,8 @@ export default function AnalysisAnalyzingView({
     crawlStatus,
     pagesCrawled,
     maxPages,
-    observations,
+    findings,
+    findingsSummary,
     completeAnalysis,
   } = useAnalysis();
   const completionHandledRef = useRef(false);
@@ -35,8 +36,14 @@ export default function AnalysisAnalyzingView({
     }
 
     completionHandledRef.current = true;
-    completeAnalysis({ observations });
-  }, [completeAnalysis, crawlStatus, observations]);
+    completeAnalysis({
+      findings,
+      findingsSummary: findingsSummary ?? {
+        totalCount: findings.length,
+        highlightedFindingIds: [],
+      },
+    });
+  }, [completeAnalysis, crawlStatus, findings, findingsSummary]);
 
   const progress = useCrawlProgressAnimation({
     crawlStatus,

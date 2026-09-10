@@ -13,7 +13,8 @@ export default function WebsiteAnalysisEntry() {
   const {
     domain,
     phase,
-    observations,
+    findings,
+    findingsSummary,
     errorMessage,
     startAnalysis,
     resetAnalysis,
@@ -118,7 +119,13 @@ export default function WebsiteAnalysisEntry() {
       ) : isCompleted ? (
         <AnalysisResultsView
           hostname={domain.hostname}
-          observations={observations}
+          findings={findings}
+          findingsSummary={
+            findingsSummary ?? {
+              totalCount: findings.length,
+              highlightedFindingIds: [],
+            }
+          }
           onReset={handleReset}
         />
       ) : (

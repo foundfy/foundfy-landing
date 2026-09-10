@@ -10,14 +10,16 @@ import {
 } from "react";
 import type { NormalizedDomain } from "@/lib/analysis/domain";
 import type {
-  AnalysisObservation,
+  AnalysisFinding,
   CrawlLifecycleStatus,
+  FindingsSummary,
 } from "@/lib/analysis/crawl-status";
 
 export type AnalysisPhase = "idle" | "starting" | "completed" | "failed";
 
 type CompleteAnalysisInput = {
-  observations: AnalysisObservation[];
+  findings: AnalysisFinding[];
+  findingsSummary: FindingsSummary;
 };
 
 type AnalysisContextValue = {
@@ -27,7 +29,8 @@ type AnalysisContextValue = {
   crawlStatus: CrawlLifecycleStatus | null;
   pagesCrawled: number;
   maxPages: number;
-  observations: AnalysisObservation[];
+  findings: AnalysisFinding[];
+  findingsSummary: FindingsSummary | null;
   errorMessage: string | null;
   startAnalysis: (domain: NormalizedDomain) => void;
   setCrawlRunId: (crawlRunId: string) => void;
@@ -35,7 +38,8 @@ type AnalysisContextValue = {
     status: CrawlLifecycleStatus;
     pagesCrawled?: number;
     maxPages?: number;
-    observations?: AnalysisObservation[];
+    findings?: AnalysisFinding[];
+    findingsSummary?: FindingsSummary;
   }) => void;
   completeAnalysis: (input: CompleteAnalysisInput) => void;
   failAnalysis: (message: string) => void;
@@ -43,6 +47,11 @@ type AnalysisContextValue = {
 };
 
 const AnalysisContext = createContext<AnalysisContextValue | null>(null);
+
+const EMPTY_FINDINGS_SUMMARY: FindingsSummary = {
+  totalCount: 0,
+  highlightedFindingIds: [],
+};
 
 export function AnalysisProvider({ children }: { children: ReactNode }) {
   const [domain, setDomain] = useState<NormalizedDomain | null>(null);
@@ -53,7 +62,9 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
   );
   const [pagesCrawled, setPagesCrawled] = useState(0);
   const [maxPages, setMaxPages] = useState(0);
-  const [observations, setObservations] = useState<AnalysisObservation[]>([]);
+  const [findings, setFindings] = useState<AnalysisFinding[]>([]);
+  const [findingsSummary, setFindingsSummary] =
+    useState<FindingsSummary | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const startAnalysis = useCallback((nextDomain: NormalizedDomain) => {
@@ -63,7 +74,8 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     setCrawlStatus("queued");
     setPagesCrawled(0);
     setMaxPages(0);
-    setObservations([]);
+    setFindings([]);
+    setFindingsSummary(null);
     setErrorMessage(null);
   }, []);
 
@@ -76,7 +88,8 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       status: CrawlLifecycleStatus;
       pagesCrawled?: number;
       maxPages?: number;
-      observations?: AnalysisObservation[];
+      findings?: AnalysisFinding[];
+      findingsSummary?: FindingsSummary;
     }) => {
       setCrawlStatus(input.status);
 
@@ -88,8 +101,12 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
         setMaxPages(input.maxPages);
       }
 
-      if (input.observations) {
-        setObservations(input.observations);
+      if (input.findings) {
+        setFindings(input.findings);
+      }
+
+      if (input.findingsSummary) {
+        setFindingsSummary(input.findingsSummary);
       }
     },
     [],
@@ -98,7 +115,8 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
   const completeAnalysis = useCallback((input: CompleteAnalysisInput) => {
     setPhase("completed");
     setCrawlStatus("completed");
-    setObservations(input.observations);
+    setFindings(input.findings);
+    setFindingsSummary(input.findingsSummary);
     setErrorMessage(null);
   }, []);
 
@@ -114,7 +132,8 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     setCrawlStatus(null);
     setPagesCrawled(0);
     setMaxPages(0);
-    setObservations([]);
+    setFindings([]);
+    setFindingsSummary(null);
     setErrorMessage(null);
   }, []);
 
@@ -126,7 +145,8 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       crawlStatus,
       pagesCrawled,
       maxPages,
-      observations,
+      findings,
+      findingsSummary,
       errorMessage,
       startAnalysis,
       setCrawlRunId,
@@ -142,7 +162,8 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       crawlStatus,
       pagesCrawled,
       maxPages,
-      observations,
+      findings,
+      findingsSummary,
       errorMessage,
       startAnalysis,
       setCrawlRunId,
@@ -167,3 +188,5 @@ export function useAnalysis() {
 
   return context;
 }
+
+export { EMPTY_FINDINGS_SUMMARY };
