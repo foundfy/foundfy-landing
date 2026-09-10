@@ -774,7 +774,7 @@
   color: rgba(245, 243, 238, 0.56);
 }
 
-.findingHighlightBody {
+.findingRecommendationBlock {
   display: grid;
   gap: 8px;
   margin-top: 10px;
@@ -786,10 +786,29 @@
   color: rgba(245, 243, 238, 0.72);
 }
 
+.findingActionRow {
+  display: grid;
+  gap: 2px;
+}
+
+.findingActionLabel {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(245, 243, 238, 0.34);
+}
+
 .findingRecommendedAction {
   font-size: 13px;
-  line-height: 1.5;
-  color: rgba(245, 243, 238, 0.58);
+  line-height: 1.45;
+  color: rgba(245, 243, 238, 0.82);
+}
+
+.findingVerification {
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(245, 243, 238, 0.52);
 }
 
 .findingDescription {

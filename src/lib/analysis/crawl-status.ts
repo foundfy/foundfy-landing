@@ -10,6 +10,12 @@ export type FindingPriority = {
   verification: string | null;
 };
 
+export type FindingRecommendation = {
+  whyItMatters: string;
+  recommendedAction: string;
+  verification: string | null;
+};
+
 export type FindingExplanationEnrichment = {
   contextualExplanation: string;
   evidenceExplanation: string;
@@ -30,6 +36,7 @@ export type AnalysisFinding = {
   pageUrl: string | null;
   evidence: Record<string, unknown>;
   priority: FindingPriority | null;
+  recommendation?: FindingRecommendation | null;
   explanationEnrichment?: FindingExplanationEnrichment | null;
   highlightAggregation?: HighlightAggregation | null;
 };

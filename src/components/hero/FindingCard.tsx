@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import {
-  formatFindingEvidence,
   formatFindingPath,
   formatPriorityLabel,
 } from "@/lib/analysis/finding-display";
@@ -19,10 +18,10 @@ export default function FindingCard({
   variant = "default",
 }: FindingCardProps) {
   const [showExplanation, setShowExplanation] = useState(false);
-  const evidence = formatFindingEvidence(finding);
   const pagePath = formatFindingPath(finding.pageUrl);
   const isHighlight = variant === "highlight";
   const hasExplanation = !!finding.explanationEnrichment;
+  const recommendation = finding.recommendation ?? null;
 
   return (
     <article
@@ -55,25 +54,26 @@ export default function FindingCard({
         </p>
       ) : null}
 
-      {isHighlight && finding.priority ? (
-        <div className={styles.findingHighlightBody}>
-          <p className={styles.findingWhyItMatters}>
-            {finding.priority.whyItMatters}
-          </p>
-          <p className={styles.findingRecommendedAction}>
-            {finding.priority.recommendedAction}
-          </p>
-        </div>
-      ) : (
-        <>
-          <p className={styles.findingDescription}>{finding.description}</p>
-          {evidence ? (
-            <div className={styles.findingEvidence}>
-              <span className={styles.findingEvidenceLabel}>Evidence</span>
-              <p className={styles.findingEvidenceText}>{evidence}</p>
+      {recommendation ? (
+        <div className={styles.findingRecommendationBlock}>
+          <p className={styles.findingWhyItMatters}>{recommendation.whyItMatters}</p>
+
+          <div className={styles.findingActionRow}>
+            <span className={styles.findingActionLabel}>What to do</span>
+            <p className={styles.findingRecommendedAction}>
+              {recommendation.recommendedAction}
+            </p>
+          </div>
+
+          {recommendation.verification ? (
+            <div className={styles.findingActionRow}>
+              <span className={styles.findingActionLabel}>How to verify</span>
+              <p className={styles.findingVerification}>{recommendation.verification}</p>
             </div>
           ) : null}
-        </>
+        </div>
+      ) : (
+        <p className={styles.findingDescription}>{finding.description}</p>
       )}
 
       {hasExplanation ? (
