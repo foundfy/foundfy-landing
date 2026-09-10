@@ -117,9 +117,13 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
     return null;
   }
 
+  const claimedStartedAt = claimed.started_at;
+
   const run = toActiveCrawlRun(claimed);
   if (!run) {
-    await markCrawlRunFailed(claimed.id, "Website record missing for crawl run.");
+    await markCrawlRunFailed(claimed.id, "Website record missing for crawl run.", {
+      expectedStartedAt: claimedStartedAt,
+    });
     return claimed.id;
   }
 
@@ -288,12 +292,16 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
       await updateQueueItem(queueItem.id, "done");
     }
 
-    await markCrawlRunCompleted(run.id, run.websiteId);
+    await markCrawlRunCompleted(run.id, run.websiteId, {
+      expectedStartedAt: claimedStartedAt,
+    });
     return run.id;
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unexpected crawl worker failure.";
-    await markCrawlRunFailed(run.id, message);
+    await markCrawlRunFailed(run.id, message, {
+      expectedStartedAt: claimedStartedAt,
+    });
     return run.id;
   }
 }

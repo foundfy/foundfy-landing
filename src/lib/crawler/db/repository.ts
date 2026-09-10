@@ -260,20 +260,54 @@ export async function claimNextQueuedRun(preferredRunId?: string): Promise<Crawl
   return (claimed as CrawlRunRow | null) ?? null;
 }
 
-export async function markCrawlRunCompleted(crawlRunId: string, websiteId: string): Promise<void> {
+type CrawlRunTerminalUpdateOptions = {
+  expectedStartedAt?: string | null;
+};
+
+function applyStartedAtGuard<T extends { eq: Function; is: Function }>(
+  query: T,
+  expectedStartedAt: string | null | undefined,
+): T {
+  if (expectedStartedAt === undefined) {
+    return query;
+  }
+
+  if (expectedStartedAt === null) {
+    return query.is("started_at", null) as T;
+  }
+
+  return query.eq("started_at", expectedStartedAt) as T;
+}
+
+export async function markCrawlRunCompleted(
+  crawlRunId: string,
+  websiteId: string,
+  options?: CrawlRunTerminalUpdateOptions,
+): Promise<boolean> {
   const supabase = getSupabaseAdmin();
   const completedAt = new Date().toISOString();
 
-  const { error: runError } = await supabase
+  let runQuery = supabase
     .from("crawl_runs")
     .update({
       status: "completed",
       completed_at: completedAt,
     })
-    .eq("id", crawlRunId);
+    .eq("id", crawlRunId)
+    .eq("status", "running");
+
+  runQuery = applyStartedAtGuard(runQuery, options?.expectedStartedAt);
+
+  const { data: completedRow, error: runError } = await runQuery
+    .select("id")
+    .maybeSingle();
 
   if (runError) {
     throw new Error(`Failed to complete crawl run: ${runError.message}`);
+  }
+
+  if (!completedRow) {
+    return false;
   }
 
   const { error: websiteError } = await supabase
@@ -284,23 +318,84 @@ export async function markCrawlRunCompleted(crawlRunId: string, websiteId: strin
   if (websiteError) {
     throw new Error(`Failed to update website crawl timestamp: ${websiteError.message}`);
   }
+
+  return true;
 }
 
-export async function markCrawlRunFailed(crawlRunId: string, message: string): Promise<void> {
+export async function markCrawlRunFailed(
+  crawlRunId: string,
+  message: string,
+  options?: CrawlRunTerminalUpdateOptions,
+): Promise<boolean> {
   const supabase = getSupabaseAdmin();
 
-  const { error } = await supabase
+  let query = supabase
     .from("crawl_runs")
     .update({
       status: "failed",
       error_message: message.slice(0, 1000),
       completed_at: new Date().toISOString(),
     })
-    .eq("id", crawlRunId);
+    .eq("id", crawlRunId)
+    .in("status", ["queued", "running"]);
+
+  query = applyStartedAtGuard(query, options?.expectedStartedAt);
+
+  const { data, error } = await query.select("id").maybeSingle();
 
   if (error) {
     throw new Error(`Failed to mark crawl run failed: ${error.message}`);
   }
+
+  return Boolean(data);
+}
+
+export async function requeueStaleRunningCrawlRun(
+  crawlRunId: string,
+  staleStartedBefore: string,
+): Promise<boolean> {
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase
+    .from("crawl_runs")
+    .update({
+      status: "queued",
+      started_at: null,
+      error_message: null,
+    })
+    .eq("id", crawlRunId)
+    .eq("status", "running")
+    .or(`started_at.lt.${staleStartedBefore},started_at.is.null`)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to requeue stale crawl run: ${error.message}`);
+  }
+
+  return Boolean(data);
+}
+
+export async function resetAbandonedProcessingQueueItems(
+  crawlRunId: string,
+): Promise<number> {
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase
+    .from("crawl_queue")
+    .update({
+      status: "pending",
+      skip_reason: null,
+    })
+    .eq("crawl_run_id", crawlRunId)
+    .eq("status", "processing")
+    .select("id");
+
+  if (error) {
+    throw new Error(`Failed to reset abandoned queue items: ${error.message}`);
+  }
+
+  return data?.length ?? 0;
 }
 
 export async function saveSiteArtifact(input: {

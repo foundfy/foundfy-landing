@@ -1,5 +1,6 @@
 import { after, NextResponse } from "next/server";
 import { getCrawlRunSummary } from "@/lib/crawler/db/repository";
+import { maybeRecoverStaleCrawlRun } from "@/lib/crawler/worker/recover-stale-run";
 import { processCrawlRun } from "@/lib/crawler/worker/process-run";
 import { scheduleExplanationEnrichmentIfNeeded } from "@/lib/ai-enrichment/scheduler";
 import { loadCompletedCrawlResults } from "@/lib/findings/load-completed-results";
@@ -23,13 +24,19 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   try {
-    const summary = await getCrawlRunSummary(id);
+    let summary = await getCrawlRunSummary(id);
 
     if (!summary) {
       return NextResponse.json({ error: "Crawl run not found." }, { status: 404 });
     }
 
-    if (summary.status === "queued") {
+    const recovery = await maybeRecoverStaleCrawlRun(id);
+
+    if (recovery.recovered) {
+      summary = (await getCrawlRunSummary(id)) ?? summary;
+    }
+
+    if (recovery.recovered || summary.status === "queued") {
       after(async () => {
         try {
           await processCrawlRun(id);

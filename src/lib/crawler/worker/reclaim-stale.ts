@@ -1,8 +1,9 @@
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
+import {
+  WORKER_QUEUED_STALE_MS,
+  WORKER_RUNNING_STALE_MS,
+} from "../stale-thresholds";
 import { markCrawlRunFailed } from "../db/repository";
-
-const QUEUED_STALE_MS = 10 * 60 * 1000;
-const RUNNING_STALE_MS = 12 * 60 * 1000;
 
 export async function reclaimStaleCrawlRuns(): Promise<{
   failedQueued: string[];
@@ -24,15 +25,17 @@ export async function reclaimStaleCrawlRuns(): Promise<{
 
   for (const run of queuedRuns ?? []) {
     const createdAt = new Date(run.created_at).getTime();
-    if (Number.isNaN(createdAt) || now - createdAt < QUEUED_STALE_MS) {
+    if (Number.isNaN(createdAt) || now - createdAt < WORKER_QUEUED_STALE_MS) {
       continue;
     }
 
-    await markCrawlRunFailed(
+    const failed = await markCrawlRunFailed(
       run.id,
       "Crawl remained queued too long and was marked failed. Please try again.",
     );
-    failedQueued.push(run.id);
+    if (failed) {
+      failedQueued.push(run.id);
+    }
   }
 
   const { data: runningRuns, error: runningError } = await supabase
@@ -50,12 +53,14 @@ export async function reclaimStaleCrawlRuns(): Promise<{
     }
 
     const startedAt = new Date(run.started_at).getTime();
-    if (Number.isNaN(startedAt) || now - startedAt < RUNNING_STALE_MS) {
+    if (Number.isNaN(startedAt) || now - startedAt < WORKER_RUNNING_STALE_MS) {
       continue;
     }
 
-    await markCrawlRunFailed(run.id, "Crawl timed out before completion.");
-    failedRunning.push(run.id);
+    const failed = await markCrawlRunFailed(run.id, "Crawl timed out before completion.");
+    if (failed) {
+      failedRunning.push(run.id);
+    }
   }
 
   return { failedQueued, failedRunning };
