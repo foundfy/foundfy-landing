@@ -10,6 +10,10 @@ import {
   type CrawlStatusViewState,
 } from "@/lib/analysis/crawl-status-loader";
 import { fetchCrawlStatus } from "@/lib/analysis/fetch-crawl-status";
+import {
+  isTransientCrawlStatusHttpError,
+  shouldRetryTransientCrawlStatusFailure,
+} from "@/lib/analysis/crawl-status-fetch-policy";
 import type { CrawlStatusPayload } from "@/lib/analysis/crawl-status";
 
 const POLL_INTERVAL_MS = 2500;
@@ -47,49 +51,80 @@ export function useCrawlStatusLoader(crawlRunId: string) {
     let cancelled = false;
 
     async function loadInitial() {
-      try {
-        const result = await fetchCrawlStatus(crawlRunId);
+      let consecutiveTransientFailures = 0;
 
-        if (cancelled) {
-          return;
-        }
+      while (!cancelled) {
+        try {
+          const result = await fetchCrawlStatus(crawlRunId);
 
-        if (!result.ok) {
+          if (cancelled) {
+            return;
+          }
+
+          if (!result.ok) {
+            if (
+              isTransientCrawlStatusHttpError(result.status) &&
+              shouldRetryTransientCrawlStatusFailure(
+                (consecutiveTransientFailures += 1),
+              )
+            ) {
+              await new Promise((resolve) => {
+                setTimeout(resolve, POLL_INTERVAL_MS);
+              });
+              continue;
+            }
+
+            const resolved = resolveInitialCrawlViewPhase({
+              status: "failed",
+              httpStatus: result.status,
+            });
+            setState({
+              phase: resolved.phase,
+              payload: null,
+              errorMessage: result.error,
+            });
+            return;
+          }
+
+          consecutiveTransientFailures = 0;
+
+          applyPayload(result.payload);
+
           const resolved = resolveInitialCrawlViewPhase({
-            status: "failed",
-            httpStatus: result.status,
+            status: result.payload.status,
+            httpStatus: 200,
           });
+
+          setLoadedAsCompleted(resolved.phase === "completed");
           setState({
             phase: resolved.phase,
-            payload: null,
-            errorMessage: result.error,
+            payload: payloadRef.current,
+            errorMessage:
+              resolved.phase === "failed"
+                ? result.payload.errorMessage ?? "Crawl failed."
+                : resolved.errorMessage,
           });
           return;
-        }
+        } catch {
+          if (
+            shouldRetryTransientCrawlStatusFailure(
+              (consecutiveTransientFailures += 1),
+            )
+          ) {
+            await new Promise((resolve) => {
+              setTimeout(resolve, POLL_INTERVAL_MS);
+            });
+            continue;
+          }
 
-        applyPayload(result.payload);
-
-        const resolved = resolveInitialCrawlViewPhase({
-          status: result.payload.status,
-          httpStatus: 200,
-        });
-
-        setLoadedAsCompleted(resolved.phase === "completed");
-        setState({
-          phase: resolved.phase,
-          payload: payloadRef.current,
-          errorMessage:
-            resolved.phase === "failed"
-              ? result.payload.errorMessage ?? "Crawl failed."
-              : resolved.errorMessage,
-        });
-      } catch {
-        if (!cancelled) {
-          setState({
-            phase: "error",
-            payload: null,
-            errorMessage: "Unable to load this scan right now.",
-          });
+          if (!cancelled) {
+            setState({
+              phase: "error",
+              payload: null,
+              errorMessage: "Unable to load this scan right now.",
+            });
+          }
+          return;
         }
       }
     }
@@ -108,6 +143,7 @@ export function useCrawlStatusLoader(crawlRunId: string) {
 
     let cancelled = false;
     const pollStartedAt = Date.now();
+    let consecutiveTransientFailures = 0;
 
     async function pollStatus() {
       if (Date.now() - pollStartedAt >= POLL_TIMEOUT_MS) {
@@ -126,6 +162,15 @@ export function useCrawlStatusLoader(crawlRunId: string) {
         const result = await fetchCrawlStatus(crawlRunId);
 
         if (!result.ok) {
+          if (isTransientCrawlStatusHttpError(result.status)) {
+            consecutiveTransientFailures += 1;
+            if (
+              shouldRetryTransientCrawlStatusFailure(consecutiveTransientFailures)
+            ) {
+              return true;
+            }
+          }
+
           if (!cancelled) {
             setState({
               phase: "error",
@@ -135,6 +180,8 @@ export function useCrawlStatusLoader(crawlRunId: string) {
           }
           return false;
         }
+
+        consecutiveTransientFailures = 0;
 
         if (!cancelled) {
           applyPayload(result.payload);
@@ -166,14 +213,18 @@ export function useCrawlStatusLoader(crawlRunId: string) {
 
         return true;
       } catch {
-        if (!cancelled) {
-          setState({
-            phase: "error",
-            payload: payloadRef.current,
-            errorMessage: "Unable to fetch crawl status.",
-          });
+        consecutiveTransientFailures += 1;
+        if (!shouldRetryTransientCrawlStatusFailure(consecutiveTransientFailures)) {
+          if (!cancelled) {
+            setState({
+              phase: "error",
+              payload: payloadRef.current,
+              errorMessage: "Unable to fetch crawl status.",
+            });
+          }
+          return false;
         }
-        return false;
+        return true;
       }
     }
 

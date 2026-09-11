@@ -1,13 +1,11 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createAndEnqueueCrawl } from "@/lib/crawler/start-crawl";
 import { validatePublicHttpUrl } from "@/lib/crawler/url/normalize";
-import { processCrawlRun } from "@/lib/crawler/worker/process-run";
 import { findActiveCrawlRunForWebsite, getWebsiteById } from "@/lib/websites/repository";
 import { resolveRescanSeedUrl } from "@/lib/websites/rescan-seed";
 import { isValidUuid } from "@/lib/websites/uuid";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
 
 type RouteContext = {
   params: Promise<{ websiteId: string }>;
@@ -50,16 +48,6 @@ export async function POST(_request: Request, context: RouteContext) {
     const started = await createAndEnqueueCrawl({
       websiteId,
       seedUrl: validated.url,
-    });
-
-    after(async () => {
-      try {
-        await processCrawlRun(started.crawlRunId);
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Background crawl failed.";
-        console.error("[Website Scan] Background processing failed:", message);
-      }
     });
 
     return NextResponse.json(

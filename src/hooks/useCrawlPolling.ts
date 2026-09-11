@@ -3,6 +3,11 @@
 import { useEffect, useRef } from "react";
 import { resolveCrawlPollOutcome } from "@/lib/analysis/crawl-poll-outcome";
 import type { CrawlStatusPayload } from "@/lib/analysis/crawl-status";
+import {
+  isTerminalCrawlStatusHttpError,
+  isTransientCrawlStatusHttpError,
+  shouldRetryTransientCrawlStatusFailure,
+} from "@/lib/analysis/crawl-status-fetch-policy";
 import { useAnalysis } from "@/contexts/AnalysisContext";
 
 const POLL_INTERVAL_MS = 2500;
@@ -92,6 +97,7 @@ export function useCrawlPolling() {
     let cancelled = false;
     const activeCrawlRunId = crawlRunId;
     const pollStartedAt = Date.now();
+    let consecutiveTransientFailures = 0;
 
     async function pollStatus() {
       if (Date.now() - pollStartedAt >= POLL_TIMEOUT_MS) {
@@ -113,6 +119,30 @@ export function useCrawlPolling() {
         };
 
         if (!response.ok) {
+          if (isTransientCrawlStatusHttpError(response.status)) {
+            consecutiveTransientFailures += 1;
+            if (
+              !shouldRetryTransientCrawlStatusFailure(consecutiveTransientFailures)
+            ) {
+              if (!cancelled) {
+                failAnalysisRef.current(
+                  payload.error ?? "Unable to fetch crawl status right now.",
+                );
+              }
+              return false;
+            }
+            return true;
+          }
+
+          if (isTerminalCrawlStatusHttpError(response.status)) {
+            if (!cancelled) {
+              failAnalysisRef.current(
+                payload.error ?? "Unable to fetch crawl status.",
+              );
+            }
+            return false;
+          }
+
           if (!cancelled) {
             failAnalysisRef.current(
               payload.error ?? "Unable to fetch crawl status.",
@@ -120,6 +150,8 @@ export function useCrawlPolling() {
           }
           return false;
         }
+
+        consecutiveTransientFailures = 0;
 
         if (!cancelled) {
           updateCrawlProgressRef.current({
@@ -148,10 +180,14 @@ export function useCrawlPolling() {
 
         return true;
       } catch {
-        if (!cancelled) {
-          failAnalysisRef.current("Unable to fetch crawl status.");
+        consecutiveTransientFailures += 1;
+        if (!shouldRetryTransientCrawlStatusFailure(consecutiveTransientFailures)) {
+          if (!cancelled) {
+            failAnalysisRef.current("Unable to fetch crawl status.");
+          }
+          return false;
         }
-        return false;
+        return true;
       }
     }
 

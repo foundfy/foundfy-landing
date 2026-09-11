@@ -161,6 +161,35 @@ describe("GET /api/crawl/[id] recovery integration", () => {
     expect(payload.comparison).toBeUndefined();
   });
 
+  it("returns completed status without findings when result loading fails", async () => {
+    getCrawlRunSummaryMock.mockResolvedValue({
+      id: RUN_ID,
+      websiteId: "website-1",
+      status: "completed",
+      hostname: "arngren.net",
+      seedUrl: "https://www.arngren.net/",
+      maxPages: 10,
+      pagesCrawled: 10,
+      pagesDiscovered: 123,
+      errorMessage: null,
+      startedAt: "2026-09-10T15:00:00.000Z",
+      completedAt: "2026-09-10T15:01:00.000Z",
+      createdAt: "2026-09-10T14:59:59.000Z",
+    });
+    maybeRecoverStaleCrawlRunMock.mockResolvedValue({ recovered: false });
+    loadCompletedCrawlResultsMock.mockRejectedValue(new Error("db unavailable"));
+
+    const response = await GET(new Request("https://example.test"), {
+      params: Promise.resolve({ id: RUN_ID }),
+    });
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.status).toBe("completed");
+    expect(payload.findings).toBeUndefined();
+    expect(scheduleExplanationEnrichmentIfNeededMock).not.toHaveBeenCalled();
+  });
+
   it("preserves existing queued recovery behavior", async () => {
     getCrawlRunSummaryMock.mockResolvedValue({
       id: RUN_ID,

@@ -107,6 +107,7 @@ describe("POST /api/websites/[websiteId]/scan", () => {
       websiteId: WEBSITE_ID,
       seedUrl: "https://www.ekoiq.com/",
     });
-    expect(processCrawlRunMock).toHaveBeenCalledWith("new-run");
+    expect(afterMock).not.toHaveBeenCalled();
+    expect(processCrawlRunMock).not.toHaveBeenCalled();
   });
 });

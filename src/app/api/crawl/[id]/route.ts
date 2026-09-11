@@ -52,9 +52,14 @@ export async function GET(_request: Request, context: RouteContext) {
       });
     }
 
-    const completedFindings = isUsableCompletedCrawl(summary)
-      ? await loadCompletedCrawlResults(id)
-      : undefined;
+    let completedFindings;
+    if (isUsableCompletedCrawl(summary)) {
+      try {
+        completedFindings = await loadCompletedCrawlResults(id);
+      } catch (error) {
+        console.error("[Crawl] Failed to load completed crawl results:", error);
+      }
+    }
 
     if (completedFindings) {
       after(async () => {

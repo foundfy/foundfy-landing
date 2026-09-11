@@ -64,5 +64,7 @@ describe("POST /api/crawl", () => {
       "https://www.ekoiq.com/",
       "ekoiq.com",
     );
+    expect(afterMock).not.toHaveBeenCalled();
+    expect(processCrawlRunMock).not.toHaveBeenCalled();
   });
 });
