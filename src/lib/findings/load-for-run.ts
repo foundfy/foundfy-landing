@@ -13,6 +13,7 @@ import {
 import type { StoredPriority } from "@/lib/priorities/types";
 import { applyGroupedRecommendations } from "@/lib/recommendations";
 import {
+  groupFindingsByAction,
   selectHighlightGroups,
   toHighlightGroupSummaries,
 } from "./highlight-groups";
@@ -73,7 +74,8 @@ export async function loadFindingsForCompletedRun(crawlRunId: string): Promise<{
   );
 
   const highlightGroups = selectHighlightGroups(serializedFindings);
-  const findings = applyGroupedRecommendations(serializedFindings, highlightGroups);
+  const actionGroups = groupFindingsByAction(serializedFindings);
+  const findings = applyGroupedRecommendations(serializedFindings, actionGroups);
 
   return {
     findings,

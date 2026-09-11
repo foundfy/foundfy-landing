@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AnalysisFinding } from "@/lib/analysis/crawl-status";
 import { sortFindings } from "./order";
-import { selectHighlightGroups } from "./highlight-groups";
+import { groupFindingsByAction, selectHighlightGroups } from "./highlight-groups";
 
 function buildBrokenLinkFinding(input: {
   id: string;
@@ -251,13 +251,126 @@ describe("selectHighlightGroups", () => {
 
     expect(selectHighlightGroups(findings)).toEqual([
       {
-        groupKey: "high",
+        groupKey: "page_fundamentals.missing_title",
         representativeFindingId: "high",
         memberFindingIds: ["high"],
         rawFindingCount: 1,
         affectedPageCount: 1,
       },
     ]);
+  });
+
+  it("groups the same actionable issue instead of repeating observation rows", () => {
+    const findings = sortFindings([
+      buildGenericFinding({
+        id: "title-1",
+        ruleKey: "page_fundamentals.duplicate_title",
+        rank: 1,
+        level: "high",
+      }),
+      buildGenericFinding({
+        id: "title-2",
+        ruleKey: "page_fundamentals.duplicate_title",
+        rank: 2,
+        level: "high",
+      }),
+      buildGenericFinding({
+        id: "title-3",
+        ruleKey: "page_fundamentals.duplicate_title",
+        rank: 3,
+        level: "high",
+      }),
+      buildGenericFinding({
+        id: "meta-1",
+        ruleKey: "page_fundamentals.missing_meta_description",
+        rank: 4,
+        level: "medium",
+      }),
+    ]).map((finding, index) => ({
+      ...finding,
+      pageUrl: `https://example.com/page-${index + 1}`,
+      evidence:
+        finding.ruleKey === "page_fundamentals.duplicate_title"
+          ? { title: "Home" }
+          : finding.evidence,
+    }));
+
+    const groups = groupFindingsByAction(findings);
+
+    expect(groups).toHaveLength(2);
+    expect(groups[0]?.groupKey).toBe("page_fundamentals.duplicate_title:home");
+    expect(groups[0]?.affectedPageCount).toBe(3);
+    expect(groups[0]?.memberFindingIds).toEqual(["title-1", "title-2", "title-3"]);
+    expect(groups[1]?.representativeFindingId).toBe("meta-1");
+  });
+
+  it("keeps distinct actions separate even when rule keys match", () => {
+    const findings = sortFindings([
+      {
+        ...buildBrokenLinkFinding({
+          id: "broken-a",
+          rank: 1,
+          linkFromUrl: "https://example.com/a",
+          linkToUrl: "https://example.com/dead-1",
+        }),
+      },
+      {
+        ...buildBrokenLinkFinding({
+          id: "broken-b",
+          rank: 2,
+          linkFromUrl: "https://example.com/b",
+          linkToUrl: "https://example.com/dead-2",
+        }),
+      },
+    ]);
+
+    const groups = groupFindingsByAction(findings);
+    expect(groups).toHaveLength(2);
+    expect(groups[0]?.groupKey).not.toBe(groups[1]?.groupKey);
+  });
+
+  it("collapses a DBHobby-shaped 41-finding set into 7 distinct actions", () => {
+    const findings: AnalysisFinding[] = [];
+    let rank = 1;
+
+    const pushMany = (
+      count: number,
+      ruleKey: string,
+      level: "critical" | "high" | "medium" | "low",
+      evidence: Record<string, unknown> = {},
+    ) => {
+      for (let index = 0; index < count; index += 1) {
+        findings.push({
+          ...buildGenericFinding({
+            id: `${ruleKey}-${index}`,
+            ruleKey,
+            rank,
+            level,
+          }),
+          pageUrl: `https://dbhobby.example/page-${rank}`,
+          evidence,
+        });
+        rank += 1;
+      }
+    };
+
+    pushMany(8, "page_fundamentals.duplicate_title", "high", { title: "Home" });
+    pushMany(6, "page_fundamentals.duplicate_meta_description", "high", {
+      metaDescription: "Welcome",
+    });
+    pushMany(10, "page_fundamentals.missing_meta_description", "medium");
+    pushMany(5, "page_fundamentals.title_length_out_of_range", "low");
+    pushMany(4, "page_fundamentals.missing_h1", "medium");
+    pushMany(3, "internal_structure.broken_internal_link", "high", {
+      linkToUrl: "https://dbhobby.example/dead",
+    });
+    pushMany(5, "indexability.canonical_missing", "medium");
+
+    expect(findings).toHaveLength(41);
+
+    const groups = groupFindingsByAction(sortFindings(findings));
+    expect(groups).toHaveLength(7);
+    expect(groups.reduce((sum, group) => sum + group.rawFindingCount, 0)).toBe(41);
   });
 
   it("preserves deterministic ordering by rank", () => {

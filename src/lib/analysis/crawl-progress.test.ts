@@ -3,13 +3,17 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   ANALYZING_COPY,
+  LIVE_RESULT_SHELL,
+  LIVE_SCAN_COPY,
   VISUAL_PROGRESS,
   createVisualProgressRuntime,
+  formatLiveScanPageCount,
   getAmbientLead,
   getCrawlStatusCopy,
   getMappedRealProgress,
   getProgressTarget,
   reduceVisualProgress,
+  shouldShowLiveResultShell,
 } from "./crawl-progress";
 
 function step(
@@ -59,7 +63,85 @@ describe("getCrawlStatusCopy", () => {
   });
 });
 
+describe("live result shell", () => {
+  it("waits about five seconds when no pages have been checked yet", () => {
+    expect(
+      shouldShowLiveResultShell({
+        status: "queued",
+        pagesCrawled: 0,
+        elapsedMs: 4_000,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowLiveResultShell({
+        status: "running",
+        pagesCrawled: 0,
+        elapsedMs: LIVE_RESULT_SHELL.revealAfterMs,
+      }),
+    ).toBe(true);
+  });
+
+  it("opens the shell as soon as a real page count exists", () => {
+    expect(
+      shouldShowLiveResultShell({
+        status: "running",
+        pagesCrawled: 2,
+        elapsedMs: 800,
+      }),
+    ).toBe(true);
+    expect(formatLiveScanPageCount(2)).toBe("2 pages checked so far");
+    expect(formatLiveScanPageCount(1)).toBe("1 page checked so far");
+    expect(LIVE_SCAN_COPY.title).toBe("Scanning your site…");
+    expect(LIVE_SCAN_COPY.pendingFindings).toContain("New findings will appear");
+  });
+
+  it("does not invent a completed results state while the crawl is running", () => {
+    expect(
+      shouldShowLiveResultShell({
+        status: "completed",
+        pagesCrawled: 8,
+        elapsedMs: 20_000,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowLiveResultShell({
+        status: "failed",
+        pagesCrawled: 2,
+        elapsedMs: 20_000,
+      }),
+    ).toBe(false);
+  });
+});
+
 describe("visual analyzing progress", () => {
+  it("starts visual progress at about one percent after Analyze", () => {
+    expect(VISUAL_PROGRESS.initial).toBeCloseTo(0.01);
+    expect(
+      getMappedRealProgress(0, 10),
+    ).toBeCloseTo(VISUAL_PROGRESS.initial);
+
+    const first = step(createVisualProgressRuntime(), {
+      status: "queued",
+      pagesCrawled: 0,
+      maxPages: 10,
+      now: 1_000,
+    });
+
+    expect(first.runtime.progress).toBeGreaterThanOrEqual(
+      VISUAL_PROGRESS.initial,
+    );
+    expect(first.runtime.progress).toBeLessThan(0.05);
+    expect(
+      getProgressTarget({
+        status: "queued",
+        pagesCrawled: 0,
+        maxPages: 10,
+        elapsedMs: 0,
+        plateauMs: 0,
+      }),
+    ).toBeCloseTo(0.01);
+  });
+
   it("starts visual progress immediately after Analyze", () => {
     const first = step(createVisualProgressRuntime(), {
       status: "queued",
@@ -110,6 +192,14 @@ describe("visual analyzing progress", () => {
         plateauMs: 180_000,
       }),
     ).toBeLessThanOrEqual(VISUAL_PROGRESS.runningCeiling);
+  });
+
+  it("maps full page progress below the running cap after the 1% start", () => {
+    expect(getMappedRealProgress(10, 10)).toBeCloseTo(0.79);
+    expect(getMappedRealProgress(10, 10)).toBeLessThan(
+      VISUAL_PROGRESS.runningCeiling,
+    );
+    expect(VISUAL_PROGRESS.realSpan).toBeGreaterThan(0.7);
   });
 
   it("lets real page progress raise the visual target", () => {
@@ -260,7 +350,29 @@ describe("visual analyzing progress", () => {
 
     expect(analyzingView).toContain("useCrawlProgressAnimation");
     expect(analyzingView).toContain("getCrawlStatusCopy");
+    expect(analyzingView).toContain("shouldShowLiveResultShell");
+    expect(analyzingView).toContain("LIVE_SCAN_COPY");
     expect(scanView).toContain("AnalysisAnalyzingViewInner");
     expect(scanView).not.toContain("useCrawlProgressAnimation");
+  });
+
+  it("uses a stronger smoked-glass illumination treatment than the faint first pass", () => {
+    const css = readFileSync(
+      path.join(
+        __dirname,
+        "../../components/hero/WebsiteAnalysisEntry.module.css",
+      ),
+      "utf8",
+    );
+
+    expect(css).toContain("rgba(255, 92, 42, 0.34)");
+    expect(css).toContain("rgba(255, 86, 42, 0.5)");
+    expect(css).toContain("rgba(255, 196, 132, 0.78)");
+    expect(css).toContain("max(96px, 18%, calc(var(--pill-progress, 0) * 100% + 14%))");
+    expect(css).toContain("@media (min-width: 769px)");
+    expect(css).toContain("max(128px, 22%, calc(var(--pill-progress, 0) * 100% + 16%))");
+    expect(css).toContain("width: 280px");
+    expect(css).not.toContain("rgba(255, 86, 42, 0.12)");
+    expect(css).not.toContain("rgba(255, 176, 112, 0.55)");
   });
 });

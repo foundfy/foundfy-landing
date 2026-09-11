@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, type CSSProperties } from "react";
-import { getCrawlStatusCopy } from "@/lib/analysis/crawl-progress";
+import {
+  formatLiveScanPageCount,
+  getCrawlStatusCopy,
+  LIVE_SCAN_COPY,
+  shouldShowLiveResultShell,
+} from "@/lib/analysis/crawl-progress";
 import type {
   AnalysisFinding,
   CrawlComparison,
@@ -66,6 +71,11 @@ export function AnalysisAnalyzingViewInner({
 
   const statusCopy = getCrawlStatusCopy(crawlStatus, elapsedMs);
   const isCompleting = crawlStatus === "completed";
+  const showLiveShell = shouldShowLiveResultShell({
+    status: crawlStatus,
+    pagesCrawled,
+    elapsedMs,
+  });
   const clampedProgress = Math.max(0, Math.min(progress, 1));
 
   const pillStyle = {
@@ -73,7 +83,12 @@ export function AnalysisAnalyzingViewInner({
   } as CSSProperties;
 
   return (
-    <div className={styles.analyzingGroup} aria-live="polite">
+    <div
+      className={`${styles.analyzingGroup} ${
+        showLiveShell ? styles.liveShellGroup : ""
+      }`.trim()}
+      aria-live="polite"
+    >
       <div
         className={`${styles.form} ${styles.formAnalyzing} ${
           isCompleting ? styles.formAnalyzingComplete : ""
@@ -111,9 +126,19 @@ export function AnalysisAnalyzingViewInner({
           </p>
         </div>
       </div>
-      <p className={styles.analyzingStatus} key={statusCopy}>
-        {statusCopy}
-      </p>
+      {showLiveShell ? (
+        <div className={`${styles.resultsCard} ${styles.resultsCardVisible} ${styles.liveResultCard}`}>
+          <h2 className={styles.resultsTitle}>{LIVE_SCAN_COPY.title}</h2>
+          <p className={styles.resultsSummary}>
+            {formatLiveScanPageCount(pagesCrawled)}
+          </p>
+          <p className={styles.resultsDomain}>{LIVE_SCAN_COPY.pendingFindings}</p>
+        </div>
+      ) : (
+        <p className={styles.analyzingStatus} key={statusCopy}>
+          {statusCopy}
+        </p>
+      )}
       <button type="button" className={styles.resetButton} onClick={onReset}>
         {resetLabel}
       </button>

@@ -5,7 +5,7 @@ import type {
 } from "@/lib/analysis/crawl-status";
 import { normalizeCrawlUrl } from "@/lib/crawler/url/normalize";
 import type { RuleKey } from "@/lib/observations/types";
-import { computeBrokenLinkAffectedPageCount } from "./highlight-aggregation";
+import { collectNormalizedAffectedSourceUrls } from "./highlight-aggregation";
 
 export const HIGHLIGHT_MAX_COUNT = 3;
 
@@ -21,6 +21,15 @@ export type HighlightGroup = {
 
 type GroupKeyBuilder = (finding: AnalysisFinding) => string | null;
 
+function normalizeEvidenceText(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
 function buildBrokenLinkGroupKey(finding: AnalysisFinding): string | null {
   const linkToUrl = finding.evidence.linkToUrl;
   if (typeof linkToUrl !== "string" || linkToUrl.length === 0) {
@@ -35,21 +44,45 @@ function buildBrokenLinkGroupKey(finding: AnalysisFinding): string | null {
   return `internal_structure.broken_internal_link:${normalizedTarget}`;
 }
 
-const GROUP_KEY_BUILDERS: Partial<Record<RuleKey, GroupKeyBuilder>> = {
-  "internal_structure.broken_internal_link": buildBrokenLinkGroupKey,
-};
+function buildDuplicateTitleGroupKey(finding: AnalysisFinding): string | null {
+  const title = normalizeEvidenceText(finding.evidence.title);
+  return title ? `page_fundamentals.duplicate_title:${title}` : null;
+}
 
-export function getHighlightGroupKey(finding: AnalysisFinding): string | null {
-  const builder = GROUP_KEY_BUILDERS[finding.ruleKey as RuleKey];
-  if (!builder) {
+function buildDuplicateMetaGroupKey(finding: AnalysisFinding): string | null {
+  const description = normalizeEvidenceText(finding.evidence.metaDescription);
+  return description
+    ? `page_fundamentals.duplicate_meta_description:${description}`
+    : null;
+}
+
+function buildCanonicalElsewhereGroupKey(finding: AnalysisFinding): string | null {
+  const canonical = finding.evidence.canonical;
+  if (typeof canonical !== "string" || canonical.length === 0) {
     return null;
   }
 
-  return builder(finding);
+  const normalized = normalizeCrawlUrl(canonical);
+  return normalized
+    ? `indexability.canonical_points_elsewhere:${normalized}`
+    : null;
 }
 
-function resolveGroupKey(finding: AnalysisFinding): string {
-  return getHighlightGroupKey(finding) ?? finding.id;
+const GROUP_KEY_BUILDERS: Partial<Record<RuleKey, GroupKeyBuilder>> = {
+  "internal_structure.broken_internal_link": buildBrokenLinkGroupKey,
+  "page_fundamentals.duplicate_title": buildDuplicateTitleGroupKey,
+  "page_fundamentals.duplicate_meta_description": buildDuplicateMetaGroupKey,
+  "indexability.canonical_points_elsewhere": buildCanonicalElsewhereGroupKey,
+};
+
+export function getActionGroupKey(finding: AnalysisFinding): string {
+  const builder = GROUP_KEY_BUILDERS[finding.ruleKey as RuleKey];
+  const evidenceKey = builder?.(finding);
+  return evidenceKey ?? finding.ruleKey;
+}
+
+export function getHighlightGroupKey(finding: AnalysisFinding): string | null {
+  return getActionGroupKey(finding);
 }
 
 function finalizeHighlightGroupMetrics(
@@ -62,25 +95,18 @@ function finalizeHighlightGroupMetrics(
     .map((findingId) => findingsById.get(findingId))
     .filter((finding): finding is AnalysisFinding => finding !== undefined);
   const rawFindingCount = members.length;
-
-  if (members[0]?.ruleKey === "internal_structure.broken_internal_link") {
-    return {
-      ...group,
-      rawFindingCount,
-      affectedPageCount: computeBrokenLinkAffectedPageCount(members),
-    };
-  }
+  const uniquePageUrls = collectNormalizedAffectedSourceUrls(members);
 
   return {
     ...group,
     rawFindingCount,
-    affectedPageCount: 1,
+    affectedPageCount: uniquePageUrls.length > 0 ? uniquePageUrls.length : 1,
   };
 }
 
-export function selectHighlightGroups(
+export function groupFindingsByAction(
   findings: AnalysisFinding[],
-  maxCount = HIGHLIGHT_MAX_COUNT,
+  options?: { highlightLevelsOnly?: boolean },
 ): HighlightGroup[] {
   const findingsById = new Map(findings.map((finding) => [finding.id, finding]));
   const groups: Array<
@@ -91,22 +117,20 @@ export function selectHighlightGroups(
   const groupIndexByKey = new Map<string, number>();
 
   for (const finding of findings) {
-    if (
-      finding.priority === null ||
-      !HIGHLIGHT_LEVELS.has(finding.priority.level)
-    ) {
-      continue;
+    if (options?.highlightLevelsOnly) {
+      if (
+        finding.priority === null ||
+        !HIGHLIGHT_LEVELS.has(finding.priority.level)
+      ) {
+        continue;
+      }
     }
 
-    const groupKey = resolveGroupKey(finding);
+    const groupKey = getActionGroupKey(finding);
     const existingIndex = groupIndexByKey.get(groupKey);
 
     if (existingIndex !== undefined) {
       groups[existingIndex]?.memberFindingIds.push(finding.id);
-      continue;
-    }
-
-    if (groups.length >= maxCount) {
       continue;
     }
 
@@ -119,6 +143,16 @@ export function selectHighlightGroups(
   }
 
   return groups.map((group) => finalizeHighlightGroupMetrics(group, findingsById));
+}
+
+export function selectHighlightGroups(
+  findings: AnalysisFinding[],
+  maxCount = HIGHLIGHT_MAX_COUNT,
+): HighlightGroup[] {
+  return groupFindingsByAction(findings, { highlightLevelsOnly: true }).slice(
+    0,
+    maxCount,
+  );
 }
 
 export function toHighlightGroupSummaries(
@@ -141,4 +175,30 @@ export function getHighlightGroupForFinding(
       group.representativeFindingId === findingId ||
       group.memberFindingIds.includes(findingId),
   );
+}
+
+export function collectAffectedDisplayUrls(
+  findingsById: Map<string, AnalysisFinding>,
+  memberFindingIds: string[],
+): string[] {
+  const seen = new Set<string>();
+  const urls: string[] = [];
+
+  for (const findingId of memberFindingIds) {
+    const finding = findingsById.get(findingId);
+    const pageUrl = finding?.pageUrl;
+    if (!pageUrl) {
+      continue;
+    }
+
+    const normalized = normalizeCrawlUrl(pageUrl) ?? pageUrl;
+    if (seen.has(normalized)) {
+      continue;
+    }
+
+    seen.add(normalized);
+    urls.push(pageUrl);
+  }
+
+  return urls;
 }

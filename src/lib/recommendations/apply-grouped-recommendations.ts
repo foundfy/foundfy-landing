@@ -1,6 +1,6 @@
 import type { AnalysisFinding } from "@/lib/analysis/crawl-status";
 import type { HighlightGroup } from "@/lib/findings/highlight-groups";
-import { buildGroupedBrokenLinkRecommendation } from "./build-recommendation";
+import { buildGroupedActionRecommendation } from "./build-recommendation";
 
 export function applyGroupedRecommendations(
   findings: AnalysisFinding[],
@@ -17,16 +17,13 @@ export function applyGroupedRecommendations(
       (finding) => finding.id === group.representativeFindingId,
     );
 
-    if (
-      !representative ||
-      representative.ruleKey !== "internal_structure.broken_internal_link"
-    ) {
+    if (!representative) {
       continue;
     }
 
     groupedRecommendationByFindingId.set(
       representative.id,
-      buildGroupedBrokenLinkRecommendation(
+      buildGroupedActionRecommendation(
         {
           ruleKey: representative.ruleKey,
           pageUrl: representative.pageUrl,

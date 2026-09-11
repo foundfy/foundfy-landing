@@ -1,10 +1,10 @@
 import type { CrawlLifecycleStatus } from "./crawl-status";
 
 export const VISUAL_PROGRESS = {
-  initial: 0.08,
+  initial: 0.01,
   runningCeiling: 0.86,
   maxLead: 0.07,
-  realSpan: 0.68,
+  realSpan: 0.78,
   ambientTauMs: 24_000,
   reducedAmbientTauMs: 7_000,
   easeAck: 0.4,
@@ -12,10 +12,20 @@ export const VISUAL_PROGRESS = {
   easeNearEnd: 0.08,
   easeComplete: 0.32,
   easeReduced: 0.55,
+  earlyEaseUntil: 0.08,
   nearEndFrom: 0.72,
   completionThreshold: 0.985,
   completionHoldMs: 420,
   completionHoldReducedMs: 180,
+} as const;
+
+export const LIVE_RESULT_SHELL = {
+  revealAfterMs: 5_000,
+} as const;
+
+export const LIVE_SCAN_COPY = {
+  title: "Scanning your site…",
+  pendingFindings: "New findings will appear as we discover them.",
 } as const;
 
 export const ANALYZING_COPY = [
@@ -113,7 +123,7 @@ export function easeProgress(
     factor = VISUAL_PROGRESS.easeReduced;
   } else if (options?.completing) {
     factor = VISUAL_PROGRESS.easeComplete;
-  } else if (current < VISUAL_PROGRESS.initial) {
+  } else if (current < VISUAL_PROGRESS.earlyEaseUntil) {
     factor = VISUAL_PROGRESS.easeAck;
   } else if (current >= VISUAL_PROGRESS.nearEndFrom) {
     factor = VISUAL_PROGRESS.easeNearEnd;
@@ -126,6 +136,30 @@ export function easeProgress(
   }
 
   return Math.max(target, next);
+}
+
+export function shouldShowLiveResultShell(input: {
+  status: CrawlLifecycleStatus | null;
+  pagesCrawled: number;
+  elapsedMs: number;
+}): boolean {
+  const { status, pagesCrawled, elapsedMs } = input;
+
+  if (!status || status === "failed" || status === "completed") {
+    return false;
+  }
+
+  return pagesCrawled > 0 || elapsedMs >= LIVE_RESULT_SHELL.revealAfterMs;
+}
+
+export function formatLiveScanPageCount(pagesCrawled: number): string {
+  const count = Math.max(0, pagesCrawled);
+
+  if (count === 1) {
+    return "1 page checked so far";
+  }
+
+  return `${count} pages checked so far`;
 }
 
 export function getCrawlStatusCopy(

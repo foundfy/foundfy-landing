@@ -67,6 +67,65 @@ describe("applyGroupedRecommendations", () => {
     expect(updated).toHaveLength(findings.length);
   });
 
+  it("applies grouped copy to same-action page issues", () => {
+    const findings: AnalysisFinding[] = [
+      {
+        id: "title-1",
+        ruleKey: "page_fundamentals.missing_title",
+        category: "page_fundamentals",
+        severity: "warning",
+        title: "Missing page title",
+        description: "Description",
+        pageUrl: "https://example.com/a",
+        evidence: {},
+        priority: {
+          level: "high",
+          rank: 1,
+          whyItMatters: "Why",
+          recommendedAction: "Add a title",
+          verification: null,
+        },
+        recommendation: {
+          whyItMatters: "Why",
+          recommendedAction: "Add a unique, descriptive title to /a.",
+          verification: null,
+        },
+      },
+      {
+        id: "title-2",
+        ruleKey: "page_fundamentals.missing_title",
+        category: "page_fundamentals",
+        severity: "warning",
+        title: "Missing page title",
+        description: "Description",
+        pageUrl: "https://example.com/b",
+        evidence: {},
+        priority: {
+          level: "high",
+          rank: 2,
+          whyItMatters: "Why",
+          recommendedAction: "Add a title",
+          verification: null,
+        },
+      },
+    ];
+
+    const updated = applyGroupedRecommendations(findings, [
+      {
+        groupKey: "page_fundamentals.missing_title",
+        representativeFindingId: "title-1",
+        memberFindingIds: ["title-1", "title-2"],
+        rawFindingCount: 2,
+        affectedPageCount: 2,
+      },
+    ]);
+
+    expect(updated[0]?.recommendation?.recommendedAction).toContain(
+      "This affects 2 pages",
+    );
+    expect(updated[1]?.recommendation?.recommendedAction).toBeUndefined();
+  });
+
   it("does not change the findings list shape used by All Findings", () => {
     const findings = [
       buildBrokenLinkFinding({ id: "rep", pageUrl: "https://example.com/a" }),

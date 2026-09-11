@@ -1,5 +1,6 @@
 import Link from "next/link";
 import FindingCard from "@/components/hero/FindingCard";
+import { getSiteScanLinkLabel } from "@/lib/analysis/landing-persistent-bridge";
 import {
   buildSiteWhatMattersContent,
   formatSiteMetadataLine,
@@ -68,7 +69,7 @@ export default function SiteWhatMattersSection({
 
         {latestScanHref ? (
           <Link href={latestScanHref} className={styles.fullAnalysisLink}>
-            View full analysis →
+            {getSiteScanLinkLabel()}
           </Link>
         ) : null}
       </div>

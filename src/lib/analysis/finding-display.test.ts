@@ -3,8 +3,12 @@ import {
   formatEmptyHighlightsCopy,
   formatFindingEvidence,
   formatFindingsCount,
+  formatGroupedFindingTitle,
   formatPriorityLabel,
+  formatResultsBrief,
+  formatSeriousnessLine,
   formatZeroFindingsCopy,
+  shouldCollapseAllFindings,
 } from "./finding-display";
 import type { AnalysisFinding } from "./crawl-status";
 
@@ -68,5 +72,91 @@ describe("results copy", () => {
       title: "Nothing stands out as a priority.",
       description: "You can still review the findings below.",
     });
+  });
+});
+
+describe("results comprehension copy", () => {
+  it("builds a deterministic brief from the highest-priority action", () => {
+    expect(
+      formatResultsBrief([
+        {
+          ruleKey: "page_fundamentals.duplicate_title",
+          title: "Duplicate page title",
+          affectedPageCount: 4,
+          priorityLevel: "high",
+        },
+        {
+          ruleKey: "page_fundamentals.missing_meta_description",
+          title: "Missing meta description",
+          affectedPageCount: 6,
+          priorityLevel: "medium",
+        },
+      ]),
+    ).toBe("Duplicate page titles on 4 pages. Next: missing meta descriptions.");
+  });
+
+  it("handles zero findings without fabricated seriousness", () => {
+    expect(formatResultsBrief([])).toBe("No notable issues found.");
+    expect(formatSeriousnessLine([])).toBeNull();
+  });
+
+  it("handles only-low findings without inventing high priority", () => {
+    expect(
+      formatResultsBrief([
+        {
+          ruleKey: "indexability.redirecting_url",
+          title: "URL redirects before final page",
+          affectedPageCount: 3,
+          priorityLevel: "low",
+        },
+      ]),
+    ).toBe("No high-priority issues. URLs redirect before the final page on 3 pages.");
+    expect(
+      formatSeriousnessLine([
+        {
+          ruleKey: "indexability.redirecting_url",
+          title: "URL redirects before final page",
+          affectedPageCount: 3,
+          priorityLevel: "low",
+        },
+      ]),
+    ).toBeNull();
+  });
+
+  it("states high-priority seriousness from grouped actions", () => {
+    expect(
+      formatSeriousnessLine([
+        {
+          ruleKey: "page_fundamentals.duplicate_title",
+          title: "Duplicate page title",
+          affectedPageCount: 4,
+          priorityLevel: "high",
+        },
+        {
+          ruleKey: "internal_structure.broken_internal_link",
+          title: "Broken internal link",
+          affectedPageCount: 3,
+          priorityLevel: "critical",
+        },
+        {
+          ruleKey: "page_fundamentals.missing_h1",
+          title: "Missing H1",
+          affectedPageCount: 2,
+          priorityLevel: "medium",
+        },
+      ]),
+    ).toBe("2 high-priority issues need attention.");
+  });
+
+  it("collapses All findings when there are many grouped actions", () => {
+    expect(shouldCollapseAllFindings(3)).toBe(false);
+    expect(shouldCollapseAllFindings(4)).toBe(true);
+    expect(
+      formatGroupedFindingTitle(
+        "page_fundamentals.duplicate_title",
+        "Duplicate page title",
+        4,
+      ),
+    ).toBe("Duplicate page titles · 4 pages affected");
   });
 });

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { EMPTY_FINDINGS_SUMMARY } from "@/contexts/AnalysisContext";
 import { useCrawlStatusLoader } from "@/hooks/useCrawlStatusLoader";
+import { getScanResultsResetLabel } from "@/lib/analysis/landing-persistent-bridge";
 import { shouldShowScanResults } from "@/lib/scan/scan-results-display";
 import AnalysisResultsView from "@/components/hero/AnalysisResultsView";
 import { AnalysisAnalyzingViewInner } from "@/components/hero/AnalysisAnalyzingView";
@@ -128,6 +129,7 @@ export default function ScanPageView({ crawlRunId }: ScanPageViewProps) {
           findingsSummary={buildFindingsSummary(payload)}
           comparison={payload.comparison ?? null}
           onReset={handleReset}
+          resetLabel={getScanResultsResetLabel(Boolean(siteHref))}
         />
         </div>
       </>
@@ -149,7 +151,7 @@ export default function ScanPageView({ crawlRunId }: ScanPageViewProps) {
           comparison={payload.comparison ?? null}
           onResultsReady={handleResultsReady}
           onReset={handleReset}
-          resetLabel={siteHref ? "Back to site" : "Back to home"}
+          resetLabel={getScanResultsResetLabel(Boolean(siteHref))}
         />
         </div>
       </>

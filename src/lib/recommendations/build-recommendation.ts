@@ -330,6 +330,28 @@ export function buildFindingRecommendation(
   return baseRecommendation(input.ruleKey);
 }
 
+export function buildGroupedActionRecommendation(
+  input: RecommendationInput,
+  affectedPageCount: number,
+): FindingRecommendation {
+  if (input.ruleKey === "internal_structure.broken_internal_link") {
+    return buildGroupedBrokenLinkRecommendation(input, affectedPageCount);
+  }
+
+  if (!isRuleKey(input.ruleKey) || affectedPageCount < 2) {
+    return buildFindingRecommendation(input);
+  }
+
+  const base = baseRecommendation(input.ruleKey);
+  const pageWord = affectedPageCount === 1 ? "page" : "pages";
+
+  return {
+    whyItMatters: base.whyItMatters,
+    recommendedAction: `${base.recommendedAction} This affects ${affectedPageCount} ${pageWord}.`,
+    verification: base.verification,
+  };
+}
+
 export function buildGroupedBrokenLinkRecommendation(
   input: RecommendationInput,
   affectedPageCount: number,

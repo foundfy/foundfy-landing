@@ -39,4 +39,14 @@ describe("scan results display", () => {
       }),
     ).toBe(false);
   });
+
+  it("does not treat the live shell as a completed results page", () => {
+    expect(
+      shouldShowScanResults({
+        phase: "analyzing",
+        loadedAsCompleted: false,
+        showResults: true,
+      }),
+    ).toBe(false);
+  });
 });

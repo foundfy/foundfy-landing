@@ -12,13 +12,18 @@ import styles from "./WebsiteAnalysisEntry.module.css";
 type FindingCardProps = {
   finding: AnalysisFinding;
   variant?: "highlight" | "default";
+  title?: string;
+  affectedUrls?: string[];
 };
 
 export default function FindingCard({
   finding,
   variant = "default",
+  title,
+  affectedUrls = [],
 }: FindingCardProps) {
   const [showExplanation, setShowExplanation] = useState(false);
+  const [showUrls, setShowUrls] = useState(affectedUrls.length <= 3);
   const pagePath = formatFindingPath(finding.pageUrl);
   const isHighlight = variant === "highlight";
   const hasExplanation = !!finding.explanationEnrichment;
@@ -26,6 +31,10 @@ export default function FindingCard({
   const changeStatusLabel = finding.changeStatus
     ? formatChangeStatusLabel(finding.changeStatus)
     : null;
+  const displayTitle = title ?? finding.title;
+  const affectedPageCount = finding.highlightAggregation?.affectedPageCount ?? 0;
+  const uniqueUrls = affectedUrls.length > 0 ? affectedUrls : [];
+  const showSinglePath = uniqueUrls.length === 0 && pagePath;
 
   return (
     <article
@@ -34,7 +43,10 @@ export default function FindingCard({
       }`.trim()}
     >
       <div className={styles.findingCardHeader}>
-        <h3 className={styles.findingTitle}>{finding.title}</h3>
+        <div className={styles.findingProblemBlock}>
+          <span className={styles.findingActionLabel}>Problem</span>
+          <h3 className={styles.findingTitle}>{displayTitle}</h3>
+        </div>
         {finding.priority ? (
           <span
             className={`${styles.priorityBadge} ${
@@ -46,8 +58,39 @@ export default function FindingCard({
         ) : null}
       </div>
 
-      {pagePath ? (
-        <p className={styles.findingPath}>{pagePath}</p>
+      {showSinglePath ? <p className={styles.findingPath}>{pagePath}</p> : null}
+
+      {uniqueUrls.length > 0 ? (
+        <div className={styles.findingAffectedUrls}>
+          {affectedPageCount > 1 ? (
+            <p className={styles.findingAffectedCount}>
+              {affectedPageCount} pages affected
+            </p>
+          ) : null}
+          {uniqueUrls.length > 3 ? (
+            <button
+              type="button"
+              className={styles.findingAffectedToggle}
+              aria-expanded={showUrls}
+              onClick={() => setShowUrls((current) => !current)}
+            >
+              {showUrls ? "Hide affected pages" : "Show affected pages"}
+            </button>
+          ) : null}
+          {showUrls || uniqueUrls.length <= 3 ? (
+            <ul className={styles.findingAffectedList}>
+              {uniqueUrls.map((url) => (
+                <li key={url} className={styles.findingPath}>
+                  {formatFindingPath(url) ?? url}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : affectedPageCount > 1 ? (
+        <p className={styles.findingAffectedCount}>
+          Found on {affectedPageCount} pages
+        </p>
       ) : null}
 
       {changeStatusLabel ? (
@@ -62,28 +105,23 @@ export default function FindingCard({
         </p>
       ) : null}
 
-      {isHighlight &&
-      finding.highlightAggregation &&
-      finding.highlightAggregation.affectedPageCount > 1 ? (
-        <p className={styles.findingAffectedCount}>
-          Found on {finding.highlightAggregation.affectedPageCount} pages
-        </p>
-      ) : null}
-
       {recommendation ? (
         <div className={styles.findingRecommendationBlock}>
-          <p className={styles.findingWhyItMatters}>{recommendation.whyItMatters}</p>
+          <div className={styles.findingActionRow}>
+            <span className={styles.findingActionLabel}>Why it matters</span>
+            <p className={styles.findingWhyItMatters}>{recommendation.whyItMatters}</p>
+          </div>
 
           <div className={styles.findingActionRow}>
-            <span className={styles.findingActionLabel}>What to do</span>
+            <span className={styles.findingActionLabel}>What to change</span>
             <p className={styles.findingRecommendedAction}>
               {recommendation.recommendedAction}
             </p>
           </div>
 
           {recommendation.verification ? (
-            <div className={styles.findingActionRow}>
-              <span className={styles.findingActionLabel}>How to verify</span>
+            <div className={`${styles.findingActionRow} ${styles.findingVerifyRow}`}>
+              <span className={styles.findingVerifyLabel}>How to verify</span>
               <p className={styles.findingVerification}>{recommendation.verification}</p>
             </div>
           ) : null}

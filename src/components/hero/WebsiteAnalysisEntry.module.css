@@ -357,28 +357,44 @@
   width: 100%;
 }
 
+.liveShellGroup {
+  max-width: 560px;
+}
+
+.liveResultCard {
+  margin-top: 14px;
+}
+
 .formAnalyzing {
   cursor: default;
   position: relative;
   isolation: isolate;
   animation: none;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 92, 42, 0.34) 0%,
+      rgba(255, 74, 28, 0.24) calc(max(26%, var(--pill-progress, 0) * 100%)),
+      rgba(245, 243, 238, 0.06) 100%
+    );
   border-color: color-mix(
     in srgb,
-    rgba(245, 243, 238, 0.16) calc((1 - var(--pill-progress, 0)) * 100%),
-    rgba(255, 110, 70, 0.22) calc(var(--pill-progress, 0) * 100%)
+    rgba(255, 130, 80, 0.36) calc((1 - var(--pill-progress, 0)) * 100%),
+    rgba(255, 140, 88, 0.62) calc(var(--pill-progress, 0) * 100%)
   );
   transition:
     border-color 0.7s cubic-bezier(0.45, 0.05, 0.25, 1),
     box-shadow 0.7s cubic-bezier(0.45, 0.05, 0.25, 1);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    0 0 28px rgba(255, 74, 28, 0.1),
-    0 0 56px rgba(255, 74, 28, 0.05),
-    inset calc(var(--pill-progress, 0) * 18px) 0 32px -28px rgba(255, 74, 28, 0.05);
+    inset 0 1px 0 rgba(255, 220, 190, 0.2),
+    0 0 48px rgba(255, 74, 28, 0.46),
+    0 0 96px rgba(255, 74, 28, 0.26),
+    0 0 150px rgba(255, 90, 40, 0.16),
+    inset calc(var(--pill-progress, 0) * 72px) 0 64px -14px rgba(255, 110, 48, 0.36);
 }
 
 .formAnalyzing::before {
-  opacity: 0.18;
+  opacity: 0.62;
 }
 
 .pillLightField {
@@ -395,13 +411,13 @@
   inset: 0;
   background: linear-gradient(
     90deg,
-    rgba(255, 86, 42, 0.12) 0%,
-    rgba(255, 74, 28, 0.16) calc(max(0%, var(--pill-progress, 0) * 100% - 10%)),
-    rgba(255, 110, 62, 0.14) calc(var(--pill-progress, 0) * 100%),
-    rgba(255, 74, 28, 0.05) calc(var(--pill-progress, 0) * 100% + 8%),
-    transparent calc(var(--pill-progress, 0) * 100% + 22%)
+    rgba(255, 86, 42, 0.5) 0%,
+    rgba(255, 74, 28, 0.62) calc(max(10%, var(--pill-progress, 0) * 100% - 10%)),
+    rgba(255, 132, 72, 0.58) calc(max(12%, var(--pill-progress, 0) * 100%)),
+    rgba(255, 110, 58, 0.24) calc(max(12%, var(--pill-progress, 0) * 100%) + 16%),
+    transparent calc(max(12%, var(--pill-progress, 0) * 100%) + 36%)
   );
-  opacity: 0.95;
+  opacity: 1;
   transition: opacity 0.55s cubic-bezier(0.45, 0.05, 0.25, 1);
 }
 
@@ -409,37 +425,37 @@
   position: absolute;
   top: 50%;
   left: 0;
-  width: calc(max(0%, var(--pill-progress, 0) * 100% + 4%));
-  height: 170%;
+  width: max(96px, 18%, calc(var(--pill-progress, 0) * 100% + 14%));
+  height: 220%;
   transform: translateY(-50%);
   background: linear-gradient(
     90deg,
-    rgba(255, 74, 28, 0.03) 0%,
-    rgba(255, 74, 28, 0.07) 42%,
-    rgba(255, 100, 58, 0.12) 78%,
-    rgba(255, 124, 78, 0.16) 100%
+    rgba(255, 74, 28, 0.28) 0%,
+    rgba(255, 86, 36, 0.46) 34%,
+    rgba(255, 118, 64, 0.62) 70%,
+    rgba(255, 168, 108, 0.72) 100%
   );
   filter: blur(16px);
-  opacity: 0.88;
+  opacity: 1;
   transition: width 0.55s cubic-bezier(0.45, 0.05, 0.25, 1);
 }
 
 .pillLightBloom {
   position: absolute;
   top: 50%;
-  left: calc(var(--pill-progress, 0) * 100%);
-  width: clamp(88px, 24vw, 132px);
-  height: 230%;
+  left: calc(max(8%, var(--pill-progress, 0) * 100%));
+  width: clamp(168px, 42vw, 260px);
+  height: 300%;
   transform: translate(-50%, -50%);
   background: radial-gradient(
     ellipse at center,
-    rgba(255, 124, 72, 0.2) 0%,
-    rgba(255, 74, 28, 0.1) 34%,
-    rgba(255, 74, 28, 0.04) 56%,
+    rgba(255, 196, 132, 0.78) 0%,
+    rgba(255, 132, 72, 0.48) 26%,
+    rgba(255, 74, 28, 0.22) 50%,
     transparent 74%
   );
-  filter: blur(22px);
-  opacity: 0.92;
+  filter: blur(16px);
+  opacity: 1;
   transition: left 0.55s cubic-bezier(0.45, 0.05, 0.25, 1);
 }
 
@@ -450,18 +466,18 @@
 .pillLightCore {
   position: absolute;
   top: 50%;
-  left: calc(var(--pill-progress, 0) * 100%);
-  width: clamp(30px, 8vw, 46px);
-  height: 150%;
+  left: calc(max(8%, var(--pill-progress, 0) * 100%));
+  width: clamp(64px, 16vw, 96px);
+  height: 190%;
   transform: translate(-50%, -50%);
   background: radial-gradient(
     ellipse at center,
-    rgba(255, 186, 132, 0.22) 0%,
-    rgba(255, 110, 62, 0.1) 38%,
+    rgba(255, 226, 186, 0.88) 0%,
+    rgba(255, 156, 92, 0.5) 34%,
     transparent 68%
   );
-  filter: blur(10px);
-  opacity: 0.8;
+  filter: blur(7px);
+  opacity: 1;
   transition: left 0.55s cubic-bezier(0.45, 0.05, 0.25, 1);
 }
 
@@ -474,13 +490,13 @@
   inset: 0;
   border-radius: inherit;
   background: radial-gradient(
-    ellipse 95% 85% at calc(var(--pill-progress, 0) * 100%) 50%,
-    rgba(255, 74, 28, 0.045) 0%,
-    rgba(255, 74, 28, 0.02) 42%,
+    ellipse 110% 95% at calc(max(8%, var(--pill-progress, 0) * 100%)) 50%,
+    rgba(255, 90, 40, 0.16) 0%,
+    rgba(255, 74, 28, 0.08) 40%,
     transparent 74%
   );
-  filter: blur(10px);
-  opacity: calc(var(--pill-progress, 0) * 0.65);
+  filter: blur(12px);
+  opacity: calc(0.5 + var(--pill-progress, 0) * 0.5);
   transition:
     opacity 0.7s cubic-bezier(0.45, 0.05, 0.25, 1),
     background 0.7s cubic-bezier(0.45, 0.05, 0.25, 1);
@@ -635,6 +651,14 @@
   color: rgba(245, 243, 238, 0.72);
 }
 
+.resultsSeriousness {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.45;
+  color: rgba(255, 176, 132, 0.88);
+}
+
 .resultsDomain {
   font-size: 12px;
   font-weight: 400;
@@ -744,6 +768,31 @@
   color: rgba(245, 243, 238, 0.34);
 }
 
+.allFindingsToggle {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.45;
+  color: rgba(245, 243, 238, 0.62);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  cursor: pointer;
+}
+
+.allFindingsToggle:hover {
+  color: #f5f3ee;
+}
+
+.allFindingsToggle:focus-visible {
+  outline: 2px solid rgba(245, 243, 238, 0.85);
+  outline-offset: 3px;
+}
+
 .findingsHighlightList,
 .findingsList {
   display: grid;
@@ -788,6 +837,12 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.findingProblemBlock {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
 }
 
 .findingTitle {
@@ -857,6 +912,38 @@
   color: rgba(245, 243, 238, 0.56);
 }
 
+.findingAffectedUrls {
+  margin-top: 6px;
+}
+
+.findingAffectedToggle {
+  display: block;
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(245, 243, 238, 0.52);
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
+  cursor: pointer;
+}
+
+.findingAffectedToggle:focus-visible {
+  outline: 2px solid rgba(245, 243, 238, 0.85);
+  outline-offset: 2px;
+}
+
+.findingAffectedList {
+  display: grid;
+  gap: 2px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
 .findingRecommendationBlock {
   display: grid;
   gap: 8px;
@@ -889,9 +976,21 @@
 }
 
 .findingVerification {
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.45;
-  color: rgba(245, 243, 238, 0.52);
+  color: rgba(245, 243, 238, 0.38);
+}
+
+.findingVerifyRow {
+  margin-top: 2px;
+}
+
+.findingVerifyLabel {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(245, 243, 238, 0.26);
 }
 
 .findingDescription {
@@ -996,26 +1095,26 @@
 @keyframes pillEdgeBloom {
   0%,
   100% {
-    opacity: 0.78;
-    transform: translate(-50%, -50%) scale(0.96);
+    opacity: 0.88;
+    transform: translate(-50%, -50%) scale(0.97);
   }
 
   50% {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1.05);
+    transform: translate(-50%, -50%) scale(1.06);
   }
 }
 
 @keyframes pillEdgeCore {
   0%,
   100% {
-    opacity: 0.7;
-    transform: translate(-50%, -50%) scale(0.94);
+    opacity: 0.86;
+    transform: translate(-50%, -50%) scale(0.96);
   }
 
   50% {
-    opacity: 0.92;
-    transform: translate(-50%, -50%) scale(1.08);
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
   }
 }
 
@@ -1059,6 +1158,43 @@
 @media (hover: hover) {
   .resetButton:hover {
     color: #f5f3ee;
+  }
+}
+
+@media (min-width: 769px) {
+  .formAnalyzing {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 220, 190, 0.24),
+      0 0 64px rgba(255, 74, 28, 0.52),
+      0 0 120px rgba(255, 74, 28, 0.3),
+      0 0 190px rgba(255, 90, 40, 0.18),
+      inset calc(var(--pill-progress, 0) * 88px) 0 72px -12px rgba(255, 110, 48, 0.42);
+  }
+
+  .pillLightTrail {
+    width: max(128px, 22%, calc(var(--pill-progress, 0) * 100% + 16%));
+    filter: blur(15px);
+  }
+
+  .pillLightBloom {
+    width: 280px;
+    background: radial-gradient(
+      ellipse at center,
+      rgba(255, 204, 142, 0.86) 0%,
+      rgba(255, 140, 78, 0.54) 24%,
+      rgba(255, 74, 28, 0.26) 48%,
+      transparent 72%
+    );
+  }
+
+  .pillLightCore {
+    width: 104px;
+    background: radial-gradient(
+      ellipse at center,
+      rgba(255, 232, 196, 0.94) 0%,
+      rgba(255, 164, 98, 0.58) 32%,
+      transparent 66%
+    );
   }
 }
 

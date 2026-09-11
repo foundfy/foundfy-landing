@@ -1,12 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   buildFullAnalysisHref,
+  getLandingScanPageLinkLabel,
+  getScanResultsResetLabel,
+  getSiteScanLinkLabel,
   shouldShowLandingFullAnalysisLink,
 } from "./landing-persistent-bridge";
 
 describe("landing persistent bridge", () => {
   it("links completed landing results to the canonical scan route", () => {
     expect(buildFullAnalysisHref("run-abc-123")).toBe("/scan/run-abc-123");
+    expect(getLandingScanPageLinkLabel()).toBe("Open scan page →");
+    expect(getSiteScanLinkLabel()).toBe("View this scan →");
+    expect(getScanResultsResetLabel(true)).toBe("View site overview");
+    expect(getScanResultsResetLabel(false)).toBe("Back to home");
   });
 
   it("shows full analysis only for completed results with a crawl id", () => {
