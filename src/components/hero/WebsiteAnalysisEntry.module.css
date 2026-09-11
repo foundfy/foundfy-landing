@@ -968,12 +968,18 @@
   padding-left: 0;
 }
 
-.resultsFutureLink {
+.resultsFullAnalysisLink {
   font-size: 12px;
   font-weight: 500;
   letter-spacing: -0.01em;
-  color: rgba(245, 243, 238, 0.28);
-  cursor: default;
+  color: rgba(245, 243, 238, 0.72);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.resultsFullAnalysisLink:hover {
+  color: #ff7447;
+  text-decoration: underline;
 }
 
 @keyframes analysisPulse {

@@ -1,11 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import {
   formatEmptyHighlightsCopy,
   formatFindingsCount,
   formatZeroFindingsCopy,
 } from "@/lib/analysis/finding-display";
 import { formatComparisonSummary } from "@/lib/analysis/comparison-display";
+import {
+  buildFullAnalysisHref,
+  shouldShowLandingFullAnalysisLink,
+} from "@/lib/analysis/landing-persistent-bridge";
 import type {
   AnalysisFinding,
   CrawlComparison,
@@ -20,6 +25,7 @@ type AnalysisResultsViewProps = {
   findings: AnalysisFinding[];
   findingsSummary: FindingsSummary;
   comparison?: CrawlComparison | null;
+  crawlRunId?: string | null;
   onReset: () => void;
 };
 
@@ -28,8 +34,13 @@ export default function AnalysisResultsView({
   findings,
   findingsSummary,
   comparison,
+  crawlRunId = null,
   onReset,
 }: AnalysisResultsViewProps) {
+  const showFullAnalysisLink = shouldShowLandingFullAnalysisLink({
+    phase: "completed",
+    crawlRunId,
+  });
   const highlightGroupByRepresentativeId = new Map(
     findingsSummary.highlightGroups.map((group) => [
       group.representativeFindingId,
@@ -146,9 +157,14 @@ export default function AnalysisResultsView({
           <button type="button" className={styles.resetButton} onClick={onReset}>
             Try another website
           </button>
-          <span className={styles.resultsFutureLink} aria-disabled="true">
-            View full analysis →
-          </span>
+          {showFullAnalysisLink && crawlRunId ? (
+            <Link
+              href={buildFullAnalysisHref(crawlRunId)}
+              className={styles.resultsFullAnalysisLink}
+            >
+              View full analysis →
+            </Link>
+          ) : null}
         </div>
       </div>
     </div>

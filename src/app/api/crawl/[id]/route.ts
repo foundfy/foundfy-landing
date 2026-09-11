@@ -81,6 +81,7 @@ export async function GET(_request: Request, context: RouteContext) {
     return NextResponse.json(
       {
         id: responseSummary.id,
+        websiteId: responseSummary.websiteId,
         status: responseSummary.status,
         hostname: responseSummary.hostname,
         seedUrl: responseSummary.seedUrl,

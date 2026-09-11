@@ -25,6 +25,7 @@ import {
   updateQueueItem,
   type ActiveCrawlRun,
 } from "../db/repository";
+import { generateObservationsForCrawlRun } from "@/lib/observations/db/repository";
 import { parseHtmlPage } from "../parse/page";
 import { SsrfValidationError, ssrfSafeFetch } from "../security/ssrf-fetch";
 import type { RobotsRules } from "../types";
@@ -392,9 +393,22 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
       return run.id;
     }
 
-    await markCrawlRunCompleted(run.id, run.websiteId, {
+    const completed = await markCrawlRunCompleted(run.id, run.websiteId, {
       expectedStartedAt: claimedStartedAt,
     });
+
+    if (completed) {
+      try {
+        await generateObservationsForCrawlRun(run.id);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Observation generation after crawl completion failed.";
+        console.error("[Crawl] Post-completion observation generation failed:", message);
+      }
+    }
+
     return run.id;
   } catch (error) {
     const message =

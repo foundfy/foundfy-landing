@@ -54,6 +54,7 @@ export type RobotsRules = {
 
 export type CrawlRunSummary = {
   id: string;
+  websiteId: string;
   status: CrawlRunStatus;
   hostname: string;
   seedUrl: string;

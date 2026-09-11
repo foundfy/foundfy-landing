@@ -1,0 +1,245 @@
+import { describe, expect, it } from "vitest";
+import type { WebsiteOverview } from "@/lib/websites/types";
+import { formatComparisonNarrative } from "@/lib/analysis/comparison-display";
+import {
+  SITE_HIGHLIGHT_MAX,
+  buildHighlightedFindingsForSitePage,
+  buildSiteOverviewLinks,
+  buildSiteProgressContent,
+  buildSiteWhatMattersContent,
+  formatHistoryFindingsLabel,
+  shouldShowActiveScanBanner,
+  shouldShowCurrentState,
+} from "./site-overview-view-model";
+
+function createOverview(
+  overrides: Partial<WebsiteOverview> = {},
+): WebsiteOverview {
+  return {
+    website: {
+      id: "website-1",
+      hostname: "ekoiq.com",
+      displayUrl: "https://www.ekoiq.com/",
+      firstSeenAt: "2026-09-10T00:00:00.000Z",
+      lastCrawledAt: "2026-09-11T00:00:00.000Z",
+    },
+    latestUsableScan: {
+      crawlRunId: "run-usable",
+      completedAt: "2026-09-10T15:01:00.000Z",
+      pagesCrawled: 10,
+      findingsSummary: {
+        totalCount: 22,
+        highlightedFindingIds: ["finding-1", "finding-2", "finding-3", "finding-4"],
+        highlightGroups: [
+          {
+            representativeFindingId: "finding-2",
+            memberFindingIds: ["finding-2"],
+            rawFindingCount: 3,
+            affectedPageCount: 4,
+          },
+        ],
+      },
+      comparison: {
+        previousCrawlRunId: "run-prev",
+        previousCompletedAt: "2026-09-09T15:01:00.000Z",
+        fixed: 2,
+        stillPresent: 14,
+        new: 3,
+        unverified: 1,
+        fixedFindings: [],
+      },
+      explanationEnrichmentStatus: "ready",
+    },
+    highlightedFindings: [
+      {
+        id: "finding-1",
+        ruleKey: "page_fundamentals.missing_title",
+        category: "page_fundamentals",
+        severity: "warning",
+        title: "Missing title",
+        description: "Missing title",
+        pageUrl: "https://www.ekoiq.com/about",
+        evidence: {},
+        priority: {
+          level: "high",
+          rank: 1,
+          whyItMatters: "Titles matter",
+          recommendedAction: "Add a title",
+          verification: null,
+        },
+      },
+      {
+        id: "finding-2",
+        ruleKey: "internal_structure.broken_internal_link",
+        category: "internal_structure",
+        severity: "error",
+        title: "Broken link",
+        description: "Broken link",
+        pageUrl: "https://www.ekoiq.com/",
+        evidence: { linkToUrl: "https://www.ekoiq.com/old" },
+        priority: {
+          level: "critical",
+          rank: 2,
+          whyItMatters: "Broken links matter",
+          recommendedAction: "Fix the link",
+          verification: null,
+        },
+      },
+      {
+        id: "finding-3",
+        ruleKey: "page_fundamentals.missing_meta_description",
+        category: "page_fundamentals",
+        severity: "warning",
+        title: "Missing meta description",
+        description: "Missing meta description",
+        pageUrl: "https://www.ekoiq.com/contact",
+        evidence: {},
+        priority: null,
+      },
+    ],
+    activeScan: null,
+    scanHistory: [],
+    ...overrides,
+  };
+}
+
+describe("site overview view model", () => {
+  it("keeps latest usable scan as primary state while active scan exists separately", () => {
+    const overview = createOverview({
+      activeScan: {
+        crawlRunId: "run-active",
+        status: "running",
+        pagesCrawled: 2,
+        maxPages: 10,
+      },
+    });
+
+    expect(shouldShowCurrentState(overview)).toBe(true);
+    expect(shouldShowActiveScanBanner(overview)).toBe(true);
+    expect(buildSiteOverviewLinks(overview).latestScanHref).toBe("/scan/run-usable");
+    expect(buildSiteOverviewLinks(overview).activeScanHref).toBe("/scan/run-active");
+  });
+
+  it("caps highlighted findings at three", () => {
+    const overview = createOverview();
+    const highlights = buildHighlightedFindingsForSitePage(
+      overview.highlightedFindings,
+      overview.latestUsableScan!.findingsSummary,
+    );
+
+    expect(highlights).toHaveLength(SITE_HIGHLIGHT_MAX);
+    expect(highlights[1]?.highlightAggregation?.affectedPageCount).toBe(4);
+  });
+
+  it("links full analysis to the latest usable crawl id", () => {
+    const links = buildSiteOverviewLinks(createOverview());
+    expect(links.latestScanHref).toBe("/scan/run-usable");
+  });
+
+  it("renders first-scan progress copy when comparison is missing", () => {
+    const progress = buildSiteProgressContent(null);
+    expect(progress.kind).toBe("first_scan");
+    expect(progress.copy).toContain("first scan");
+  });
+
+  it("renders editorial comparison narrative", () => {
+    const progress = buildSiteProgressContent(createOverview().latestUsableScan!.comparison);
+    expect(progress.kind).toBe("comparison");
+    expect(progress.copy).toBe(
+      "2 issues fixed. 3 new issues appeared. 14 are still present. 1 could not be verified.",
+    );
+  });
+
+  it("uses the no-highlight product meaning when findings exist without highlights", () => {
+    const content = buildSiteWhatMattersContent(
+      createOverview({
+        latestUsableScan: {
+          ...createOverview().latestUsableScan!,
+          findingsSummary: {
+            totalCount: 5,
+            highlightedFindingIds: [],
+            highlightGroups: [],
+          },
+        },
+        highlightedFindings: [],
+      }),
+    );
+
+    expect(content.kind).toBe("empty_highlights");
+    if (content.kind === "empty_highlights") {
+      expect(content.title).toBe("Nothing stands out as a priority.");
+    }
+  });
+
+  it("uses zero-findings language for successful empty scans", () => {
+    const content = buildSiteWhatMattersContent(
+      createOverview({
+        latestUsableScan: {
+          ...createOverview().latestUsableScan!,
+          findingsSummary: {
+            totalCount: 0,
+            highlightedFindingIds: [],
+            highlightGroups: [],
+          },
+        },
+        highlightedFindings: [],
+      }),
+    );
+
+    expect(content.kind).toBe("zero_findings");
+    if (content.kind === "zero_findings") {
+      expect(content.title).toBe("No notable issues found.");
+    }
+  });
+
+  it("does not display null findings counts as zero", () => {
+    expect(formatHistoryFindingsLabel(null)).toBeNull();
+    expect(formatHistoryFindingsLabel(0)).toBe("0 findings");
+    expect(formatHistoryFindingsLabel(22)).toBe("22 findings");
+  });
+
+  it("links history rows to their own crawl ids", () => {
+    const links = buildSiteOverviewLinks(
+      createOverview({
+        scanHistory: [
+          {
+            crawlRunId: "run-failed",
+            status: "failed",
+            createdAt: "2026-09-11T00:00:00.000Z",
+            startedAt: null,
+            completedAt: "2026-09-11T00:01:00.000Z",
+            pagesCrawled: 0,
+            findingsCount: null,
+          },
+          {
+            crawlRunId: "run-usable",
+            status: "completed",
+            createdAt: "2026-09-10T00:00:00.000Z",
+            startedAt: null,
+            completedAt: "2026-09-10T15:01:00.000Z",
+            pagesCrawled: 10,
+            findingsCount: 22,
+          },
+        ],
+      }),
+    );
+
+    expect(links.historyHrefs).toEqual(["/scan/run-failed", "/scan/run-usable"]);
+  });
+});
+
+describe("formatComparisonNarrative", () => {
+  it("builds a readable sentence from comparison counts", () => {
+    expect(
+      formatComparisonNarrative({
+        previousCrawlRunId: "prev",
+        previousCompletedAt: "2026-09-09T00:00:00.000Z",
+        fixed: 1,
+        stillPresent: 0,
+        new: 1,
+        unverified: 0,
+        fixedFindings: [],
+      }),
+    ).toBe("1 issue fixed. 1 new issue appeared.");
+  });
+});

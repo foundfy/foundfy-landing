@@ -1,0 +1,50 @@
+.page {
+  min-height: 100vh;
+  padding: 48px 20px 80px;
+  background: #0b0b0f;
+  color: #f5f5f7;
+}
+
+.inner {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.nav {
+  margin-bottom: 32px;
+}
+
+.backLink {
+  color: rgba(245, 245, 247, 0.72);
+  font-size: 0.9375rem;
+  text-decoration: none;
+}
+
+.backLink:hover {
+  color: #f5f5f7;
+}
+
+.statusMessage,
+.errorMessage {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.errorMessage {
+  color: #ffb4a6;
+}
+
+.loading {
+  color: rgba(245, 245, 247, 0.72);
+}
+
+.analysisSurface {
+  width: 100%;
+  max-width: 520px;
+}
+
+.siteInner {
+  max-width: 760px;
+}

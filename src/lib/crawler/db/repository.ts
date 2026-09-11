@@ -179,7 +179,7 @@ export async function getCrawlRunSummary(crawlRunId: string): Promise<CrawlRunSu
   const { data, error } = await supabase
     .from("crawl_runs")
     .select(
-      "id, status, seed_url, max_pages, pages_crawled, pages_discovered, error_message, started_at, completed_at, created_at, websites(hostname)",
+      "id, website_id, status, seed_url, max_pages, pages_crawled, pages_discovered, error_message, started_at, completed_at, created_at, websites(hostname)",
     )
     .eq("id", crawlRunId)
     .maybeSingle();
@@ -197,6 +197,7 @@ export async function getCrawlRunSummary(crawlRunId: string): Promise<CrawlRunSu
 
   return {
     id: row.id,
+    websiteId: row.website_id,
     status: row.status,
     hostname: website?.hostname ?? "",
     seedUrl: row.seed_url,

@@ -239,6 +239,22 @@ async function deactivateStaleObservations(
   }
 }
 
+export async function countActiveObservations(crawlRunId: string): Promise<number> {
+  const supabase = getSupabaseAdmin();
+
+  const { count, error } = await supabase
+    .from("observations")
+    .select("id", { count: "exact", head: true })
+    .eq("crawl_run_id", crawlRunId)
+    .eq("status", "active");
+
+  if (error) {
+    throw new Error(`Failed to count observations: ${error.message}`);
+  }
+
+  return count ?? 0;
+}
+
 export async function listObservations(crawlRunId: string): Promise<StoredObservation[]> {
   const supabase = getSupabaseAdmin();
 
@@ -295,10 +311,41 @@ export async function generateObservationsForCrawlRun(crawlRunId: string): Promi
   });
 
   const observations = await listObservations(crawlRunId);
+  await markObservationsMaterialized(crawlRunId);
 
   return {
     crawlRunId,
     generatedCount: observations.length,
     observations,
   };
+}
+
+async function markObservationsMaterialized(crawlRunId: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const now = new Date().toISOString();
+
+  const { error } = await supabase
+    .from("crawl_runs")
+    .update({ observations_materialized_at: now })
+    .eq("id", crawlRunId);
+
+  if (error) {
+    throw new Error(`Failed to mark observations materialized: ${error.message}`);
+  }
+}
+
+export async function areObservationsMaterialized(crawlRunId: string): Promise<boolean> {
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase
+    .from("crawl_runs")
+    .select("observations_materialized_at")
+    .eq("id", crawlRunId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to check observation materialization: ${error.message}`);
+  }
+
+  return Boolean(data?.observations_materialized_at);
 }

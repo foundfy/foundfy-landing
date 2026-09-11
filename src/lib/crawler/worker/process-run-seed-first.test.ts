@@ -16,6 +16,12 @@ const reconcileOrphanedPageProgressMock = vi.fn();
 const hasSitemapArtifactsMock = vi.fn();
 const listQueueUrlsMock = vi.fn();
 const ssrfSafeFetchMock = vi.fn();
+const generateObservationsForCrawlRunMock = vi.fn();
+
+vi.mock("@/lib/observations/db/repository", () => ({
+  generateObservationsForCrawlRun: (...args: unknown[]) =>
+    generateObservationsForCrawlRunMock(...args),
+}));
 
 vi.mock("../db/repository", () => ({
   claimNextQueuedRun: (...args: unknown[]) => claimNextQueuedRunMock(...args),
@@ -123,6 +129,11 @@ describe("processCrawlRun seed-first and discovery resume", () => {
     saveLinksMock.mockResolvedValue(undefined);
     saveParsedPageMock.mockResolvedValue("page-1");
     markCrawlRunCompletedMock.mockResolvedValue(true);
+    generateObservationsForCrawlRunMock.mockResolvedValue({
+      crawlRunId: "run-1",
+      generatedCount: 0,
+      observations: [],
+    });
     findPageByRequestedUrlMock.mockResolvedValue(null);
     reconcileOrphanedPageProgressMock.mockResolvedValue(false);
     hasSitemapArtifactsMock.mockResolvedValue(false);

@@ -57,6 +57,7 @@ describe("GET /api/crawl/[id] recovery integration", () => {
     getCrawlRunSummaryMock
       .mockResolvedValueOnce({
         id: RUN_ID,
+        websiteId: "website-1",
         status: "running",
         hostname: "arngren.net",
         seedUrl: "https://www.arngren.net/",
@@ -70,6 +71,7 @@ describe("GET /api/crawl/[id] recovery integration", () => {
       })
       .mockResolvedValueOnce({
         id: RUN_ID,
+        websiteId: "website-1",
         status: "queued",
         hostname: "arngren.net",
         seedUrl: "https://www.arngren.net/",
@@ -99,6 +101,7 @@ describe("GET /api/crawl/[id] recovery integration", () => {
   it("schedules AI enrichment only after deterministic completion", async () => {
     getCrawlRunSummaryMock.mockResolvedValue({
       id: RUN_ID,
+      websiteId: "website-1",
       status: "completed",
       hostname: "arngren.net",
       seedUrl: "https://www.arngren.net/",
@@ -131,6 +134,7 @@ describe("GET /api/crawl/[id] recovery integration", () => {
   it("does not expose legacy completed zero-page runs as normal results", async () => {
     getCrawlRunSummaryMock.mockResolvedValue({
       id: "6380777a-2599-4f95-9334-e32553c49e04",
+      websiteId: "website-1",
       status: "completed",
       hostname: "arngren.net",
       seedUrl: "https://arngren.net/",
@@ -160,6 +164,7 @@ describe("GET /api/crawl/[id] recovery integration", () => {
   it("preserves existing queued recovery behavior", async () => {
     getCrawlRunSummaryMock.mockResolvedValue({
       id: RUN_ID,
+      websiteId: "website-1",
       status: "queued",
       hostname: "arngren.net",
       seedUrl: "https://www.arngren.net/",

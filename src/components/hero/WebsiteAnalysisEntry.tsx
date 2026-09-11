@@ -14,6 +14,7 @@ export default function WebsiteAnalysisEntry() {
   const {
     domain,
     phase,
+    crawlRunId,
     findings,
     findingsSummary,
     comparison,
@@ -131,6 +132,7 @@ export default function WebsiteAnalysisEntry() {
             }
           }
           comparison={comparison}
+          crawlRunId={crawlRunId}
           onReset={handleReset}
         />
       ) : (

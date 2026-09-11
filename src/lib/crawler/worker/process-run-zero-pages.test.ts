@@ -17,6 +17,12 @@ const reconcileOrphanedPageProgressMock = vi.fn();
 const hasSitemapArtifactsMock = vi.fn();
 const listQueueUrlsMock = vi.fn();
 const ssrfSafeFetchMock = vi.fn();
+const generateObservationsForCrawlRunMock = vi.fn();
+
+vi.mock("@/lib/observations/db/repository", () => ({
+  generateObservationsForCrawlRun: (...args: unknown[]) =>
+    generateObservationsForCrawlRunMock(...args),
+}));
 
 vi.mock("../db/repository", () => ({
   claimNextQueuedRun: (...args: unknown[]) => claimNextQueuedRunMock(...args),
@@ -138,6 +144,11 @@ describe("processCrawlRun zero-page integrity", () => {
     saveSiteArtifactMock.mockResolvedValue(undefined);
     markCrawlRunFailedMock.mockResolvedValue(true);
     markCrawlRunCompletedMock.mockResolvedValue(true);
+    generateObservationsForCrawlRunMock.mockResolvedValue({
+      crawlRunId: "run-1",
+      generatedCount: 0,
+      observations: [],
+    });
     ssrfSafeFetchMock.mockImplementation(async (url: string) => {
       if (url.includes("robots.txt")) {
         return {
@@ -208,6 +219,7 @@ describe("processCrawlRun zero-page integrity", () => {
 
     await processCrawlRun("run-zero");
 
+    expect(generateObservationsForCrawlRunMock).toHaveBeenCalledWith("run-zero");
     expect(markCrawlRunCompletedMock).toHaveBeenCalledWith(
       "run-zero",
       "website-1",

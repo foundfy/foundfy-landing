@@ -78,6 +78,7 @@ export type FindingsSummary = {
 
 export type CrawlStatusPayload = {
   id: string;
+  websiteId: string;
   status: CrawlLifecycleStatus;
   hostname: string;
   seedUrl: string;

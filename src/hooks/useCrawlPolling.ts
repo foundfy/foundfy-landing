@@ -54,6 +54,7 @@ export function useCrawlPolling() {
 
         const payload = (await response.json()) as {
           crawlRunId?: string;
+          websiteId?: string;
           error?: string;
         };
 

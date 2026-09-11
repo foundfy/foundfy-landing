@@ -16,6 +16,39 @@ export function formatComparisonSummary(comparison: CrawlComparison): string {
   return summary;
 }
 
+export function formatComparisonNarrative(comparison: CrawlComparison): string {
+  const sentences: string[] = [];
+
+  if (comparison.fixed > 0) {
+    const noun = comparison.fixed === 1 ? "issue" : "issues";
+    sentences.push(`${comparison.fixed} ${noun} fixed`);
+  }
+
+  if (comparison.new > 0) {
+    const noun = comparison.new === 1 ? "issue" : "issues";
+    sentences.push(`${comparison.new} new ${noun} appeared`);
+  }
+
+  if (comparison.stillPresent > 0) {
+    const verb = comparison.stillPresent === 1 ? "is" : "are";
+    sentences.push(`${comparison.stillPresent} ${verb} still present`);
+  }
+
+  if (comparison.unverified > 0) {
+    sentences.push(`${comparison.unverified} could not be verified`);
+  }
+
+  if (sentences.length === 0) {
+    return "No changes since your last scan.";
+  }
+
+  return `${sentences.join(". ")}.`;
+}
+
+export function formatFirstScanProgressCopy(): string {
+  return "This is your first scan. Future scans will show what changed.";
+}
+
 export function formatChangeStatusLabel(
   changeStatus: FindingChangeStatus,
 ): string {

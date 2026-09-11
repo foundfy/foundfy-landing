@@ -1,10 +1,6 @@
 import { after, NextResponse } from "next/server";
-import {
-  createCrawlRun,
-  enqueueUrl,
-  upsertWebsite,
-} from "@/lib/crawler/db/repository";
-import { MAX_PAGES_PER_CRAWL } from "@/lib/crawler/types";
+import { upsertWebsite } from "@/lib/crawler/db/repository";
+import { createAndEnqueueCrawl } from "@/lib/crawler/start-crawl";
 import { validatePublicHttpUrl } from "@/lib/crawler/url/normalize";
 import { processCrawlRun } from "@/lib/crawler/worker/process-run";
 
@@ -34,29 +30,24 @@ export async function POST(request: Request) {
 
   try {
     const website = await upsertWebsite(validated.url, validated.hostname);
-    const crawlRun = await createCrawlRun({
+    const started = await createAndEnqueueCrawl({
       websiteId: website.id,
       seedUrl: validated.url,
-      maxPages: MAX_PAGES_PER_CRAWL,
-    });
-
-    await enqueueUrl({
-      crawlRunId: crawlRun.id,
-      url: validated.url,
-      depth: 0,
-      priority: 100,
     });
 
     after(async () => {
       try {
-        await processCrawlRun(crawlRun.id);
+        await processCrawlRun(started.crawlRunId);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Background crawl failed.";
         console.error("[Crawl] Background processing failed:", message);
       }
     });
 
-    return NextResponse.json({ crawlRunId: crawlRun.id }, { status: 201 });
+    return NextResponse.json(
+      { crawlRunId: started.crawlRunId, websiteId: started.websiteId },
+      { status: 201 },
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown crawl startup error";
     console.error("[Crawl] Failed to create crawl run:", message);

@@ -17,6 +17,7 @@ vi.mock("../db/repository", () => ({
 function runningSummary(overrides: Partial<CrawlRunSummary> = {}): CrawlRunSummary {
   return {
     id: "run-1",
+    websiteId: "website-1",
     status: "running",
     hostname: "example.com",
     seedUrl: "https://example.com/",

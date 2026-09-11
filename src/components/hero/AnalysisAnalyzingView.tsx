@@ -2,27 +2,44 @@
 
 import { useCallback, useEffect, useRef, type CSSProperties } from "react";
 import { getCrawlStatusCopy } from "@/lib/analysis/crawl-progress";
+import type {
+  AnalysisFinding,
+  CrawlComparison,
+  CrawlLifecycleStatus,
+  FindingsSummary,
+} from "@/lib/analysis/crawl-status";
 import { useAnalysis } from "@/contexts/AnalysisContext";
 import { useCrawlProgressAnimation } from "@/hooks/useCrawlProgressAnimation";
 import styles from "./WebsiteAnalysisEntry.module.css";
 
-type AnalysisAnalyzingViewProps = {
-  onReset: () => void;
+export type AnalysisAnalyzingViewState = {
+  hostname: string;
+  crawlStatus: CrawlLifecycleStatus;
+  pagesCrawled: number;
+  maxPages: number;
+  findings: AnalysisFinding[];
+  findingsSummary: FindingsSummary | null;
+  comparison: CrawlComparison | null;
+  onResultsReady: () => void;
 };
 
-export default function AnalysisAnalyzingView({
+type AnalysisAnalyzingViewInnerProps = AnalysisAnalyzingViewState & {
+  onReset: () => void;
+  resetLabel?: string;
+};
+
+export function AnalysisAnalyzingViewInner({
+  hostname,
+  crawlStatus,
+  pagesCrawled,
+  maxPages,
+  findings,
+  findingsSummary,
+  comparison,
+  onResultsReady,
   onReset,
-}: AnalysisAnalyzingViewProps) {
-  const {
-    domain,
-    crawlStatus,
-    pagesCrawled,
-    maxPages,
-    findings,
-    findingsSummary,
-    comparison,
-    completeAnalysis,
-  } = useAnalysis();
+  resetLabel = "Try another website",
+}: AnalysisAnalyzingViewInnerProps) {
   const completionHandledRef = useRef(false);
 
   useEffect(() => {
@@ -37,16 +54,8 @@ export default function AnalysisAnalyzingView({
     }
 
     completionHandledRef.current = true;
-    completeAnalysis({
-      findings,
-      findingsSummary: findingsSummary ?? {
-        totalCount: findings.length,
-        highlightedFindingIds: [],
-        highlightGroups: [],
-      },
-      comparison: comparison ?? undefined,
-    });
-  }, [completeAnalysis, comparison, crawlStatus, findings, findingsSummary]);
+    onResultsReady();
+  }, [crawlStatus, onResultsReady]);
 
   const progress = useCrawlProgressAnimation({
     crawlStatus,
@@ -55,7 +64,7 @@ export default function AnalysisAnalyzingView({
     onCompletionReady: handleCompletionReady,
   });
 
-  const statusCopy = getCrawlStatusCopy(crawlStatus ?? "queued");
+  const statusCopy = getCrawlStatusCopy(crawlStatus);
   const isCompleting = crawlStatus === "completed";
   const clampedProgress = Math.max(0, Math.min(progress, 1));
 
@@ -93,7 +102,7 @@ export default function AnalysisAnalyzingView({
             ) : (
               <>
                 Analyzing{" "}
-                <span className={styles.analyzingDomain}>{domain?.hostname}</span>
+                <span className={styles.analyzingDomain}>{hostname}</span>
                 ...
               </>
             )}
@@ -102,8 +111,49 @@ export default function AnalysisAnalyzingView({
       </div>
       <p className={styles.analyzingStatus}>{statusCopy}</p>
       <button type="button" className={styles.resetButton} onClick={onReset}>
-        Try another website
+        {resetLabel}
       </button>
     </div>
+  );
+}
+
+type AnalysisAnalyzingViewProps = {
+  onReset: () => void;
+};
+
+export default function AnalysisAnalyzingView({ onReset }: AnalysisAnalyzingViewProps) {
+  const {
+    domain,
+    crawlStatus,
+    pagesCrawled,
+    maxPages,
+    findings,
+    findingsSummary,
+    comparison,
+    completeAnalysis,
+  } = useAnalysis();
+
+  return (
+    <AnalysisAnalyzingViewInner
+      hostname={domain?.hostname ?? ""}
+      crawlStatus={crawlStatus ?? "queued"}
+      pagesCrawled={pagesCrawled}
+      maxPages={maxPages}
+      findings={findings}
+      findingsSummary={findingsSummary}
+      comparison={comparison}
+      onReset={onReset}
+      onResultsReady={() => {
+        completeAnalysis({
+          findings,
+          findingsSummary: findingsSummary ?? {
+            totalCount: findings.length,
+            highlightedFindingIds: [],
+            highlightGroups: [],
+          },
+          comparison: comparison ?? undefined,
+        });
+      }}
+    />
   );
 }
