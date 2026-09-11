@@ -12,7 +12,9 @@ import {
   findPageByRequestedUrl,
   getCrawlRunSummary,
   getNextQueueItem,
+  hasSitemapArtifacts,
   incrementCrawlProgress,
+  listQueueUrls,
   markCrawlRunCompleted,
   markCrawlRunFailed,
   reconcileOrphanedPageProgress,
@@ -21,12 +23,30 @@ import {
   saveSiteArtifact,
   toActiveCrawlRun,
   updateQueueItem,
+  type ActiveCrawlRun,
 } from "../db/repository";
 import { parseHtmlPage } from "../parse/page";
 import { SsrfValidationError, ssrfSafeFetch } from "../security/ssrf-fetch";
 import type { RobotsRules } from "../types";
 import { FinalUrlDeduplicator } from "../url/final-url-dedup";
 import { getOriginForHostname, isSameSite, normalizeCrawlUrl } from "../url/normalize";
+
+type QueueRow = {
+  id: string;
+  url: string;
+  depth: number;
+  priority: number;
+  status: string;
+};
+
+type CrawlWorkerContext = {
+  run: ActiveCrawlRun;
+  origin: string;
+  robotsRules: RobotsRules;
+  discoveredUrls: Set<string>;
+  finalUrlDedup: FinalUrlDeduplicator;
+  trackDiscovery: (url: string, depth: number, priority: number) => Promise<void>;
+};
 
 async function fetchArtifact(url: string) {
   try {
@@ -114,6 +134,158 @@ async function syncDiscoveredCount(crawlRunId: string, discoveredCount: number) 
   }
 }
 
+async function hydrateDiscoveredUrls(
+  crawlRunId: string,
+  discoveredUrls: Set<string>,
+): Promise<void> {
+  for (const url of await listQueueUrls(crawlRunId)) {
+    discoveredUrls.add(url);
+  }
+}
+
+function isSeedQueueItem(seedUrl: string, queueUrl: string, origin: string): boolean {
+  const normalizedSeed = normalizeCrawlUrl(seedUrl, origin);
+  const normalizedQueue = normalizeCrawlUrl(queueUrl, origin);
+  return Boolean(normalizedSeed && normalizedQueue && normalizedSeed === normalizedQueue);
+}
+
+async function processQueueItem(
+  queueItem: QueueRow,
+  ctx: CrawlWorkerContext,
+): Promise<void> {
+  const { run, origin, robotsRules, finalUrlDedup, trackDiscovery, discoveredUrls } = ctx;
+
+  await updateQueueItem(queueItem.id, "processing");
+
+  if (!isSameSite(queueItem.url, run.hostname)) {
+    await updateQueueItem(queueItem.id, "skipped", "external_url");
+    return;
+  }
+
+  let pathname = "/";
+  try {
+    pathname = new URL(queueItem.url).pathname;
+  } catch {
+    await updateQueueItem(queueItem.id, "skipped", "invalid_url");
+    return;
+  }
+
+  if (!isAllowedByRobots(pathname, robotsRules)) {
+    await updateQueueItem(queueItem.id, "skipped", "robots_disallow");
+    return;
+  }
+
+  const existingPage = await findPageByRequestedUrl(run.id, queueItem.url);
+  if (existingPage) {
+    finalUrlDedup.registerCrawledPage({
+      requestedUrl: queueItem.url,
+      finalUrl: existingPage.finalUrl,
+      redirectChain: [],
+    });
+    await reconcileOrphanedPageProgress(run.id);
+    await updateQueueItem(queueItem.id, "done");
+    return;
+  }
+
+  if (finalUrlDedup.isDuplicateBeforeFetch(queueItem.url)) {
+    await updateQueueItem(queueItem.id, "skipped", "duplicate_final_url");
+    return;
+  }
+
+  let fetched;
+  try {
+    fetched = await ssrfSafeFetch(queueItem.url);
+  } catch (error) {
+    const message =
+      error instanceof SsrfValidationError
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : "Fetch failed";
+
+    await updateQueueItem(queueItem.id, "failed", message);
+    return;
+  }
+
+  const contentType = fetched.headers["content-type"] ?? "";
+  if (!contentType.includes("text/html") && !fetched.body.includes("<html")) {
+    await updateQueueItem(queueItem.id, "skipped", "non_html");
+    return;
+  }
+
+  if (finalUrlDedup.isDuplicateAfterFetch(fetched.requestedUrl, fetched.finalUrl)) {
+    finalUrlDedup.registerRedirectOnly({
+      requestedUrl: fetched.requestedUrl,
+      finalUrl: fetched.finalUrl,
+      redirectChain: fetched.redirectChain,
+    });
+    await updateQueueItem(queueItem.id, "skipped", "duplicate_final_url");
+    return;
+  }
+
+  const parsed = parseHtmlPage(fetched, run.hostname);
+
+  finalUrlDedup.registerCrawledPage({
+    requestedUrl: parsed.requestedUrl,
+    finalUrl: parsed.finalUrl,
+    redirectChain: parsed.redirectChain,
+  });
+
+  const pageId = await saveParsedPage({
+    crawlRunId: run.id,
+    websiteId: run.websiteId,
+    parsed,
+  });
+
+  await saveLinks({
+    crawlRunId: run.id,
+    fromPageId: pageId,
+    links: [
+      ...parsed.internalLinks.map((link) => ({
+        url: link.url,
+        anchorText: link.anchorText,
+        linkType: "internal" as const,
+      })),
+      ...parsed.externalLinks.map((link) => ({
+        url: link.url,
+        anchorText: link.anchorText,
+        linkType: "external" as const,
+      })),
+    ],
+  });
+
+  for (const link of parsed.internalLinks) {
+    await trackDiscovery(link.url, queueItem.depth + 1, 10);
+  }
+
+  await incrementCrawlProgress(run.id, 1, 0);
+  await syncDiscoveredCount(run.id, discoveredUrls.size);
+  await updateQueueItem(queueItem.id, "done");
+}
+
+async function processSeedBeforeSitemapDiscovery(ctx: CrawlWorkerContext): Promise<void> {
+  const summary = await getCrawlRunSummary(ctx.run.id);
+  if (!summary || summary.pagesCrawled >= ctx.run.maxPages) {
+    return;
+  }
+
+  const seedQueueItem = await getNextQueueItem(ctx.run.id);
+  if (!seedQueueItem || !isSeedQueueItem(ctx.run.seedUrl, seedQueueItem.url, ctx.origin)) {
+    return;
+  }
+
+  await processQueueItem(seedQueueItem, ctx);
+}
+
+async function enqueueSitemapDiscoveries(
+  ctx: CrawlWorkerContext,
+  sitemapUrls: string[],
+): Promise<void> {
+  for (const sitemapUrl of sitemapUrls.slice(0, 25)) {
+    await ctx.trackDiscovery(sitemapUrl, 0, 50);
+  }
+}
+
 export async function processCrawlRun(preferredRunId?: string): Promise<string | null> {
   const claimed = await claimNextQueuedRun(preferredRunId);
   if (!claimed) {
@@ -157,10 +329,19 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
     });
   };
 
+  const ctx: CrawlWorkerContext = {
+    run,
+    origin,
+    robotsRules: { sitemaps: [], disallow: [], allow: [] },
+    discoveredUrls,
+    finalUrlDedup,
+    trackDiscovery,
+  };
+
   try {
     const robotsUrl = discoverRobotsUrl(origin);
     const robotsFetch = await fetchArtifact(robotsUrl);
-    const robotsRules = robotsFetch
+    ctx.robotsRules = robotsFetch
       ? parseRobotsTxt(robotsFetch.body)
       : { sitemaps: [], disallow: [], allow: [] };
 
@@ -171,17 +352,20 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
       url: robotsUrl,
       statusCode: robotsFetch?.statusCode ?? null,
       content: robotsFetch?.body ?? null,
-      parsed: robotsRules,
+      parsed: ctx.robotsRules,
     });
 
     await trackDiscovery(run.seedUrl, 0, 100);
+    await processSeedBeforeSitemapDiscovery(ctx);
 
-    const sitemapUrls = await discoverSiteMaps(origin, robotsRules, {
-      crawlRunId: run.id,
-      websiteId: run.websiteId,
-    });
-    for (const sitemapUrl of sitemapUrls.slice(0, 25)) {
-      await trackDiscovery(sitemapUrl, 0, 50);
+    if (await hasSitemapArtifacts(run.id)) {
+      await hydrateDiscoveredUrls(run.id, discoveredUrls);
+    } else {
+      const sitemapUrls = await discoverSiteMaps(origin, ctx.robotsRules, {
+        crawlRunId: run.id,
+        websiteId: run.websiteId,
+      });
+      await enqueueSitemapDiscoveries(ctx, sitemapUrls);
     }
 
     await syncDiscoveredCount(run.id, discoveredUrls.size);
@@ -197,114 +381,7 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
         break;
       }
 
-      await updateQueueItem(queueItem.id, "processing");
-
-      if (!isSameSite(queueItem.url, run.hostname)) {
-        await updateQueueItem(queueItem.id, "skipped", "external_url");
-        continue;
-      }
-
-      let pathname = "/";
-      try {
-        pathname = new URL(queueItem.url).pathname;
-      } catch {
-        await updateQueueItem(queueItem.id, "skipped", "invalid_url");
-        continue;
-      }
-
-      if (!isAllowedByRobots(pathname, robotsRules)) {
-        await updateQueueItem(queueItem.id, "skipped", "robots_disallow");
-        continue;
-      }
-
-      const existingPage = await findPageByRequestedUrl(run.id, queueItem.url);
-      if (existingPage) {
-        finalUrlDedup.registerCrawledPage({
-          requestedUrl: queueItem.url,
-          finalUrl: existingPage.finalUrl,
-          redirectChain: [],
-        });
-        await reconcileOrphanedPageProgress(run.id);
-        await updateQueueItem(queueItem.id, "done");
-        continue;
-      }
-
-      if (finalUrlDedup.isDuplicateBeforeFetch(queueItem.url)) {
-        await updateQueueItem(queueItem.id, "skipped", "duplicate_final_url");
-        continue;
-      }
-
-      let fetched;
-      try {
-        fetched = await ssrfSafeFetch(queueItem.url);
-      } catch (error) {
-        const message =
-          error instanceof SsrfValidationError
-            ? error.message
-            : error instanceof Error
-              ? error.message
-              : "Fetch failed";
-
-        await updateQueueItem(queueItem.id, "failed", message);
-        continue;
-      }
-
-      const contentType = fetched.headers["content-type"] ?? "";
-      if (!contentType.includes("text/html") && !fetched.body.includes("<html")) {
-        await updateQueueItem(queueItem.id, "skipped", "non_html");
-        continue;
-      }
-
-      if (
-        finalUrlDedup.isDuplicateAfterFetch(fetched.requestedUrl, fetched.finalUrl)
-      ) {
-        finalUrlDedup.registerRedirectOnly({
-          requestedUrl: fetched.requestedUrl,
-          finalUrl: fetched.finalUrl,
-          redirectChain: fetched.redirectChain,
-        });
-        await updateQueueItem(queueItem.id, "skipped", "duplicate_final_url");
-        continue;
-      }
-
-      const parsed = parseHtmlPage(fetched, run.hostname);
-
-      finalUrlDedup.registerCrawledPage({
-        requestedUrl: parsed.requestedUrl,
-        finalUrl: parsed.finalUrl,
-        redirectChain: parsed.redirectChain,
-      });
-
-      const pageId = await saveParsedPage({
-        crawlRunId: run.id,
-        websiteId: run.websiteId,
-        parsed,
-      });
-
-      await saveLinks({
-        crawlRunId: run.id,
-        fromPageId: pageId,
-        links: [
-          ...parsed.internalLinks.map((link) => ({
-            url: link.url,
-            anchorText: link.anchorText,
-            linkType: "internal" as const,
-          })),
-          ...parsed.externalLinks.map((link) => ({
-            url: link.url,
-            anchorText: link.anchorText,
-            linkType: "external" as const,
-          })),
-        ],
-      });
-
-      for (const link of parsed.internalLinks) {
-        await trackDiscovery(link.url, queueItem.depth + 1, 10);
-      }
-
-      await incrementCrawlProgress(run.id, 1, 0);
-      await syncDiscoveredCount(run.id, discoveredUrls.size);
-      await updateQueueItem(queueItem.id, "done");
+      await processQueueItem(queueItem, ctx);
     }
 
     const finalSummary = await getCrawlRunSummary(run.id);

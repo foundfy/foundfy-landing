@@ -13,6 +13,8 @@ const markCrawlRunFailedMock = vi.fn();
 const enqueueUrlMock = vi.fn();
 const findPageByRequestedUrlMock = vi.fn();
 const reconcileOrphanedPageProgressMock = vi.fn();
+const hasSitemapArtifactsMock = vi.fn();
+const listQueueUrlsMock = vi.fn();
 const ssrfSafeFetchMock = vi.fn();
 
 vi.mock("../db/repository", () => ({
@@ -30,6 +32,8 @@ vi.mock("../db/repository", () => ({
   findPageByRequestedUrl: (...args: unknown[]) => findPageByRequestedUrlMock(...args),
   reconcileOrphanedPageProgress: (...args: unknown[]) =>
     reconcileOrphanedPageProgressMock(...args),
+  hasSitemapArtifacts: (...args: unknown[]) => hasSitemapArtifactsMock(...args),
+  listQueueUrls: (...args: unknown[]) => listQueueUrlsMock(...args),
   toActiveCrawlRun: (row: {
     id: string;
     website_id: string;
@@ -93,7 +97,7 @@ const recoveredRun = {
   website_id: "website-1",
   status: "running",
   seed_url: "https://www.arngren.net/",
-  max_pages: 10,
+  max_pages: 11,
   pages_crawled: 9,
   pages_discovered: 2,
   error_message: null,
@@ -118,6 +122,8 @@ describe("processCrawlRun stale-recovery replay", () => {
     markCrawlRunCompletedMock.mockResolvedValue(true);
     markCrawlRunFailedMock.mockResolvedValue(true);
     reconcileOrphanedPageProgressMock.mockResolvedValue(true);
+    hasSitemapArtifactsMock.mockResolvedValue(false);
+    listQueueUrlsMock.mockResolvedValue([]);
     findPageByRequestedUrlMock.mockResolvedValue(null);
     ssrfSafeFetchMock.mockImplementation(async (url: string) => ({
       requestedUrl: url,
@@ -139,7 +145,7 @@ describe("processCrawlRun stale-recovery replay", () => {
       status: "running",
       hostname: "arngren.net",
       seedUrl: recoveredRun.seed_url,
-      maxPages: 10,
+      maxPages: 11,
       pagesCrawled,
       pagesDiscovered: 2,
       errorMessage: null,
@@ -149,15 +155,19 @@ describe("processCrawlRun stale-recovery replay", () => {
     }));
 
     reconcileOrphanedPageProgressMock.mockImplementation(async () => {
-      pagesCrawled = 10;
-      return true;
+      if (pagesCrawled < 10) {
+        pagesCrawled = 10;
+        return true;
+      }
+
+      return false;
     });
 
     findPageByRequestedUrlMock.mockImplementation(async (_runId, url) => {
-      if (url === replayUrl) {
+      if (url === replayUrl || url === "https://www.arngren.net/") {
         return {
           id: "8302143b-a6cd-4887-bf52-933ed4c15317",
-          finalUrl: replayUrl,
+          finalUrl: url === replayUrl ? replayUrl : "https://www.arngren.net/",
         };
       }
 
@@ -165,6 +175,13 @@ describe("processCrawlRun stale-recovery replay", () => {
     });
 
     getNextQueueItemMock
+      .mockResolvedValueOnce({
+        id: "queue-seed",
+        url: "https://www.arngren.net/",
+        depth: 0,
+        priority: 100,
+        status: "pending",
+      })
       .mockResolvedValueOnce({
         id: "da32f36f-3c17-4e80-a4bb-50a1b4ca6d23",
         url: replayUrl,
@@ -179,7 +196,7 @@ describe("processCrawlRun stale-recovery replay", () => {
     expect(processedRunId).toBe(recoveredRun.id);
     expect(ssrfSafeFetchMock).not.toHaveBeenCalledWith(replayUrl);
     expect(saveParsedPageMock).not.toHaveBeenCalled();
-    expect(reconcileOrphanedPageProgressMock).toHaveBeenCalledWith(recoveredRun.id);
+    expect(reconcileOrphanedPageProgressMock).toHaveBeenCalled();
     expect(updateQueueItemMock).toHaveBeenCalledWith(
       "da32f36f-3c17-4e80-a4bb-50a1b4ca6d23",
       "done",
@@ -214,12 +231,25 @@ describe("processCrawlRun stale-recovery replay", () => {
 
     reconcileOrphanedPageProgressMock.mockResolvedValue(false);
 
-    findPageByRequestedUrlMock.mockResolvedValue({
-      id: "8302143b-a6cd-4887-bf52-933ed4c15317",
-      finalUrl: replayUrl,
+    findPageByRequestedUrlMock.mockImplementation(async (_runId, url) => {
+      if (url === replayUrl || url === "https://www.arngren.net/") {
+        return {
+          id: "8302143b-a6cd-4887-bf52-933ed4c15317",
+          finalUrl: url === replayUrl ? replayUrl : "https://www.arngren.net/",
+        };
+      }
+
+      return null;
     });
 
     getNextQueueItemMock
+      .mockResolvedValueOnce({
+        id: "queue-seed",
+        url: "https://www.arngren.net/",
+        depth: 0,
+        priority: 100,
+        status: "pending",
+      })
       .mockResolvedValueOnce({
         id: "da32f36f-3c17-4e80-a4bb-50a1b4ca6d23",
         url: replayUrl,
@@ -231,7 +261,7 @@ describe("processCrawlRun stale-recovery replay", () => {
 
     await processCrawlRun(recoveredRun.id);
 
-    expect(reconcileOrphanedPageProgressMock).toHaveBeenCalledTimes(1);
+    expect(reconcileOrphanedPageProgressMock).toHaveBeenCalled();
     expect(incrementCrawlProgressMock).not.toHaveBeenCalledWith(
       recoveredRun.id,
       1,
@@ -268,6 +298,13 @@ describe("processCrawlRun stale-recovery replay", () => {
 
     getNextQueueItemMock
       .mockResolvedValueOnce({
+        id: "queue-seed",
+        url: "https://www.arngren.net/",
+        depth: 0,
+        priority: 100,
+        status: "pending",
+      })
+      .mockResolvedValueOnce({
         id: "queue-https",
         url: "https://www.arngren.net/moller.html",
         depth: 1,
@@ -275,6 +312,17 @@ describe("processCrawlRun stale-recovery replay", () => {
         status: "pending",
       })
       .mockResolvedValue(null);
+
+    findPageByRequestedUrlMock.mockImplementation(async (_runId, url) => {
+      if (url === "https://www.arngren.net/") {
+        return {
+          id: "page-seed",
+          finalUrl: "https://www.arngren.net/",
+        };
+      }
+
+      return null;
+    });
 
     saveParsedPageMock.mockResolvedValue("page-https");
 

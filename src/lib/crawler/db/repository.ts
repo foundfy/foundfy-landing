@@ -398,6 +398,37 @@ export async function resetAbandonedProcessingQueueItems(
   return data?.length ?? 0;
 }
 
+export async function hasSitemapArtifacts(crawlRunId: string): Promise<boolean> {
+  const supabase = getSupabaseAdmin();
+
+  const { count, error } = await supabase
+    .from("crawl_site_artifacts")
+    .select("id", { count: "exact", head: true })
+    .eq("crawl_run_id", crawlRunId)
+    .eq("artifact_type", "sitemap_xml");
+
+  if (error) {
+    throw new Error(`Failed to check sitemap artifacts: ${error.message}`);
+  }
+
+  return (count ?? 0) > 0;
+}
+
+export async function listQueueUrls(crawlRunId: string): Promise<string[]> {
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase
+    .from("crawl_queue")
+    .select("url")
+    .eq("crawl_run_id", crawlRunId);
+
+  if (error) {
+    throw new Error(`Failed to list queue URLs: ${error.message}`);
+  }
+
+  return (data ?? []).map((row) => row.url);
+}
+
 export async function saveSiteArtifact(input: {
   crawlRunId: string;
   websiteId: string;

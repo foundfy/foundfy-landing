@@ -13,6 +13,8 @@ const markCrawlRunFailedMock = vi.fn();
 const enqueueUrlMock = vi.fn();
 const findPageByRequestedUrlMock = vi.fn();
 const reconcileOrphanedPageProgressMock = vi.fn();
+const hasSitemapArtifactsMock = vi.fn();
+const listQueueUrlsMock = vi.fn();
 
 vi.mock("../db/repository", () => ({
   claimNextQueuedRun: (...args: unknown[]) => claimNextQueuedRunMock(...args),
@@ -29,6 +31,8 @@ vi.mock("../db/repository", () => ({
   findPageByRequestedUrl: (...args: unknown[]) => findPageByRequestedUrlMock(...args),
   reconcileOrphanedPageProgress: (...args: unknown[]) =>
     reconcileOrphanedPageProgressMock(...args),
+  hasSitemapArtifacts: (...args: unknown[]) => hasSitemapArtifactsMock(...args),
+  listQueueUrls: (...args: unknown[]) => listQueueUrlsMock(...args),
   toActiveCrawlRun: (row: {
     id: string;
     website_id: string;
@@ -113,6 +117,10 @@ describe("processCrawlRun after stale recovery", () => {
     findPageByRequestedUrlMock.mockResolvedValue(null);
     reconcileOrphanedPageProgressMock.mockReset();
     reconcileOrphanedPageProgressMock.mockResolvedValue(false);
+    hasSitemapArtifactsMock.mockReset();
+    hasSitemapArtifactsMock.mockResolvedValue(false);
+    listQueueUrlsMock.mockReset();
+    listQueueUrlsMock.mockResolvedValue([]);
   });
 
   it("continues a partially crawled run and reaches completed", async () => {

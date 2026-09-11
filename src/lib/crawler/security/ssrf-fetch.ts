@@ -21,16 +21,13 @@ function normalizeHeaders(headers: Headers): Record<string, string> {
   return result;
 }
 
-async function validateFetchUrl(url: string): Promise<URL> {
-  const normalized = normalizeCrawlUrl(url);
-  if (!normalized) {
-    throw new SsrfValidationError("URL is invalid.");
-  }
-
-  const parsed = new URL(normalized);
-
+async function assertSafeFetchTarget(parsed: URL): Promise<void> {
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
     throw new SsrfValidationError("Only HTTP(S) URLs are allowed.");
+  }
+
+  if (parsed.username || parsed.password) {
+    throw new SsrfValidationError("URL is invalid.");
   }
 
   if (isBlockedHostname(parsed.hostname)) {
@@ -38,7 +35,32 @@ async function validateFetchUrl(url: string): Promise<URL> {
   }
 
   await assertSafeHostname(parsed.hostname);
+}
+
+async function validateFetchUrl(url: string): Promise<URL> {
+  const normalized = normalizeCrawlUrl(url);
+  if (!normalized) {
+    throw new SsrfValidationError("URL is invalid.");
+  }
+
+  const parsed = new URL(normalized);
+  await assertSafeFetchTarget(parsed);
   return parsed;
+}
+
+/** Validates redirect targets without identity normalization that mutates server-visible paths. */
+async function validateRedirectTarget(url: string): Promise<string> {
+  let parsed: URL;
+
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new SsrfValidationError("URL is invalid.");
+  }
+
+  parsed.hostname = parsed.hostname.toLowerCase();
+  await assertSafeFetchTarget(parsed);
+  return parsed.toString();
 }
 
 async function readLimitedBody(response: Response): Promise<string> {
@@ -128,7 +150,7 @@ export async function ssrfSafeFetch(
 
       redirectChain.push({ url: currentUrl, statusCode: response.status });
       const nextUrl = resolveRedirectLocation(currentUrl, location);
-      currentUrl = (await validateFetchUrl(nextUrl)).toString();
+      currentUrl = await validateRedirectTarget(nextUrl);
       continue;
     }
 

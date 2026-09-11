@@ -14,6 +14,8 @@ const markCrawlRunFailedMock = vi.fn();
 const enqueueUrlMock = vi.fn();
 const findPageByRequestedUrlMock = vi.fn();
 const reconcileOrphanedPageProgressMock = vi.fn();
+const hasSitemapArtifactsMock = vi.fn();
+const listQueueUrlsMock = vi.fn();
 const ssrfSafeFetchMock = vi.fn();
 
 vi.mock("../db/repository", () => ({
@@ -31,6 +33,8 @@ vi.mock("../db/repository", () => ({
   findPageByRequestedUrl: (...args: unknown[]) => findPageByRequestedUrlMock(...args),
   reconcileOrphanedPageProgress: (...args: unknown[]) =>
     reconcileOrphanedPageProgressMock(...args),
+  hasSitemapArtifacts: (...args: unknown[]) => hasSitemapArtifactsMock(...args),
+  listQueueUrls: (...args: unknown[]) => listQueueUrlsMock(...args),
   toActiveCrawlRun: (row: {
     id: string;
     website_id: string;
@@ -128,6 +132,8 @@ describe("processCrawlRun zero-page integrity", () => {
     vi.clearAllMocks();
     findPageByRequestedUrlMock.mockResolvedValue(null);
     reconcileOrphanedPageProgressMock.mockResolvedValue(false);
+    hasSitemapArtifactsMock.mockResolvedValue(false);
+    listQueueUrlsMock.mockResolvedValue([]);
     claimNextQueuedRunMock.mockResolvedValue(claimedRun);
     saveSiteArtifactMock.mockResolvedValue(undefined);
     markCrawlRunFailedMock.mockResolvedValue(true);
