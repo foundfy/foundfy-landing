@@ -129,6 +129,56 @@
   border-radius: 9px;
 }
 
+.fieldWithAction .editorialInput {
+  padding-right: 5.75rem;
+}
+
+.inlineNext {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 100px;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #ff4a1c;
+  transition:
+    color 250ms ease,
+    opacity 250ms ease,
+    background-color 250ms ease;
+}
+
+@media (hover: hover) {
+  .inlineNext:hover:not(:disabled) {
+    background: rgba(255, 74, 28, 0.06);
+  }
+}
+
+.inlineNext:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.fieldError {
+  margin-top: 0.55rem;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(255, 74, 28, 0.85);
+}
+
 .fieldShell::before {
   content: "";
   position: absolute;
@@ -589,6 +639,28 @@
   color: rgba(10, 10, 10, 0.58);
 }
 
+@media (max-width: 420px) {
+  .fieldWithAction {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .fieldWithAction .editorialInput {
+    padding-right: clamp(20px, 2.2vw, 24px);
+  }
+
+  .inlineNext {
+    position: static;
+    transform: none;
+    width: 100%;
+    margin-top: 0.65rem;
+    height: 46px;
+    border: 1px solid rgba(255, 74, 28, 0.2);
+    background: rgba(255, 74, 28, 0.04);
+  }
+}
+
 @media (max-width: 768px) {
   .copy {
     margin-bottom: var(--space-lg);
@@ -629,7 +701,8 @@
   .submitBtnOrangeActive,
   .submitBtnOrangeActive::before,
   .submitBtnOrange,
-  .submitArrow {
+  .submitArrow,
+  .inlineNext {
     animation: none;
     transition: none;
   }

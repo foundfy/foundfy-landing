@@ -1,6 +1,13 @@
 "use client";
 
 import { FocusEvent, FormEvent, KeyboardEvent, ReactNode, useState } from "react";
+import {
+  getWebsiteStepError,
+  resolveEmailStepSubmit,
+  resolveWebsiteStepAdvance,
+  resolveWebsiteStepKeyDown,
+} from "@/lib/early-access/form";
+import { isValidEarlyAccessEmail } from "@/lib/early-access/validation";
 import styles from "./EarlyAccess.module.css";
 
 const ROLES = [
@@ -26,10 +33,6 @@ const ENTER_MS = 520;
 
 function getLabel(options: readonly ChoiceOption[], value: string) {
   return options.find((option) => option.value === value)?.label ?? value;
-}
-
-function isValidWebsite(value: string) {
-  return value.trim().length >= 4;
 }
 
 type CompletedStepProps = {
@@ -106,6 +109,7 @@ export default function EarlyAccessContent() {
   const [interest, setInterest] = useState("");
   const [website, setWebsite] = useState("");
   const [email, setEmail] = useState("");
+  const [websiteError, setWebsiteError] = useState("");
 
   const transitionToStep = (nextStep: Step) => {
     if (isTransitioning) return;
@@ -128,6 +132,7 @@ export default function EarlyAccessContent() {
     if (isTransitioning) return;
     setStep(targetStep);
     setLeavingStep(null);
+    setWebsiteError("");
     if (targetStep <= 1) {
       setInterest("");
       setWebsite("");
@@ -153,7 +158,15 @@ export default function EarlyAccessContent() {
   };
 
   const tryAdvanceFromWebsite = () => {
-    if (!isValidWebsite(website) || isTransitioning) return;
+    const decision = resolveWebsiteStepAdvance({ website, isTransitioning });
+    if (decision === "block") {
+      if (!isTransitioning) {
+        setWebsiteError(getWebsiteStepError(website) ?? "");
+      }
+      return;
+    }
+
+    setWebsiteError("");
     transitionToStep(4);
   };
 
@@ -161,23 +174,48 @@ export default function EarlyAccessContent() {
     const next = event.relatedTarget as HTMLElement | null;
     if (
       next?.classList.contains(styles.previousBtn) ||
-      next?.classList.contains(styles.stepCompleted)
+      next?.classList.contains(styles.stepCompleted) ||
+      next?.classList.contains(styles.inlineNext)
     ) {
+      return;
+    }
+    if (!website.trim()) {
       return;
     }
     tryAdvanceFromWebsite();
   };
 
   const handleWebsiteKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      tryAdvanceFromWebsite();
+    const decision = resolveWebsiteStepKeyDown({
+      key: event.key,
+      website,
+      isTransitioning,
+    });
+    if (decision === "ignore") {
+      return;
     }
+
+    event.preventDefault();
+    if (decision === "advance") {
+      setWebsiteError("");
+      transitionToStep(4);
+      return;
+    }
+
+    setWebsiteError(getWebsiteStepError(website) ?? "");
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!email.trim() || isSubmitting || isTransitioning) return;
+    if (
+      resolveEmailStepSubmit({ email, isSubmitting, isTransitioning }) ===
+      "ignore"
+    ) {
+      if (email.trim() && !isValidEarlyAccessEmail(email)) {
+        setSubmitError("Please enter a valid email address.");
+      }
+      return;
+    }
 
     setSubmitError("");
     setIsSubmitting(true);
@@ -347,24 +385,56 @@ export default function EarlyAccessContent() {
                     <ActiveStepShell exiting={leavingStep === 3}>
                       <p className={`${styles.stepCounter} ${styles.stepChild}`}>03 / 04</p>
                       <h3 className={`${styles.activeQuestion} ${styles.stepChild}`}>
-                        Your website
+                        Your website (optional)
                       </h3>
-                      <div className={`${styles.fieldShell} ${styles.stepChild}`}>
+                      <div className={`${styles.fieldShell} ${styles.fieldWithAction} ${styles.stepChild}`}>
                         <input
                           id="website"
                           name="website"
-                          type="url"
+                          type="text"
+                          inputMode="url"
+                          autoComplete="url"
                           className={styles.editorialInput}
                           placeholder="https://"
                           value={website}
-                          onChange={(event) => setWebsite(event.target.value)}
+                          onChange={(event) => {
+                            setWebsite(event.target.value);
+                            if (websiteError) {
+                              setWebsiteError("");
+                            }
+                          }}
                           onBlur={handleWebsiteBlur}
                           onKeyDown={handleWebsiteKeyDown}
                           disabled={isTransitioning}
-                          required
-                          aria-label="Your website"
+                          aria-label="Your website (optional)"
+                          aria-required={false}
+                          aria-invalid={!!websiteError}
+                          aria-describedby={websiteError ? "website-step-error" : undefined}
                         />
+                        <button
+                          type="button"
+                          className={styles.inlineNext}
+                          onClick={tryAdvanceFromWebsite}
+                          disabled={isTransitioning}
+                          aria-label={
+                            website.trim()
+                              ? "Continue"
+                              : "Skip website and continue"
+                          }
+                        >
+                          Next
+                          <span aria-hidden="true">→</span>
+                        </button>
                       </div>
+                      {websiteError ? (
+                        <p
+                          id="website-step-error"
+                          className={`${styles.fieldError} ${styles.stepChild}`}
+                          role="alert"
+                        >
+                          {websiteError}
+                        </p>
+                      ) : null}
                       <PreviousButton onClick={handlePrevious} disabled={isTransitioning} />
                     </ActiveStepShell>
                   )}
@@ -395,11 +465,25 @@ export default function EarlyAccessContent() {
                         />
                         <button
                           type="submit"
-                          className={`${styles.submitBtnOrange} ${email.trim() ? styles.submitBtnOrangeActive : ""} ${isSubmitting ? styles.submitBtnOrangeSubmitting : ""}`}
-                          disabled={!email.trim() || isTransitioning || isSubmitting}
+                          className={`${styles.submitBtnOrange} ${
+                            resolveEmailStepSubmit({
+                              email,
+                              isSubmitting: false,
+                              isTransitioning: false,
+                            }) === "submit"
+                              ? styles.submitBtnOrangeActive
+                              : ""
+                          } ${isSubmitting ? styles.submitBtnOrangeSubmitting : ""}`}
+                          disabled={
+                            resolveEmailStepSubmit({
+                              email,
+                              isSubmitting,
+                              isTransitioning,
+                            }) === "ignore"
+                          }
                           aria-busy={isSubmitting}
                         >
-                          {isSubmitting ? "Submitting…" : "Join early access"}
+                          {isSubmitting ? "Submitting…" : "Get early access"}
                           {!isSubmitting && (
                             <span className={styles.submitArrow} aria-hidden="true">
                               →

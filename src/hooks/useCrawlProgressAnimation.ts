@@ -2,12 +2,27 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  easeProgress,
-  getProgressTarget,
+  VISUAL_PROGRESS,
+  createVisualProgressRuntime,
+  reduceVisualProgress,
 } from "@/lib/analysis/crawl-progress";
 import type { CrawlLifecycleStatus } from "@/lib/analysis/crawl-status";
 
 const FRAME_MS = 80;
+
+function usePrefersReducedMotion() {
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setReducedMotion(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+
+  return reducedMotion;
+}
 
 export function useCrawlProgressAnimation(input: {
   crawlStatus: CrawlLifecycleStatus | null;
@@ -16,21 +31,23 @@ export function useCrawlProgressAnimation(input: {
   onCompletionReady?: () => void;
 }) {
   const { crawlStatus, pagesCrawled, maxPages, onCompletionReady } = input;
-  const [displayProgress, setDisplayProgress] = useState(0);
-  const runningStartedAtRef = useRef<number | null>(null);
-  const completionNotifiedRef = useRef(false);
+  const reducedMotion = usePrefersReducedMotion();
+  const [displayProgress, setDisplayProgress] = useState(() =>
+    crawlStatus && crawlStatus !== "failed" ? VISUAL_PROGRESS.initial : 0,
+  );
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const runtimeRef = useRef(createVisualProgressRuntime());
   const onCompletionReadyRef = useRef(onCompletionReady);
 
   onCompletionReadyRef.current = onCompletionReady;
 
   useEffect(() => {
-    if (crawlStatus === "running" && runningStartedAtRef.current === null) {
-      runningStartedAtRef.current = Date.now();
-    }
-
     if (crawlStatus === "queued" || crawlStatus === null) {
-      runningStartedAtRef.current = null;
-      completionNotifiedRef.current = false;
+      runtimeRef.current = createVisualProgressRuntime();
+      setElapsedMs(0);
+      setDisplayProgress(
+        crawlStatus === "queued" ? VISUAL_PROGRESS.initial : 0,
+      );
     }
   }, [crawlStatus]);
 
@@ -40,37 +57,27 @@ export function useCrawlProgressAnimation(input: {
     }
 
     let frameId = 0;
-    let lastTick = Date.now();
 
     const tick = () => {
       const now = Date.now();
-      const runningElapsedMs =
-        crawlStatus === "running" && runningStartedAtRef.current
-          ? now - runningStartedAtRef.current
-          : 0;
-
-      const target = getProgressTarget(
-        crawlStatus,
-        pagesCrawled,
-        maxPages,
-        runningElapsedMs,
+      const { runtime, shouldNotifyCompletion } = reduceVisualProgress(
+        runtimeRef.current,
+        {
+          status: crawlStatus,
+          pagesCrawled,
+          maxPages,
+          now,
+          reducedMotion,
+        },
       );
 
-      setDisplayProgress((current) => {
-        const next =
-          crawlStatus === "completed" ? 1 : easeProgress(current, target);
+      runtimeRef.current = runtime;
+      setDisplayProgress(runtime.progress);
+      setElapsedMs(runtime.startedAt ? now - runtime.startedAt : 0);
 
-        if (
-          crawlStatus === "completed" &&
-          next >= 0.995 &&
-          !completionNotifiedRef.current
-        ) {
-          completionNotifiedRef.current = true;
-          onCompletionReadyRef.current?.();
-        }
-
-        return next;
-      });
+      if (shouldNotifyCompletion) {
+        onCompletionReadyRef.current?.();
+      }
 
       frameId = window.setTimeout(tick, FRAME_MS);
     };
@@ -80,7 +87,10 @@ export function useCrawlProgressAnimation(input: {
     return () => {
       window.clearTimeout(frameId);
     };
-  }, [crawlStatus, pagesCrawled, maxPages]);
+  }, [crawlStatus, pagesCrawled, maxPages, reducedMotion]);
 
-  return displayProgress;
+  return {
+    progress: displayProgress,
+    elapsedMs,
+  };
 }

@@ -14,6 +14,15 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+export function isValidEarlyAccessEmail(value: string): boolean {
+  const email = value.trim().toLowerCase();
+  if (!email || email.length > EARLY_ACCESS_FIELD_LIMITS.email) {
+    return false;
+  }
+
+  return EMAIL_PATTERN.test(email);
+}
+
 function normalizeOptionalWebsite(value: unknown): string | null {
   if (value === undefined || value === null) {
     return null;
@@ -75,7 +84,7 @@ export function validateEarlyAccessPayload(
     return { ok: false, error: "Invalid submission." };
   }
 
-  if (email.length > EARLY_ACCESS_FIELD_LIMITS.email) {
+  if (!isValidEarlyAccessEmail(email)) {
     return { ok: false, error: "Please enter a valid email address." };
   }
 
@@ -89,10 +98,6 @@ export function validateEarlyAccessPayload(
 
   if (!(EARLY_ACCESS_INTERESTS as readonly string[]).includes(interest)) {
     return { ok: false, error: "Please select what you are most interested in." };
-  }
-
-  if (!EMAIL_PATTERN.test(email)) {
-    return { ok: false, error: "Please enter a valid email address." };
   }
 
   return {

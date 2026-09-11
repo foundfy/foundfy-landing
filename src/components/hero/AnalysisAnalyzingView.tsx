@@ -57,14 +57,14 @@ export function AnalysisAnalyzingViewInner({
     onResultsReady();
   }, [crawlStatus, onResultsReady]);
 
-  const progress = useCrawlProgressAnimation({
+  const { progress, elapsedMs } = useCrawlProgressAnimation({
     crawlStatus,
     pagesCrawled,
     maxPages,
     onCompletionReady: handleCompletionReady,
   });
 
-  const statusCopy = getCrawlStatusCopy(crawlStatus);
+  const statusCopy = getCrawlStatusCopy(crawlStatus, elapsedMs);
   const isCompleting = crawlStatus === "completed";
   const clampedProgress = Math.max(0, Math.min(progress, 1));
 
@@ -75,7 +75,9 @@ export function AnalysisAnalyzingViewInner({
   return (
     <div className={styles.analyzingGroup} aria-live="polite">
       <div
-        className={`${styles.form} ${styles.formAnalyzing}`}
+        className={`${styles.form} ${styles.formAnalyzing} ${
+          isCompleting ? styles.formAnalyzingComplete : ""
+        }`}
         style={pillStyle}
         role="progressbar"
         aria-valuemin={0}
@@ -109,7 +111,9 @@ export function AnalysisAnalyzingViewInner({
           </p>
         </div>
       </div>
-      <p className={styles.analyzingStatus}>{statusCopy}</p>
+      <p className={styles.analyzingStatus} key={statusCopy}>
+        {statusCopy}
+      </p>
       <button type="button" className={styles.resetButton} onClick={onReset}>
         {resetLabel}
       </button>
