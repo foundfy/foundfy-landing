@@ -3,6 +3,7 @@ import type {
   CrawlComparison,
   CrawlLifecycleStatus,
   FindingsSummary,
+  SearchPresenceSignals,
 } from "@/lib/analysis/crawl-status";
 
 export type WebsiteRecord = {
@@ -45,6 +46,7 @@ export type WebsiteOverview = {
     findings: AnalysisFinding[];
     findingsSummary: FindingsSummary;
     comparison: CrawlComparison | null;
+    searchPresence: SearchPresenceSignals | null;
     explanationEnrichmentStatus:
       | "disabled"
       | "skipped"

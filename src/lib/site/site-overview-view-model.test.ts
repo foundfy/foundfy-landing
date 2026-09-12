@@ -51,6 +51,7 @@ function createOverview(
         unverified: 1,
         fixedFindings: [],
       },
+      searchPresence: null,
       explanationEnrichmentStatus: "ready",
     },
     highlightedFindings: [
@@ -170,7 +171,10 @@ describe("site overview view model", () => {
 
     expect(content.kind).toBe("empty_highlights");
     if (content.kind === "empty_highlights") {
-      expect(content.title).toBe("Nothing stands out as a priority.");
+      expect(content.title).toBe("We could open your website.");
+      expect(content.description).toContain(
+        "We cannot see whether Google has listed your site",
+      );
     }
   });
 
@@ -191,7 +195,88 @@ describe("site overview view model", () => {
 
     expect(content.kind).toBe("zero_findings");
     if (content.kind === "zero_findings") {
-      expect(content.title).toBe("No notable issues found.");
+      expect(content.title).toBe("We could open your website.");
+      expect(content.description).toContain(
+        "We cannot see whether Google has listed your site",
+      );
+      expect(content.title).not.toBe("No notable issues found.");
+    }
+  });
+
+  it("includes sitemap wording on the site empty brief when that evidence is true", () => {
+    const content = buildSiteWhatMattersContent(
+      createOverview({
+        latestUsableScan: {
+          ...createOverview().latestUsableScan!,
+          findings: [],
+          findingsSummary: {
+            totalCount: 0,
+            highlightedFindingIds: [],
+            highlightGroups: [],
+          },
+          searchPresence: {
+            homepageBlock: null,
+            homepageDiscovery: "sitemap",
+          },
+        },
+        highlightedFindings: [],
+      }),
+    );
+
+    expect(content.kind).toBe("zero_findings");
+    if (content.kind === "zero_findings") {
+      expect(content.description).toContain("That page is in your sitemap.");
+    }
+  });
+
+  it("keeps a homepage non_200 job in What matters now instead of a ready sentence", () => {
+    const content = buildSiteWhatMattersContent(
+      createOverview({
+        latestUsableScan: {
+          ...createOverview().latestUsableScan!,
+          findings: [
+            {
+              id: "home-403",
+              ruleKey: "indexability.non_200_page",
+              category: "indexability",
+              severity: "error",
+              title: "Page did not return HTTP 200",
+              description: "The homepage returned 403.",
+              pageUrl: "https://www.ekoiq.com/",
+              evidence: { statusCode: 403 },
+              priority: {
+                level: "high",
+                rank: 1,
+                whyItMatters: "Search engines may not list this page.",
+                recommendedAction: "Fix the response.",
+                verification: null,
+              },
+            },
+          ],
+          findingsSummary: {
+            totalCount: 1,
+            highlightedFindingIds: ["home-403"],
+            highlightGroups: [
+              {
+                representativeFindingId: "home-403",
+                memberFindingIds: ["home-403"],
+                rawFindingCount: 1,
+                affectedPageCount: 1,
+              },
+            ],
+          },
+          searchPresence: {
+            homepageBlock: "non_200",
+            homepageDiscovery: null,
+          },
+        },
+        highlightedFindings: [],
+      }),
+    );
+
+    expect(content.kind).toBe("highlights");
+    if (content.kind === "highlights") {
+      expect(content.findings[0]?.ruleKey).toBe("indexability.non_200_page");
     }
   });
 

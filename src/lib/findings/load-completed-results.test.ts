@@ -1,8 +1,9 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const loadFindingsMock = vi.fn();
 const attachMock = vi.fn();
 const compareMock = vi.fn();
+const loadEvidenceMock = vi.fn();
 
 vi.mock("./load-for-run", () => ({
   loadFindingsForCompletedRun: (...args: unknown[]) => loadFindingsMock(...args),
@@ -16,12 +17,21 @@ vi.mock("@/lib/ai-enrichment/attach-enrichments", () => ({
   attachExplanationEnrichments: (...args: unknown[]) => attachMock(...args),
 }));
 
+vi.mock("@/lib/observations/db/repository", () => ({
+  loadCrawlEvidenceContext: (...args: unknown[]) => loadEvidenceMock(...args),
+}));
+
 describe("loadCompletedCrawlResults", () => {
   afterEach(() => {
     delete process.env.AI_ENRICHMENT_ENABLED;
     loadFindingsMock.mockReset();
     attachMock.mockReset();
     compareMock.mockReset();
+    loadEvidenceMock.mockReset();
+  });
+
+  beforeEach(() => {
+    loadEvidenceMock.mockResolvedValue(null);
   });
 
   it("returns deterministic findings unchanged when AI is disabled", async () => {
@@ -43,6 +53,10 @@ describe("loadCompletedCrawlResults", () => {
     expect(attachMock).not.toHaveBeenCalled();
     expect(result.findings).toEqual([{ id: "finding-1", title: "Finding" }]);
     expect(result.comparison).toBeUndefined();
+    expect(result.searchPresence).toEqual({
+      homepageBlock: null,
+      homepageDiscovery: null,
+    });
   });
 
   it("attaches comparison change statuses before optional AI enrichment", async () => {

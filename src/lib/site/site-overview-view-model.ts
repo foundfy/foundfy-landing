@@ -56,7 +56,11 @@ export function buildSiteResultsDisplayModel(overview: WebsiteOverview) {
   const findings =
     latest.findings.length > 0 ? latest.findings : overview.highlightedFindings;
 
-  return buildResultsDisplayModel(findings, latest.findingsSummary);
+  return buildResultsDisplayModel(
+    findings,
+    latest.findingsSummary,
+    latest.searchPresence,
+  );
 }
 
 export function buildHighlightedFindingsForSitePage(
@@ -124,7 +128,9 @@ export function buildSiteWhatMattersContent(
   const totalCount = findingsSummary.totalCount;
 
   if (totalCount === 0) {
-    const zeroCopy = formatZeroFindingsCopy();
+    const zeroCopy = formatZeroFindingsCopy(
+      overview.latestUsableScan.searchPresence?.homepageDiscovery ?? null,
+    );
     return {
       kind: "zero_findings",
       title: zeroCopy.title,
@@ -135,7 +141,11 @@ export function buildSiteWhatMattersContent(
   const latestFindings = overview.latestUsableScan?.findings ?? [];
   const highlights =
     latestFindings.length > 0
-      ? buildResultsDisplayModel(latestFindings, findingsSummary).highlightCards.map(
+      ? buildResultsDisplayModel(
+          latestFindings,
+          findingsSummary,
+          overview.latestUsableScan.searchPresence,
+        ).highlightCards.map(
           (card) => card.finding,
         )
       : buildHighlightedFindingsForSitePage(
@@ -144,7 +154,9 @@ export function buildSiteWhatMattersContent(
         );
 
   if (highlights.length === 0) {
-    const emptyCopy = formatEmptyHighlightsCopy();
+    const emptyCopy = formatEmptyHighlightsCopy(
+      overview.latestUsableScan.searchPresence?.homepageDiscovery ?? null,
+    );
     return {
       kind: "empty_highlights",
       title: emptyCopy.title,

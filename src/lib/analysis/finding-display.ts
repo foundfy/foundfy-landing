@@ -1,5 +1,9 @@
 import type { RedirectHop } from "@/lib/crawler/types";
 import type { AnalysisFinding, PriorityLevel } from "./crawl-status";
+import {
+  formatSearchPresenceCopy,
+  type HomepageDiscovery,
+} from "./search-presence";
 
 export const ALL_FINDINGS_COLLAPSE_AFTER = 4;
 
@@ -247,24 +251,26 @@ export function formatFindingsCount(count: number): string {
   return `We found ${count} findings.`;
 }
 
-export function formatZeroFindingsCopy(): {
+export function formatZeroFindingsCopy(
+  discovery: HomepageDiscovery | null = null,
+): {
   title: string;
   description: string;
 } {
+  const copy = formatSearchPresenceCopy(discovery);
   return {
-    title: "No notable issues found.",
-    description: "We didn't find any of the issues Foundfy currently checks for.",
+    title: copy.title,
+    description: copy.description,
   };
 }
 
-export function formatEmptyHighlightsCopy(): {
+export function formatEmptyHighlightsCopy(
+  discovery: HomepageDiscovery | null = null,
+): {
   title: string;
   description: string;
 } {
-  return {
-    title: "Nothing stands out as a priority.",
-    description: "You can still review the findings below.",
-  };
+  return formatZeroFindingsCopy(discovery);
 }
 
 export function formatGroupedProblemTitle(
@@ -308,11 +314,10 @@ function lowercaseLeading(value: string): string {
   return value[0].toLowerCase() + value.slice(1);
 }
 
-export function formatResultsBrief(groups: ResultsBriefGroup[]): string {
-  if (groups.length === 0) {
-    return "No notable issues found.";
-  }
-
+export function formatResultsBrief(
+  groups: ResultsBriefGroup[],
+  options?: { homepageDiscovery?: HomepageDiscovery | null },
+): string {
   const firstActionable = groups.find(
     (group) =>
       group.priorityLevel !== null &&
@@ -320,15 +325,7 @@ export function formatResultsBrief(groups: ResultsBriefGroup[]): string {
   );
 
   if (!firstActionable) {
-    const first = groups[0];
-    const pages = formatAffectedPagesPhrase(first.affectedPageCount);
-    const problem = formatGroupedProblemTitle(
-      first.ruleKey,
-      first.title,
-      first.affectedPageCount,
-    );
-    const clause = pages ? `${problem} ${pages}` : problem;
-    return `No high-priority issues. ${clause}.`;
+    return formatSearchPresenceCopy(options?.homepageDiscovery ?? null).brief;
   }
 
   const problem = formatGroupedProblemTitle(

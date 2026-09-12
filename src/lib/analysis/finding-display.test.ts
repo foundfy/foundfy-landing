@@ -14,6 +14,7 @@ import {
   shouldCollapseAllFindings,
   shouldShowHostInAffectedPages,
 } from "./finding-display";
+import { formatSearchPresenceCopy } from "./search-presence";
 import type { AnalysisFinding } from "./crawl-status";
 
 const redirectFinding: AnalysisFinding = {
@@ -64,18 +65,31 @@ describe("formatPriorityLabel", () => {
 });
 
 describe("results copy", () => {
-  it("uses Foundfy-safe zero findings copy", () => {
-    expect(formatZeroFindingsCopy()).toEqual({
-      title: "No notable issues found.",
-      description: "We didn't find any of the issues Foundfy currently checks for.",
+  it("does not treat zero findings as settled findability", () => {
+    const copy = formatZeroFindingsCopy();
+    expect(copy).toEqual({
+      title: formatSearchPresenceCopy(null).title,
+      description: formatSearchPresenceCopy(null).description,
     });
+    expect(copy.title).not.toBe("No notable issues found.");
+    expect(copy.description).toContain(
+      "We cannot see whether Google has listed your site",
+    );
   });
 
-  it("uses non-urgent empty highlight copy", () => {
-    expect(formatEmptyHighlightsCopy()).toEqual({
-      title: "Nothing stands out as a priority.",
-      description: "You can still review the findings below.",
-    });
+  it("does not treat empty highlights as settled findability", () => {
+    const copy = formatEmptyHighlightsCopy();
+    expect(copy.title).toBe("We could open your website.");
+    expect(copy.description).toContain(
+      "We cannot see whether Google has listed your site",
+    );
+    expect(copy.title).not.toBe("Nothing stands out as a priority.");
+  });
+
+  it("includes sitemap wording in zero-findings copy when that evidence is true", () => {
+    expect(formatZeroFindingsCopy("sitemap").description).toContain(
+      "That page is in your sitemap.",
+    );
   });
 });
 
@@ -99,12 +113,13 @@ describe("results comprehension copy", () => {
     ).toBe("Duplicate page titles on 4 pages. Next: missing meta descriptions.");
   });
 
-  it("handles zero findings without fabricated seriousness", () => {
-    expect(formatResultsBrief([])).toBe("No notable issues found.");
+  it("handles zero findings without fabricated seriousness or settled findability", () => {
+    expect(formatResultsBrief([])).toBe(formatSearchPresenceCopy(null).brief);
+    expect(formatResultsBrief([])).not.toBe("No notable issues found.");
     expect(formatSeriousnessLine([])).toBeNull();
   });
 
-  it("handles only-low findings without inventing high priority", () => {
+  it("handles only-low findings without inventing high priority or settled findability", () => {
     expect(
       formatResultsBrief([
         {
@@ -114,7 +129,7 @@ describe("results comprehension copy", () => {
           priorityLevel: "low",
         },
       ]),
-    ).toBe("No high-priority issues. URLs redirect before the final page on 3 pages.");
+    ).toBe(formatSearchPresenceCopy(null).brief);
     expect(
       formatSeriousnessLine([
         {
@@ -125,6 +140,29 @@ describe("results comprehension copy", () => {
         },
       ]),
     ).toBeNull();
+  });
+
+  it("keeps a homepage noindex job as the brief instead of the presence sentence", () => {
+    expect(
+      formatResultsBrief([
+        {
+          ruleKey: "indexability.noindex",
+          title: "Page marked noindex",
+          affectedPageCount: 1,
+          priorityLevel: "high",
+        },
+      ]),
+    ).toBe("Page marked noindex on 1 page.");
+    expect(
+      formatResultsBrief([
+        {
+          ruleKey: "indexability.non_200_page",
+          title: "Page did not return HTTP 200",
+          affectedPageCount: 1,
+          priorityLevel: "high",
+        },
+      ]),
+    ).toBe("Page did not return HTTP 200 on 1 page.");
   });
 
   it("states high-priority seriousness from grouped actions", () => {

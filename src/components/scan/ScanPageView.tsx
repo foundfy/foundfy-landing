@@ -128,6 +128,7 @@ export default function ScanPageView({ crawlRunId }: ScanPageViewProps) {
           findings={findings}
           findingsSummary={buildFindingsSummary(payload)}
           comparison={payload.comparison ?? null}
+          searchPresence={payload.searchPresence ?? null}
           websiteId={websiteId}
           pagesCrawled={payload.pagesCrawled}
           surface="scan"

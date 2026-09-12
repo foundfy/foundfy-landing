@@ -80,5 +80,6 @@ export function mergeCrawlStatusPayload(
     findings: next.findings ?? current?.findings,
     findingsSummary: next.findingsSummary ?? current?.findingsSummary,
     comparison: next.comparison ?? current?.comparison,
+    searchPresence: next.searchPresence ?? current?.searchPresence,
   };
 }

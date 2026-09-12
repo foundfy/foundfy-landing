@@ -174,4 +174,89 @@ describe("buildResultsDisplayModel", () => {
     );
     expect(model.highlightCards).toHaveLength(1);
   });
+
+  it("uses the search presence sentence when a completed crawl has no blocks", () => {
+    const model = buildResultsDisplayModel(
+      [],
+      {
+        totalCount: 0,
+        highlightedFindingIds: [],
+        highlightGroups: [],
+      },
+      { homepageBlock: null, homepageDiscovery: "sitemap" },
+    );
+
+    expect(model.brief).toContain("We could open your website.");
+    expect(model.brief).toContain("That page is in your sitemap.");
+    expect(model.brief).toContain(
+      "We cannot see whether Google has listed your site, or whether people find it when they search.",
+    );
+    expect(model.zeroFindingsCopy.title).toBe("We could open your website.");
+    expect(model.zeroFindingsCopy.description).toContain(
+      "That page is in your sitemap.",
+    );
+  });
+
+  it("does not claim the site is ready when the homepage is noindex", () => {
+    const findings = [
+      buildFinding({
+        id: "noindex-home",
+        ruleKey: "indexability.noindex",
+        rank: 1,
+        level: "high",
+        pageUrl: "https://example.com/",
+        title: "Page marked noindex",
+      }),
+    ];
+    const model = buildResultsDisplayModel(
+      findings,
+      {
+        totalCount: 1,
+        highlightedFindingIds: ["noindex-home"],
+        highlightGroups: [
+          {
+            representativeFindingId: "noindex-home",
+            memberFindingIds: ["noindex-home"],
+            rawFindingCount: 1,
+            affectedPageCount: 1,
+          },
+        ],
+      },
+      { homepageBlock: "noindex", homepageDiscovery: "sitemap" },
+    );
+
+    expect(model.brief).toBe("Page marked noindex on 1 page.");
+    expect(model.brief).not.toContain("We could open your website.");
+    expect(model.highlightCards).toHaveLength(1);
+  });
+
+  it("does not treat a www redirect as a findability failure", () => {
+    const findings = [
+      buildFinding({
+        id: "redirect-home",
+        ruleKey: "indexability.redirecting_url",
+        rank: 1,
+        level: "low",
+        pageUrl: "https://example.com/",
+        title: "URL redirects before final page",
+      }),
+    ];
+    const model = buildResultsDisplayModel(
+      findings,
+      {
+        totalCount: 1,
+        highlightedFindingIds: [],
+        highlightGroups: [],
+      },
+      { homepageBlock: null, homepageDiscovery: "internal_links" },
+    );
+
+    expect(model.brief).toContain("We could open your website.");
+    expect(model.brief).toContain("That page is linked from the pages we fetched.");
+    expect(model.brief).not.toContain("not findable");
+    expect(model.highlightCards).toHaveLength(0);
+    expect(model.emptyHighlightsCopy.description).toContain(
+      "That page is linked from the pages we fetched.",
+    );
+  });
 });

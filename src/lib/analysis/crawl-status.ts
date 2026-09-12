@@ -1,3 +1,7 @@
+import type { SearchPresenceSignals } from "./search-presence";
+
+export type { SearchPresenceSignals };
+
 export type CrawlLifecycleStatus = "queued" | "running" | "completed" | "failed";
 
 export type PriorityLevel = "critical" | "high" | "medium" | "low";
@@ -89,6 +93,7 @@ export type CrawlStatusPayload = {
   findings?: AnalysisFinding[];
   findingsSummary?: FindingsSummary;
   comparison?: CrawlComparison;
+  searchPresence?: SearchPresenceSignals;
   explanationEnrichmentStatus?:
     | "disabled"
     | "skipped"

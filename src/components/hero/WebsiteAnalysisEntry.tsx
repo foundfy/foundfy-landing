@@ -19,6 +19,7 @@ export default function WebsiteAnalysisEntry() {
     findings,
     findingsSummary,
     comparison,
+    searchPresence,
     errorMessage,
     pagesCrawled,
     startAnalysis,
@@ -134,6 +135,7 @@ export default function WebsiteAnalysisEntry() {
             }
           }
           comparison={comparison}
+          searchPresence={searchPresence}
           crawlRunId={crawlRunId}
           websiteId={websiteId}
           pagesCrawled={pagesCrawled}

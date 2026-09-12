@@ -100,6 +100,7 @@ export async function GET(_request: Request, context: RouteContext) {
         findings: completedFindings?.findings,
         findingsSummary: completedFindings?.findingsSummary,
         comparison: completedFindings?.comparison,
+        searchPresence: completedFindings?.searchPresence,
         explanationEnrichmentStatus:
           completedFindings?.explanationEnrichmentStatus,
       },

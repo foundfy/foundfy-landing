@@ -165,6 +165,7 @@ export function useCrawlPolling() {
             findings: payload.findings,
             findingsSummary: payload.findingsSummary,
             comparison: payload.comparison,
+            searchPresence: payload.searchPresence,
             websiteId: payload.websiteId,
             explanationEnrichmentStatus: payload.explanationEnrichmentStatus,
           });

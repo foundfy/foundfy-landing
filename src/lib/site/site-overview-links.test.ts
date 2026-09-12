@@ -23,6 +23,7 @@ describe("site overview links", () => {
           highlightGroups: [],
         },
         comparison: null,
+        searchPresence: null,
         explanationEnrichmentStatus: "ready",
       },
       highlightedFindings: [],

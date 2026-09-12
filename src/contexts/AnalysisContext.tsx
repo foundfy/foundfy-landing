@@ -15,6 +15,7 @@ import type {
   CrawlLifecycleStatus,
   CrawlStatusPayload,
   FindingsSummary,
+  SearchPresenceSignals,
 } from "@/lib/analysis/crawl-status";
 
 export type AnalysisPhase = "idle" | "starting" | "completed" | "failed";
@@ -23,6 +24,7 @@ type CompleteAnalysisInput = {
   findings: AnalysisFinding[];
   findingsSummary: FindingsSummary;
   comparison?: CrawlComparison;
+  searchPresence?: SearchPresenceSignals | null;
 };
 
 type AnalysisContextValue = {
@@ -36,6 +38,7 @@ type AnalysisContextValue = {
   findings: AnalysisFinding[];
   findingsSummary: FindingsSummary | null;
   comparison: CrawlComparison | null;
+  searchPresence: SearchPresenceSignals | null;
   errorMessage: string | null;
   startAnalysis: (domain: NormalizedDomain) => void;
   setCrawlRunId: (crawlRunId: string) => void;
@@ -47,6 +50,7 @@ type AnalysisContextValue = {
     findings?: AnalysisFinding[];
     findingsSummary?: FindingsSummary;
     comparison?: CrawlComparison;
+    searchPresence?: SearchPresenceSignals;
     websiteId?: string;
     explanationEnrichmentStatus?: CrawlStatusPayload["explanationEnrichmentStatus"];
   }) => void;
@@ -77,6 +81,8 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
   const [findingsSummary, setFindingsSummary] =
     useState<FindingsSummary | null>(null);
   const [comparison, setComparison] = useState<CrawlComparison | null>(null);
+  const [searchPresence, setSearchPresence] =
+    useState<SearchPresenceSignals | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const startAnalysis = useCallback((nextDomain: NormalizedDomain) => {
@@ -90,6 +96,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     setFindings([]);
     setFindingsSummary(null);
     setComparison(null);
+    setSearchPresence(null);
     setErrorMessage(null);
   }, []);
 
@@ -109,6 +116,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       findings?: AnalysisFinding[];
       findingsSummary?: FindingsSummary;
       comparison?: CrawlComparison;
+      searchPresence?: SearchPresenceSignals;
       websiteId?: string;
     }) => {
       setCrawlStatus(input.status);
@@ -136,6 +144,10 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       if (input.comparison) {
         setComparison(input.comparison);
       }
+
+      if (input.searchPresence) {
+        setSearchPresence(input.searchPresence);
+      }
     },
     [],
   );
@@ -146,6 +158,9 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     setFindings(input.findings);
     setFindingsSummary(input.findingsSummary);
     setComparison(input.comparison ?? null);
+    if (input.searchPresence !== undefined) {
+      setSearchPresence(input.searchPresence);
+    }
     setErrorMessage(null);
   }, []);
 
@@ -165,6 +180,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     setFindings([]);
     setFindingsSummary(null);
     setComparison(null);
+    setSearchPresence(null);
     setErrorMessage(null);
   }, []);
 
@@ -180,6 +196,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       findings,
       findingsSummary,
       comparison,
+      searchPresence,
       errorMessage,
       startAnalysis,
       setCrawlRunId,
@@ -200,6 +217,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       findings,
       findingsSummary,
       comparison,
+      searchPresence,
       errorMessage,
       startAnalysis,
       setCrawlRunId,

@@ -11,15 +11,21 @@ import {
 } from "@/lib/findings/highlight-groups";
 import {
   formatAffectedPageLabel,
+  formatEmptyHighlightsCopy,
   formatGroupedFindingTitle,
   formatResultsBrief,
   formatSeriousnessLine,
   formatSharedTitleLine,
+  formatZeroFindingsCopy,
   readSharedTitle,
   shouldCollapseAllFindings,
   shouldShowHostInAffectedPages,
   type ResultsBriefGroup,
 } from "./finding-display";
+import {
+  shouldLeadWithExistingJobs,
+  type SearchPresenceSignals,
+} from "./search-presence";
 
 export type AffectedPageDetail = {
   url: string;
@@ -45,6 +51,8 @@ export type ResultsDisplayModel = {
   allFindingCards: GroupedFindingCard[];
   collapseAllFindings: boolean;
   actionGroupCount: number;
+  zeroFindingsCopy: { title: string; description: string };
+  emptyHighlightsCopy: { title: string; description: string };
 };
 
 function toBriefGroup(
@@ -147,6 +155,7 @@ function toGroupedCard(
 export function buildResultsDisplayModel(
   findings: AnalysisFinding[],
   _findingsSummary: FindingsSummary,
+  searchPresence?: SearchPresenceSignals | null,
 ): ResultsDisplayModel {
   const findingsById = new Map(findings.map((finding) => [finding.id, finding]));
   const actionGroups = groupFindingsByAction(findings);
@@ -166,12 +175,25 @@ export function buildResultsDisplayModel(
     .map((group) => toGroupedCard(group, findingsById))
     .filter((card): card is GroupedFindingCard => card !== null);
 
+  const leadWithJobs = shouldLeadWithExistingJobs({
+    homepageBlock: searchPresence?.homepageBlock ?? null,
+    hasActionableHighlights: highlightCards.length > 0,
+  });
+  const discovery = leadWithJobs
+    ? undefined
+    : (searchPresence?.homepageDiscovery ?? null);
+
   return {
-    brief: formatResultsBrief(briefGroups),
+    brief: formatResultsBrief(
+      briefGroups,
+      leadWithJobs ? undefined : { homepageDiscovery: discovery },
+    ),
     seriousness: formatSeriousnessLine(briefGroups),
     highlightCards,
     allFindingCards,
     collapseAllFindings: shouldCollapseAllFindings(allFindingCards.length),
     actionGroupCount: allFindingCards.length,
+    zeroFindingsCopy: formatZeroFindingsCopy(discovery ?? null),
+    emptyHighlightsCopy: formatEmptyHighlightsCopy(discovery ?? null),
   };
 }

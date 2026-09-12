@@ -79,6 +79,7 @@ export async function loadWebsiteOverview(
               highlightGroups: [],
             },
           comparison: latestResults?.comparison ?? null,
+          searchPresence: latestResults?.searchPresence ?? null,
           explanationEnrichmentStatus:
             latestResults?.explanationEnrichmentStatus ?? "disabled",
         }

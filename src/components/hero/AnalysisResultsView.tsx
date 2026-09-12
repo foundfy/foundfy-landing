@@ -3,11 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { formatCompletedScopeCopy } from "@/lib/analysis/analysis-scope";
-import {
-  formatEmptyHighlightsCopy,
-  formatJobCount,
-  formatZeroFindingsCopy,
-} from "@/lib/analysis/finding-display";
+import { formatJobCount } from "@/lib/analysis/finding-display";
 import { formatComparisonSummary } from "@/lib/analysis/comparison-display";
 import {
   buildFullAnalysisHref,
@@ -22,6 +18,7 @@ import type {
   AnalysisFinding,
   CrawlComparison,
   FindingsSummary,
+  SearchPresenceSignals,
 } from "@/lib/analysis/crawl-status";
 import { useRescanNavigation } from "@/hooks/useRescanNavigation";
 import FindingCard from "./FindingCard";
@@ -33,6 +30,7 @@ type AnalysisResultsViewProps = {
   findings: AnalysisFinding[];
   findingsSummary: FindingsSummary;
   comparison?: CrawlComparison | null;
+  searchPresence?: SearchPresenceSignals | null;
   crawlRunId?: string | null;
   websiteId?: string | null;
   pagesCrawled?: number;
@@ -46,6 +44,7 @@ export default function AnalysisResultsView({
   findings,
   findingsSummary,
   comparison,
+  searchPresence = null,
   crawlRunId = null,
   websiteId = null,
   pagesCrawled = 0,
@@ -57,12 +56,16 @@ export default function AnalysisResultsView({
     phase: "completed",
     crawlRunId,
   });
-  const model = buildResultsDisplayModel(findings, findingsSummary);
+  const model = buildResultsDisplayModel(
+    findings,
+    findingsSummary,
+    searchPresence,
+  );
   const [allFindingsOpen, setAllFindingsOpen] = useState(
     !model.collapseAllFindings,
   );
-  const zeroFindingsCopy = formatZeroFindingsCopy();
-  const emptyHighlightsCopy = formatEmptyHighlightsCopy();
+  const zeroFindingsCopy = model.zeroFindingsCopy;
+  const emptyHighlightsCopy = model.emptyHighlightsCopy;
   const showScanAgain = shouldShowScanAgain({ surface, websiteId });
   const { scanAgain, isRescanning, rescanError } = useRescanNavigation(websiteId);
 
