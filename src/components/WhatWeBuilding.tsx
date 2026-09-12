@@ -44,8 +44,8 @@ export default function WhatWeBuilding() {
             Know what to do next.
           </h2>
           <p className={styles.supporting}>
-            Foundfy understands your search presence, finds what matters, and
-            turns it into clear actions — without the SEO overwhelm.
+            Foundfy reviews your website, finds what matters, and turns it
+            into clear actions — without the SEO overwhelm.
           </p>
         </div>
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { formatCompletedScopeCopy } from "@/lib/analysis/analysis-scope";
 import {
   formatEmptyHighlightsCopy,
   formatJobCount,
@@ -34,6 +35,7 @@ type AnalysisResultsViewProps = {
   comparison?: CrawlComparison | null;
   crawlRunId?: string | null;
   websiteId?: string | null;
+  pagesCrawled?: number;
   surface?: ResultsCtaSurface;
   onReset: () => void;
   resetLabel?: string;
@@ -46,6 +48,7 @@ export default function AnalysisResultsView({
   comparison,
   crawlRunId = null,
   websiteId = null,
+  pagesCrawled = 0,
   surface = "landing",
   onReset,
   resetLabel = "Try another website",
@@ -76,9 +79,9 @@ export default function AnalysisResultsView({
             <p className={styles.resultsSeriousness}>{model.seriousness}</p>
           ) : null}
           <p className={styles.resultsDomain}>
-            Examined{" "}
             <span className={styles.analyzingDomain}>{hostname}</span>
           </p>
+          <p className={styles.resultsScope}>{formatCompletedScopeCopy(pagesCrawled)}</p>
           {comparison ? (
             <p className={styles.comparisonSummary}>
               Since last scan:{" "}

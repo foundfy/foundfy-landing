@@ -20,6 +20,7 @@ export default function WebsiteAnalysisEntry() {
     findingsSummary,
     comparison,
     errorMessage,
+    pagesCrawled,
     startAnalysis,
     resetAnalysis,
   } = useAnalysis();
@@ -135,6 +136,7 @@ export default function WebsiteAnalysisEntry() {
           comparison={comparison}
           crawlRunId={crawlRunId}
           websiteId={websiteId}
+          pagesCrawled={pagesCrawled}
           onReset={handleReset}
         />
       ) : (

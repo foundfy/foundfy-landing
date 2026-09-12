@@ -667,6 +667,14 @@
   color: rgba(245, 243, 238, 0.42);
 }
 
+.resultsScope {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 1.45;
+  color: rgba(245, 243, 238, 0.42);
+}
+
 .comparisonSummary {
   font-size: 12px;
   font-weight: 400;

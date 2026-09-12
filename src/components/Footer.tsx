@@ -6,9 +6,14 @@ export default function Footer() {
     <footer className={styles.footer}>
       <div className={styles.inner}>
         <Logo variant="dark" />
-        <a href="mailto:hello@foundfy.me" className={styles.email}>
-          hello@foundfy.me
-        </a>
+        <div className={styles.links}>
+          <a href="/privacy" className={styles.privacy}>
+            Privacy
+          </a>
+          <a href="mailto:hello@foundfy.me" className={styles.email}>
+            hello@foundfy.me
+          </a>
+        </div>
       </div>
     </footer>
   );

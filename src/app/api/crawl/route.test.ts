@@ -27,6 +27,7 @@ vi.mock("@/lib/crawler/worker/process-run", () => ({
   processCrawlRun: (...args: unknown[]) => processCrawlRunMock(...args),
 }));
 
+import { DailyCrawlLimitReachedError } from "@/lib/crawler/daily-crawl-limit";
 import { POST } from "./route";
 
 afterEach(() => {
@@ -66,5 +67,29 @@ describe("POST /api/crawl", () => {
     );
     expect(afterMock).not.toHaveBeenCalled();
     expect(processCrawlRunMock).not.toHaveBeenCalled();
+  });
+
+  it("respects the daily crawl guardrail without creating a crawl", async () => {
+    upsertWebsiteMock.mockResolvedValue({
+      id: "website-1",
+      url: "https://www.ekoiq.com/",
+      hostname: "ekoiq.com",
+    });
+    createAndEnqueueCrawlMock.mockRejectedValue(new DailyCrawlLimitReachedError());
+
+    const response = await POST(
+      new Request("https://example.test", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: "www.ekoiq.com" }),
+      }),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(429);
+    expect(payload).toEqual({
+      error: "Foundfy has reached today's beta analysis limit. Try again tomorrow.",
+    });
+    expect(createAndEnqueueCrawlMock).toHaveBeenCalledTimes(1);
   });
 });

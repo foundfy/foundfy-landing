@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, type CSSProperties } from "react";
+import { formatAnalyzingScopeCopy } from "@/lib/analysis/analysis-scope";
 import {
   formatLiveScanPageCount,
   getCrawlStatusCopy,
@@ -126,6 +127,9 @@ export function AnalysisAnalyzingViewInner({
           </p>
         </div>
       </div>
+      {isCompleting || showLiveShell ? null : (
+        <p className={styles.completedSecondary}>{formatAnalyzingScopeCopy(maxPages)}</p>
+      )}
       {showLiveShell ? (
         <div className={`${styles.resultsCard} ${styles.resultsCardVisible} ${styles.liveResultCard}`}>
           <h2 className={styles.resultsTitle}>{LIVE_SCAN_COPY.title}</h2>

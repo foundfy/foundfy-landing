@@ -91,7 +91,7 @@ describe("live result shell", () => {
     ).toBe(true);
     expect(formatLiveScanPageCount(2)).toBe("2 pages checked so far");
     expect(formatLiveScanPageCount(1)).toBe("1 page checked so far");
-    expect(LIVE_SCAN_COPY.title).toBe("Scanning your site…");
+    expect(LIVE_SCAN_COPY.title).toBe("Analyzing up to 10 pages");
     expect(LIVE_SCAN_COPY.pendingFindings).toContain("New findings will appear");
   });
 
@@ -352,6 +352,7 @@ describe("visual analyzing progress", () => {
     expect(analyzingView).toContain("getCrawlStatusCopy");
     expect(analyzingView).toContain("shouldShowLiveResultShell");
     expect(analyzingView).toContain("LIVE_SCAN_COPY");
+    expect(analyzingView).toContain("formatAnalyzingScopeCopy");
     expect(scanView).toContain("AnalysisAnalyzingViewInner");
     expect(scanView).not.toContain("useCrawlProgressAnimation");
   });

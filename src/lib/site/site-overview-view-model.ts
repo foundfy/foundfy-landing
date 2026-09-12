@@ -1,3 +1,4 @@
+import { formatCompletedScopeCopy } from "@/lib/analysis/analysis-scope";
 import {
   formatComparisonNarrative,
   formatFirstScanProgressCopy,
@@ -200,9 +201,7 @@ export function formatSiteMetadataLine(input: {
   jobCount: number;
   completedAt: string;
 }): string {
-  const pagesLabel = input.pagesCrawled === 1 ? "1 page" : `${input.pagesCrawled} pages`;
-
-  return `${pagesLabel} · ${formatJobCount(input.jobCount)} · ${formatSiteScanDate(input.completedAt)}`;
+  return `${formatCompletedScopeCopy(input.pagesCrawled)} · ${formatJobCount(input.jobCount)} · ${formatSiteScanDate(input.completedAt)}`;
 }
 
 export function isHistoryRowClickable(item: ScanHistoryItem): boolean {

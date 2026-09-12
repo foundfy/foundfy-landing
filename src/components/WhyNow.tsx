@@ -31,8 +31,8 @@ const cards = [
   },
   {
     icon: IconPulse,
-    title: "AI visibility",
-    description: "Understand how your brand appears in AI search.",
+    title: "AI search, ahead",
+    description: "We're building toward how brands show up in AI search.",
   },
 ];
 
@@ -63,8 +63,8 @@ export default function WhyNow() {
             <div className={styles.supporting}>
               <p>
                 People discover brands in more ways than ever. Foundfy is
-                designed for this new era. Combining the fundamentals of SEO
-                with the opportunities of AI search.
+                designed for this new era — starting with on-page SEO, and
+                building toward AI search.
               </p>
             </div>
           </div>

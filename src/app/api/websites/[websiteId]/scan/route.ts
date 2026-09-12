@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import {
+  DAILY_CRAWL_LIMIT_STATUS,
+  isDailyCrawlLimitReachedError,
+} from "@/lib/crawler/daily-crawl-limit";
 import { createAndEnqueueCrawl } from "@/lib/crawler/start-crawl";
 import { validatePublicHttpUrl } from "@/lib/crawler/url/normalize";
 import { findActiveCrawlRunForWebsite, getWebsiteById } from "@/lib/websites/repository";
@@ -59,6 +63,13 @@ export async function POST(_request: Request, context: RouteContext) {
       { status: 201 },
     );
   } catch (error) {
+    if (isDailyCrawlLimitReachedError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: DAILY_CRAWL_LIMIT_STATUS },
+      );
+    }
+
     const message = error instanceof Error ? error.message : "Unknown scan startup error";
     console.error("[Website Scan] Failed to start scan:", message);
     return NextResponse.json(

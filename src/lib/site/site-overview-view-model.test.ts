@@ -321,6 +321,13 @@ describe("site work-list grouping", () => {
         jobCount: model?.actionGroupCount ?? 0,
         completedAt: "2026-09-10T15:01:00.000Z",
       }),
+    ).toContain("Based on 10 analyzed pages");
+    expect(
+      formatSiteMetadataLine({
+        pagesCrawled: 10,
+        jobCount: model?.actionGroupCount ?? 0,
+        completedAt: "2026-09-10T15:01:00.000Z",
+      }),
     ).toContain("2 jobs");
   });
 });

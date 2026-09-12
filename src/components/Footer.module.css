@@ -13,12 +13,20 @@
   gap: var(--space-md);
 }
 
+.links {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.privacy,
 .email {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--grey-muted);
   transition: color var(--transition);
 }
 
+.privacy:hover,
 .email:hover {
   color: var(--black);
 }

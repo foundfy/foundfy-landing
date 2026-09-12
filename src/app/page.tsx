@@ -4,6 +4,7 @@ import WhatWeBuilding from "@/components/WhatWeBuilding";
 import WhyNow from "@/components/WhyNow";
 import EarlyAccess from "@/components/EarlyAccess";
 import Closing from "@/components/Closing";
+import Footer from "@/components/Footer";
 
 export default function Home() {
   return (
@@ -15,6 +16,7 @@ export default function Home() {
         <EarlyAccess />
         <Closing />
       </main>
+      <Footer />
     </AnalysisProvider>
   );
 }

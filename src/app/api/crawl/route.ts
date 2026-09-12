@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { upsertWebsite } from "@/lib/crawler/db/repository";
+import {
+  DAILY_CRAWL_LIMIT_STATUS,
+  isDailyCrawlLimitReachedError,
+} from "@/lib/crawler/daily-crawl-limit";
 import { createAndEnqueueCrawl } from "@/lib/crawler/start-crawl";
 import { validatePublicHttpUrl } from "@/lib/crawler/url/normalize";
 
@@ -38,6 +42,13 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch (error) {
+    if (isDailyCrawlLimitReachedError(error)) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: DAILY_CRAWL_LIMIT_STATUS },
+      );
+    }
+
     const message = error instanceof Error ? error.message : "Unknown crawl startup error";
     console.error("[Crawl] Failed to create crawl run:", message);
     return NextResponse.json(

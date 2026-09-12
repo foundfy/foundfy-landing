@@ -35,6 +35,7 @@ vi.mock("@/lib/crawler/worker/process-run", () => ({
   processCrawlRun: (...args: unknown[]) => processCrawlRunMock(...args),
 }));
 
+import { DailyCrawlLimitReachedError } from "@/lib/crawler/daily-crawl-limit";
 import { POST } from "./route";
 
 const WEBSITE_ID = "388c5109-fa75-4ba7-af55-f7c95a69122b";
@@ -83,6 +84,29 @@ describe("POST /api/websites/[websiteId]/scan", () => {
     expect(processCrawlRunMock).not.toHaveBeenCalled();
   });
 
+  it("reuses an active scan without consuming a daily crawl slot", async () => {
+    getWebsiteByIdMock.mockResolvedValue(website);
+    findActiveCrawlRunForWebsiteMock.mockResolvedValue({
+      id: "active-run",
+      websiteId: WEBSITE_ID,
+      status: "queued",
+      seedUrl: "https://www.ekoiq.com/",
+      pagesCrawled: 0,
+      maxPages: 10,
+      errorMessage: null,
+      startedAt: null,
+      completedAt: null,
+      createdAt: "2026-09-11T14:59:59.000Z",
+    });
+
+    const response = await POST(new Request("https://example.test"), {
+      params: Promise.resolve({ websiteId: WEBSITE_ID }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(createAndEnqueueCrawlMock).not.toHaveBeenCalled();
+  });
+
   it("creates a new crawl run when no active scan exists", async () => {
     getWebsiteByIdMock.mockResolvedValue(website);
     findActiveCrawlRunForWebsiteMock.mockResolvedValue(null);
@@ -109,5 +133,24 @@ describe("POST /api/websites/[websiteId]/scan", () => {
     });
     expect(afterMock).not.toHaveBeenCalled();
     expect(processCrawlRunMock).not.toHaveBeenCalled();
+  });
+
+  it("respects the daily crawl guardrail on a new rescan without breaking reuse", async () => {
+    getWebsiteByIdMock.mockResolvedValue(website);
+    findActiveCrawlRunForWebsiteMock.mockResolvedValue(null);
+    resolveRescanSeedUrlMock.mockResolvedValue("https://www.ekoiq.com/");
+    createAndEnqueueCrawlMock.mockRejectedValue(new DailyCrawlLimitReachedError());
+
+    const response = await POST(new Request("https://example.test"), {
+      params: Promise.resolve({ websiteId: WEBSITE_ID }),
+    });
+    const payload = await response.json();
+
+    expect(response.status).toBe(429);
+    expect(payload).toEqual({
+      error: "Foundfy has reached today's beta analysis limit. Try again tomorrow.",
+    });
+    expect(createAndEnqueueCrawlMock).toHaveBeenCalledTimes(1);
+    expect(findActiveCrawlRunForWebsiteMock).toHaveBeenCalledWith(WEBSITE_ID);
   });
 });

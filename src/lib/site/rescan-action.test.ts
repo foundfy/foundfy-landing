@@ -62,4 +62,20 @@ describe("parseRescanResponse", () => {
       error: "Unable to start scan right now.",
     });
   });
+
+  it("surfaces the beta capacity message from a non-500 rejection", () => {
+    const result = parseRescanResponse(
+      new Response(null, { status: 429 }),
+      {
+        crawlRunId: "",
+        websiteId: "website-1",
+        error: "Foundfy has reached today's beta analysis limit. Try again tomorrow.",
+      },
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Foundfy has reached today's beta analysis limit. Try again tomorrow.",
+    });
+  });
 });

@@ -1,3 +1,4 @@
+import { formatAnalyzingScopeCopy } from "./analysis-scope";
 import type { CrawlLifecycleStatus } from "./crawl-status";
 
 export const VISUAL_PROGRESS = {
@@ -24,7 +25,7 @@ export const LIVE_RESULT_SHELL = {
 } as const;
 
 export const LIVE_SCAN_COPY = {
-  title: "Scanning your site…",
+  title: formatAnalyzingScopeCopy(),
   pendingFindings: "New findings will appear as we discover them.",
 } as const;
 

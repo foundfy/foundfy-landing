@@ -13,7 +13,7 @@ const inter = Inter({
 
 const siteTitle = "Foundfy | Be found wherever people search.";
 const siteDescription =
-  "Improve your search visibility across Google and AI search. Foundfy turns SEO insights into clear actions and new opportunities.";
+  "Foundfy turns on-page SEO insights into clear actions. Built for a world where people search in more places.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.foundfy.me"),
