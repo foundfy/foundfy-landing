@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const getWebsiteByIdMock = vi.fn();
 const findActiveCrawlRunForWebsiteMock = vi.fn();
 const resolveRescanSeedUrlMock = vi.fn();
+const resolveRescanPriorityUrlsMock = vi.fn();
 const createAndEnqueueCrawlMock = vi.fn();
 const processCrawlRunMock = vi.fn();
 const afterMock = vi.fn((callback: () => Promise<void>) => {
@@ -25,6 +26,11 @@ vi.mock("@/lib/websites/repository", () => ({
 
 vi.mock("@/lib/websites/rescan-seed", () => ({
   resolveRescanSeedUrl: (...args: unknown[]) => resolveRescanSeedUrlMock(...args),
+}));
+
+vi.mock("@/lib/websites/rescan-priority-urls", () => ({
+  resolveRescanPriorityUrls: (...args: unknown[]) =>
+    resolveRescanPriorityUrlsMock(...args),
 }));
 
 vi.mock("@/lib/crawler/start-crawl", () => ({
@@ -111,6 +117,9 @@ describe("POST /api/websites/[websiteId]/scan", () => {
     getWebsiteByIdMock.mockResolvedValue(website);
     findActiveCrawlRunForWebsiteMock.mockResolvedValue(null);
     resolveRescanSeedUrlMock.mockResolvedValue("https://www.ekoiq.com/");
+    resolveRescanPriorityUrlsMock.mockResolvedValue([
+      "https://www.ekoiq.com/hakkimizda",
+    ]);
     createAndEnqueueCrawlMock.mockResolvedValue({
       crawlRunId: "new-run",
       websiteId: WEBSITE_ID,
@@ -127,9 +136,14 @@ describe("POST /api/websites/[websiteId]/scan", () => {
       websiteId: WEBSITE_ID,
       reusedActiveScan: false,
     });
+    expect(resolveRescanPriorityUrlsMock).toHaveBeenCalledWith(
+      website,
+      "https://www.ekoiq.com/",
+    );
     expect(createAndEnqueueCrawlMock).toHaveBeenCalledWith({
       websiteId: WEBSITE_ID,
       seedUrl: "https://www.ekoiq.com/",
+      priorityUrls: ["https://www.ekoiq.com/hakkimizda"],
     });
     expect(afterMock).not.toHaveBeenCalled();
     expect(processCrawlRunMock).not.toHaveBeenCalled();
@@ -139,6 +153,7 @@ describe("POST /api/websites/[websiteId]/scan", () => {
     getWebsiteByIdMock.mockResolvedValue(website);
     findActiveCrawlRunForWebsiteMock.mockResolvedValue(null);
     resolveRescanSeedUrlMock.mockResolvedValue("https://www.ekoiq.com/");
+    resolveRescanPriorityUrlsMock.mockResolvedValue([]);
     createAndEnqueueCrawlMock.mockRejectedValue(new DailyCrawlLimitReachedError());
 
     const response = await POST(new Request("https://example.test"), {

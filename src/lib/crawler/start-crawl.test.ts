@@ -22,6 +22,7 @@ vi.mock("./db/repository", () => ({
 }));
 
 import { DailyCrawlLimitReachedError } from "./daily-crawl-limit";
+import { SEED_QUEUE_PRIORITY, VERIFICATION_QUEUE_PRIORITY } from "./select/page-priority";
 import { createAndEnqueueCrawl } from "./start-crawl";
 
 describe("createAndEnqueueCrawl", () => {
@@ -46,6 +47,44 @@ describe("createAndEnqueueCrawl", () => {
 
     expect(assertCanCreateNewCrawlMock).toHaveBeenCalledTimes(1);
     expect(createCrawlRunMock).toHaveBeenCalledTimes(1);
+    expect(enqueueUrlMock).toHaveBeenCalledTimes(1);
+    expect(enqueueUrlMock).toHaveBeenCalledWith({
+      crawlRunId: "run-1",
+      url: "https://example.com/",
+      depth: 0,
+      priority: SEED_QUEUE_PRIORITY,
+    });
+  });
+
+  it("enqueues previous finding URLs after the seed and below the 10-page budget", async () => {
+    assertCanCreateNewCrawlMock.mockResolvedValue(undefined);
+    const priorityUrls = Array.from({ length: 12 }, (_, index) => {
+      return `https://example.com/page-${index + 1}`;
+    });
+
+    await createAndEnqueueCrawl({
+      websiteId: "website-1",
+      seedUrl: "https://example.com/",
+      priorityUrls: ["https://example.com/", ...priorityUrls],
+    });
+
+    const enqueued = enqueueUrlMock.mock.calls.map(
+      (call) => call[0] as { url: string; priority: number },
+    );
+
+    expect(enqueued).toHaveLength(10);
+    expect(enqueued[0]).toEqual({
+      crawlRunId: "run-1",
+      url: "https://example.com/",
+      depth: 0,
+      priority: SEED_QUEUE_PRIORITY,
+    });
+    expect(enqueued.slice(1).every((item) => item.priority === VERIFICATION_QUEUE_PRIORITY)).toBe(
+      true,
+    );
+    expect(enqueued.slice(1).map((item) => item.url)).toEqual(
+      priorityUrls.slice(0, 9),
+    );
   });
 
   it("does not create a crawl when the daily ceiling is reached", async () => {

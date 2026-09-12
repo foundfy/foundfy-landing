@@ -200,4 +200,65 @@ describe("processCrawlRun page priority", () => {
       priorityByUrl.get("https://example.com/blog/2020/old-article") ?? 0,
     );
   });
+
+  it("fetches previous finding URLs before utility discovery and stops at 10 pages", async () => {
+    const findingUrls = Array.from({ length: 9 }, (_, index) => {
+      return `https://example.com/finding-${index + 1}`;
+    });
+    listQueueUrlsMock.mockResolvedValue(["https://example.com/", ...findingUrls]);
+
+    let pagesCrawled = 0;
+    getCrawlRunSummaryMock.mockImplementation(async () => ({
+      id: claimedRun.id,
+      status: "running",
+      hostname: "example.com",
+      seedUrl: claimedRun.seed_url,
+      maxPages: 10,
+      pagesCrawled,
+      pagesDiscovered: 10,
+      errorMessage: null,
+      startedAt: claimedRun.started_at,
+      completedAt: null,
+      createdAt: claimedRun.created_at,
+    }));
+    incrementCrawlProgressMock.mockImplementation(async (_id: string, crawledDelta: number) => {
+      pagesCrawled += crawledDelta;
+    });
+
+    getNextQueueItemMock
+      .mockResolvedValueOnce({
+        id: "queue-seed",
+        url: "https://example.com/",
+        depth: 0,
+        priority: 100,
+        status: "pending",
+      });
+    findingUrls.forEach((url, index) => {
+      getNextQueueItemMock.mockResolvedValueOnce({
+        id: `queue-finding-${index + 1}`,
+        url,
+        depth: 0,
+        priority: 99,
+        status: "pending",
+      });
+    });
+    getNextQueueItemMock.mockResolvedValueOnce({
+      id: "queue-login",
+      url: "https://example.com/login",
+      depth: 0,
+      priority: 6,
+      status: "pending",
+    });
+
+    await processCrawlRun("run-priority");
+
+    const htmlFetches = ssrfSafeFetchMock.mock.calls
+      .map((call) => call[0] as string)
+      .filter((url) => !url.includes("robots.txt") && !url.includes("sitemap"));
+
+    expect(htmlFetches).toEqual(["https://example.com/", ...findingUrls]);
+    expect(htmlFetches).toHaveLength(10);
+    expect(htmlFetches).not.toContain("https://example.com/login");
+    expect(pagesCrawled).toBe(10);
+  });
 });

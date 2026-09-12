@@ -6,6 +6,7 @@ import {
   withBrokenLink,
   withCrawledPage,
 } from "./fixtures/test-helpers";
+import { normalizeComparisonUrl } from "./normalize-comparison-url";
 
 const PREVIOUS_RUN = {
   previousCrawlRunId: "prev-run",
@@ -255,6 +256,68 @@ describe("compareObservations", () => {
     expect(result.comparison.fixed).toBe(1);
     expect(result.comparison.new).toBe(0);
     expect(result.comparison.unverified).toBe(0);
+  });
+
+  it("does not mark a sitemap URL issue fixed when the URL was only rediscovered and queued", () => {
+    const sitemapUrl = "https://www.dbhobby.com/ca/tint-hdupont-per-a-pintura-en-seda";
+    const previous = buildStoredObservation({
+      id: "prev-sitemap-issue",
+      ruleKey: "site_discovery.sitemap_url_issue",
+      subjectKey: "url:tint-hdupont:sitemap_url_issue",
+      pageUrl: sitemapUrl,
+      evidence: {
+        sitemapUrl,
+        queueStatus: "failed",
+        queueSkipReason: "Request timed out.",
+        pageStatusCode: null,
+        requestedUrl: null,
+        finalUrl: null,
+      },
+    });
+
+    const coverage = buildEmptyCoverage();
+    const normalized = normalizeComparisonUrl(sitemapUrl);
+    if (normalized) {
+      coverage.sitemapUrls.add(normalized);
+      coverage.queuedUrls.add(normalized);
+    }
+
+    const result = compare([previous], [], coverage);
+
+    expect(result.comparison.fixed).toBe(0);
+    expect(result.comparison.unverified).toBe(1);
+    expect(result.comparison.fixedFindings).toHaveLength(0);
+  });
+
+  it("marks a sitemap URL issue fixed when the page was fetched and the issue is gone", () => {
+    const sitemapUrl = "https://www.dbhobby.com/ca/tint-hdupont-per-a-pintura-en-seda";
+    const previous = buildStoredObservation({
+      id: "prev-sitemap-issue",
+      ruleKey: "site_discovery.sitemap_url_issue",
+      subjectKey: "url:tint-hdupont:sitemap_url_issue",
+      pageUrl: sitemapUrl,
+      evidence: {
+        sitemapUrl,
+        queueStatus: "failed",
+        queueSkipReason: "Request timed out.",
+        pageStatusCode: null,
+        requestedUrl: null,
+        finalUrl: null,
+      },
+    });
+
+    const coverage = withCrawledPage(
+      buildEmptyCoverage(),
+      normalizeComparisonUrl(sitemapUrl) ?? sitemapUrl,
+    );
+
+    const result = compare([previous], [], coverage);
+
+    expect(result.comparison.fixed).toBe(1);
+    expect(result.comparison.unverified).toBe(0);
+    expect(result.comparison.fixedFindings[0]?.ruleKey).toBe(
+      "site_discovery.sitemap_url_issue",
+    );
   });
 
   it("treats site-wide findings as fixed when absent on a completed crawl", () => {

@@ -66,13 +66,9 @@ export function hasSufficientVerificationCoverage(
       typeof evidence.sitemapUrl === "string"
         ? normalizeComparisonUrl(evidence.sitemapUrl)
         : normalizeComparisonUrl(pageUrl);
-    if (!sitemapUrl || !coverage.sitemapUrls.has(sitemapUrl)) {
-      return false;
-    }
-
     return (
-      coverage.crawledPageUrls.has(sitemapUrl) ||
-      coverage.queuedUrls.has(sitemapUrl)
+      isPageUrlCrawled(sitemapUrl, coverage) ||
+      isRequestedUrlCrawled(sitemapUrl, coverage)
     );
   }
 

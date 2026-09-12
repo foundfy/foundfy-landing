@@ -4,6 +4,7 @@ import { foldPathSegment } from "../parse/text";
 export const SITEMAP_ENQUEUE_LIMIT = 25;
 export const LOCALE_DIVERSITY_BONUS = 10;
 export const SEED_QUEUE_PRIORITY = 100;
+export const VERIFICATION_QUEUE_PRIORITY = 99;
 
 export type DiscoverySource = "seed" | "sitemap" | "navigation" | "internal";
 

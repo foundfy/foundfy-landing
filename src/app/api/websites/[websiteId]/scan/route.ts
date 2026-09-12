@@ -6,6 +6,7 @@ import {
 import { createAndEnqueueCrawl } from "@/lib/crawler/start-crawl";
 import { validatePublicHttpUrl } from "@/lib/crawler/url/normalize";
 import { findActiveCrawlRunForWebsite, getWebsiteById } from "@/lib/websites/repository";
+import { resolveRescanPriorityUrls } from "@/lib/websites/rescan-priority-urls";
 import { resolveRescanSeedUrl } from "@/lib/websites/rescan-seed";
 import { isValidUuid } from "@/lib/websites/uuid";
 
@@ -49,9 +50,12 @@ export async function POST(_request: Request, context: RouteContext) {
       );
     }
 
+    const priorityUrls = await resolveRescanPriorityUrls(website, validated.url);
+
     const started = await createAndEnqueueCrawl({
       websiteId,
       seedUrl: validated.url,
+      priorityUrls,
     });
 
     return NextResponse.json(
