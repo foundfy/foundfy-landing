@@ -23,6 +23,7 @@ export function useCrawlPolling() {
     domain,
     crawlRunId,
     setCrawlRunId,
+    setWebsiteId,
     updateCrawlProgress,
     completeAnalysis,
     failAnalysis,
@@ -74,6 +75,9 @@ export function useCrawlPolling() {
 
         if (!cancelled) {
           setCrawlRunId(payload.crawlRunId);
+          if (payload.websiteId) {
+            setWebsiteId(payload.websiteId);
+          }
         }
       } catch {
         if (!cancelled) {
@@ -87,7 +91,7 @@ export function useCrawlPolling() {
     return () => {
       cancelled = true;
     };
-  }, [phase, domainUrl, setCrawlRunId]);
+  }, [phase, domainUrl, setCrawlRunId, setWebsiteId]);
 
   useEffect(() => {
     if (phase !== "starting" || !crawlRunId) {
@@ -161,6 +165,7 @@ export function useCrawlPolling() {
             findings: payload.findings,
             findingsSummary: payload.findingsSummary,
             comparison: payload.comparison,
+            websiteId: payload.websiteId,
             explanationEnrichmentStatus: payload.explanationEnrichmentStatus,
           });
         }

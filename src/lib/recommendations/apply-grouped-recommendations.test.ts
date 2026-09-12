@@ -120,9 +120,7 @@ describe("applyGroupedRecommendations", () => {
       },
     ]);
 
-    expect(updated[0]?.recommendation?.recommendedAction).toContain(
-      "This affects 2 pages",
-    );
+    expect(updated[0]?.recommendation?.recommendedAction).toContain("/a");
     expect(updated[1]?.recommendation?.recommendedAction).toBeUndefined();
   });
 

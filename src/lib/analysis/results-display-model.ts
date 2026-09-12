@@ -1,26 +1,40 @@
 import type {
   AnalysisFinding,
+  FindingChangeStatus,
   FindingsSummary,
 } from "@/lib/analysis/crawl-status";
 import {
   collectAffectedDisplayUrls,
   groupFindingsByAction,
+  selectHighlightGroups,
   type HighlightGroup,
 } from "@/lib/findings/highlight-groups";
 import {
+  formatAffectedPageLabel,
   formatGroupedFindingTitle,
   formatResultsBrief,
   formatSeriousnessLine,
+  formatSharedTitleLine,
+  readSharedTitle,
   shouldCollapseAllFindings,
+  shouldShowHostInAffectedPages,
   type ResultsBriefGroup,
 } from "./finding-display";
+
+export type AffectedPageDetail = {
+  url: string;
+  label: string;
+  canonicalLabel: string | null;
+};
 
 export type GroupedFindingCard = {
   key: string;
   finding: AnalysisFinding;
   title: string;
+  sharedTitleLine: string | null;
   affectedPageCount: number;
   affectedUrls: string[];
+  affectedPages: AffectedPageDetail[];
   rawFindingCount: number;
 };
 
@@ -49,6 +63,29 @@ function toBriefGroup(
   };
 }
 
+function readCanonicalLabel(finding: AnalysisFinding): string | null {
+  const canonical = finding.evidence.canonical;
+  if (typeof canonical !== "string" || canonical.length === 0) {
+    return null;
+  }
+
+  return formatAffectedPageLabel(canonical);
+}
+
+function resolveGroupChangeStatus(
+  members: AnalysisFinding[],
+): FindingChangeStatus | undefined {
+  if (members.some((finding) => finding.changeStatus === "still_present")) {
+    return "still_present";
+  }
+
+  if (members.some((finding) => finding.changeStatus === "new")) {
+    return "new";
+  }
+
+  return undefined;
+}
+
 function toGroupedCard(
   group: HighlightGroup,
   findingsById: Map<string, AnalysisFinding>,
@@ -58,15 +95,34 @@ function toGroupedCard(
     return null;
   }
 
+  const members = group.memberFindingIds
+    .map((findingId) => findingsById.get(findingId))
+    .filter((member): member is AnalysisFinding => member !== undefined);
   const affectedUrls = collectAffectedDisplayUrls(
     findingsById,
     group.memberFindingIds,
   );
+  const includeHost = shouldShowHostInAffectedPages(affectedUrls);
+  const showCanonical =
+    finding.ruleKey === "indexability.canonical_points_elsewhere";
+  const affectedPages = affectedUrls.map((url) => {
+    const pageFinding = members.find((member) => member.pageUrl === url);
+    return {
+      url,
+      label: formatAffectedPageLabel(url, { includeHost }),
+      canonicalLabel: showCanonical
+        ? (pageFinding ? readCanonicalLabel(pageFinding) : null)
+        : null,
+    };
+  });
+  const sharedTitle = readSharedTitle(finding.evidence);
+  const changeStatus = resolveGroupChangeStatus(members);
 
   return {
     key: group.groupKey,
     finding: {
       ...finding,
+      changeStatus: changeStatus ?? finding.changeStatus,
       highlightAggregation:
         group.affectedPageCount > 1
           ? { affectedPageCount: group.affectedPageCount }
@@ -77,25 +133,24 @@ function toGroupedCard(
       finding.title,
       group.affectedPageCount,
     ),
+    sharedTitleLine:
+      finding.ruleKey === "page_fundamentals.duplicate_title"
+        ? formatSharedTitleLine(sharedTitle, group.affectedPageCount)
+        : null,
     affectedPageCount: group.affectedPageCount,
     affectedUrls,
+    affectedPages,
     rawFindingCount: group.rawFindingCount,
   };
 }
 
 export function buildResultsDisplayModel(
   findings: AnalysisFinding[],
-  findingsSummary: FindingsSummary,
+  _findingsSummary: FindingsSummary,
 ): ResultsDisplayModel {
   const findingsById = new Map(findings.map((finding) => [finding.id, finding]));
   const actionGroups = groupFindingsByAction(findings);
-  const highlightGroups = findingsSummary.highlightGroups.map((summary) => ({
-    groupKey: summary.representativeFindingId,
-    representativeFindingId: summary.representativeFindingId,
-    memberFindingIds: summary.memberFindingIds,
-    rawFindingCount: summary.rawFindingCount,
-    affectedPageCount: summary.affectedPageCount,
-  }));
+  const highlightGroups = selectHighlightGroups(findings);
 
   const briefGroups = actionGroups
     .map((group) =>
@@ -120,4 +175,3 @@ export function buildResultsDisplayModel(
     actionGroupCount: allFindingCards.length,
   };
 }
-

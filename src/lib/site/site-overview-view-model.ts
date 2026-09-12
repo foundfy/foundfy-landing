@@ -4,8 +4,10 @@ import {
 } from "@/lib/analysis/comparison-display";
 import {
   formatEmptyHighlightsCopy,
+  formatJobCount,
   formatZeroFindingsCopy,
 } from "@/lib/analysis/finding-display";
+import { buildResultsDisplayModel } from "@/lib/analysis/results-display-model";
 import type {
   AnalysisFinding,
   CrawlComparison,
@@ -44,6 +46,18 @@ export function buildSiteOverviewLinks(overview: WebsiteOverview): SiteOverviewL
   };
 }
 
+export function buildSiteResultsDisplayModel(overview: WebsiteOverview) {
+  const latest = overview.latestUsableScan;
+  if (!latest) {
+    return null;
+  }
+
+  const findings =
+    latest.findings.length > 0 ? latest.findings : overview.highlightedFindings;
+
+  return buildResultsDisplayModel(findings, latest.findingsSummary);
+}
+
 export function buildHighlightedFindingsForSitePage(
   findings: AnalysisFinding[],
   findingsSummary: FindingsSummary,
@@ -80,6 +94,7 @@ export function buildHighlightedFindingsForSitePage(
 
 export function buildSiteProgressContent(
   comparison: CrawlComparison | null | undefined,
+  jobCount?: number | null,
 ): SiteProgressContent {
   if (!comparison) {
     return { kind: "first_scan", copy: formatFirstScanProgressCopy() };
@@ -87,7 +102,7 @@ export function buildSiteProgressContent(
 
   return {
     kind: "comparison",
-    copy: formatComparisonNarrative(comparison),
+    copy: formatComparisonNarrative(comparison, jobCount),
     comparison,
   };
 }
@@ -116,10 +131,16 @@ export function buildSiteWhatMattersContent(
     };
   }
 
-  const highlights = buildHighlightedFindingsForSitePage(
-    overview.highlightedFindings,
-    findingsSummary,
-  );
+  const latestFindings = overview.latestUsableScan?.findings ?? [];
+  const highlights =
+    latestFindings.length > 0
+      ? buildResultsDisplayModel(latestFindings, findingsSummary).highlightCards.map(
+          (card) => card.finding,
+        )
+      : buildHighlightedFindingsForSitePage(
+          overview.highlightedFindings,
+          findingsSummary,
+        );
 
   if (highlights.length === 0) {
     const emptyCopy = formatEmptyHighlightsCopy();
@@ -176,14 +197,12 @@ export function formatSiteScanDate(value: string | null | undefined): string {
 
 export function formatSiteMetadataLine(input: {
   pagesCrawled: number;
-  findingsCount: number;
+  jobCount: number;
   completedAt: string;
 }): string {
   const pagesLabel = input.pagesCrawled === 1 ? "1 page" : `${input.pagesCrawled} pages`;
-  const findingsLabel =
-    input.findingsCount === 1 ? "1 finding" : `${input.findingsCount} findings`;
 
-  return `${pagesLabel} · ${findingsLabel} · ${formatSiteScanDate(input.completedAt)}`;
+  return `${pagesLabel} · ${formatJobCount(input.jobCount)} · ${formatSiteScanDate(input.completedAt)}`;
 }
 
 export function isHistoryRowClickable(item: ScanHistoryItem): boolean {

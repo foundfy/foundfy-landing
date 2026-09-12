@@ -43,18 +43,18 @@ export const RULE_RECOMMENDATIONS: Record<RuleKey, RuleRecommendation> = {
   "indexability.canonical_missing": {
     title: "Add a canonical URL",
     whyItMatters:
-      "Without a canonical URL, search engines must infer the preferred version of the page.",
+      "Without a preferred URL, search engines may treat copies of this page as separate results.",
     recommendedAction:
-      "Add a canonical link element that points to the preferred URL for this page.",
-    verification: "Confirm the page HTML includes a canonical tag.",
+      "Add a canonical link that points to the preferred URL for this page.",
+    verification: "Scan again and confirm the page HTML includes a canonical tag.",
   },
   "indexability.canonical_points_elsewhere": {
     title: "Align canonical with final URL",
     whyItMatters:
-      "When the canonical URL differs from the crawled URL, search engines may consolidate signals elsewhere.",
+      "This page tells Google another page is the real one, so Google may show that other page instead.",
     recommendedAction:
-      "Update the canonical tag to match the intended indexable URL, or redirect to that URL.",
-    verification: "Confirm the canonical URL matches the preferred live URL.",
+      "Decide whether this page should stay its own URL, or redirect to the page it currently points at.",
+    verification: "Scan again and confirm the canonical URL matches the page you want shown.",
   },
   "page_fundamentals.missing_title": {
     title: "Add a page title",
@@ -67,10 +67,10 @@ export const RULE_RECOMMENDATIONS: Record<RuleKey, RuleRecommendation> = {
   "page_fundamentals.duplicate_title": {
     title: "Differentiate duplicate titles",
     whyItMatters:
-      "Multiple pages sharing the same title make it harder for search engines to distinguish them.",
+      "When several pages share one title, search results can look the same and people may open the wrong page.",
     recommendedAction:
       "Give each affected page a unique title that reflects its specific content.",
-    verification: "Confirm affected pages no longer share the same title.",
+    verification: "Scan again and confirm the affected pages no longer share the same title.",
   },
   "page_fundamentals.title_length_out_of_range": {
     title: "Adjust title length",

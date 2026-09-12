@@ -4,6 +4,7 @@ import { generatePriorityDrafts, buildPriorityContext } from "@/lib/priorities/e
 import type { StoredObservation } from "@/lib/observations/types";
 import {
   buildFindingRecommendation,
+  buildGroupedActionRecommendation,
   buildGroupedBrokenLinkRecommendation,
 } from "./build-recommendation";
 import type { RecommendationInput } from "./types";
@@ -107,6 +108,9 @@ describe("buildFindingRecommendation", () => {
 
     expect(recommendation.recommendedAction).toContain("/page");
     expect(recommendation.recommendedAction).toContain("/preferred");
+    expect(recommendation.whyItMatters).toContain("tells Google");
+    expect(recommendation.whyItMatters).not.toMatch(/consolidate signals/i);
+    expect(recommendation.verification).toContain("Scan again");
   });
 
   it("builds a noindex recommendation", () => {
@@ -170,7 +174,11 @@ describe("buildFindingRecommendation", () => {
       }),
     );
 
-    expect(duplicateTitle.recommendedAction).toContain("2 crawled pages");
+    expect(duplicateTitle.recommendedAction).toContain(
+      '2 pages use the same title: "Shared title"',
+    );
+    expect(duplicateTitle.recommendedAction).toContain("/a");
+    expect(duplicateTitle.verification).toContain("Scan again");
     expect(duplicateMeta.recommendedAction).toContain("2 crawled pages");
   });
 
@@ -317,6 +325,68 @@ describe("buildFindingRecommendation", () => {
     expect(drafts.map((draft) => draft.priorityLevel)).toEqual(["high", "low"]);
     expect(drafts[0].rank).toBe(1);
     expect(drafts[1].rank).toBe(2);
+  });
+});
+
+describe("buildGroupedActionRecommendation", () => {
+  it("puts the shared title on grouped duplicate-title copy", () => {
+    const recommendation = buildGroupedActionRecommendation(
+      input("page_fundamentals.duplicate_title", {
+        title: "Pintura sobre seda | DBHOBBY",
+        duplicatePages: ["https://example.com/", "https://example.com/ca"],
+        pageCount: 2,
+      }),
+      4,
+    );
+
+    expect(recommendation.recommendedAction).toContain(
+      '4 pages use the same title: "Pintura sobre seda | DBHOBBY"',
+    );
+    expect(recommendation.recommendedAction).not.toContain("This affects");
+    expect(recommendation.verification).toContain("Scan again");
+  });
+
+  it("names current pages and the current canonical target without inventing a fix", () => {
+    const recommendation = buildGroupedActionRecommendation(
+      input(
+        "indexability.canonical_points_elsewhere",
+        { canonical: "https://example.com/product" },
+        "https://example.com/",
+      ),
+      2,
+      [
+        input(
+          "indexability.canonical_points_elsewhere",
+          { canonical: "https://example.com/product" },
+          "https://example.com/",
+        ),
+        input(
+          "indexability.canonical_points_elsewhere",
+          { canonical: "https://example.com/product" },
+          "https://example.com/ca",
+        ),
+      ],
+    );
+
+    expect(recommendation.whyItMatters).toContain("/");
+    expect(recommendation.whyItMatters).toContain("/ca");
+    expect(recommendation.whyItMatters).toContain("/product");
+    expect(recommendation.recommendedAction).toContain("/product");
+    expect(recommendation.recommendedAction).not.toMatch(/should be https:\/\//);
+    expect(recommendation.verification).toContain("Scan again");
+  });
+
+  it("does not require AI to build what or verify copy", () => {
+    const recommendation = buildFindingRecommendation(
+      input("page_fundamentals.duplicate_title", {
+        title: "Home",
+        duplicatePages: ["https://example.com/a", "https://example.com/b"],
+        pageCount: 2,
+      }),
+    );
+
+    expect(recommendation.recommendedAction.length).toBeGreaterThan(0);
+    expect(recommendation.verification).toBeTruthy();
   });
 });
 

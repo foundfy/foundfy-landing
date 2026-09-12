@@ -71,6 +71,7 @@ export async function loadWebsiteOverview(
           crawlRunId: latestUsable.id,
           completedAt: latestUsable.completedAt ?? latestUsable.createdAt,
           pagesCrawled: latestUsable.pagesCrawled,
+          findings: latestResults?.findings ?? [],
           findingsSummary:
             latestResults?.findingsSummary ?? {
               totalCount: 0,

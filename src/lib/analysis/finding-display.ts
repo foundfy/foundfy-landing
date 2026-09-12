@@ -32,8 +32,8 @@ const GROUPED_PROBLEM_TITLES: Record<string, { one: string; many: string }> = {
     many: "Canonical URLs missing",
   },
   "indexability.canonical_points_elsewhere": {
-    one: "Canonical points elsewhere",
-    many: "Canonicals point elsewhere",
+    one: "This page tells Google another page is the real one",
+    many: "These pages tell Google another page is the real one",
   },
   "page_fundamentals.missing_title": {
     one: "Missing page title",
@@ -162,10 +162,81 @@ export function formatFindingPath(pageUrl: string | null): string | null {
 
   try {
     const url = new URL(pageUrl);
-    return url.pathname || "/";
+    const path = `${url.pathname}${url.search}` || "/";
+    return path;
   } catch {
     return pageUrl;
   }
+}
+
+export function formatFindingHostPath(pageUrl: string): string {
+  try {
+    const url = new URL(pageUrl);
+    const path = `${url.pathname}${url.search}` || "/";
+    return `${url.hostname}${path}`;
+  } catch {
+    return pageUrl;
+  }
+}
+
+export function shouldShowHostInAffectedPages(urls: string[]): boolean {
+  const hosts = new Set<string>();
+
+  for (const url of urls) {
+    try {
+      hosts.add(new URL(url).hostname.toLowerCase());
+    } catch {
+      hosts.add(url);
+    }
+  }
+
+  return hosts.size > 1;
+}
+
+export function formatAffectedPageLabel(
+  pageUrl: string,
+  options?: { includeHost?: boolean },
+): string {
+  if (options?.includeHost) {
+    return formatFindingHostPath(pageUrl);
+  }
+
+  return formatFindingPath(pageUrl) ?? pageUrl;
+}
+
+export const AFFECTED_PAGE_PREVIEW_COUNT = 3;
+
+export function formatJobCount(count: number): string {
+  if (count === 1) {
+    return "1 job";
+  }
+
+  return `${count} jobs`;
+}
+
+export function readSharedTitle(evidence: Record<string, unknown>): string | null {
+  const title = evidence.title;
+  if (typeof title !== "string") {
+    return null;
+  }
+
+  const trimmed = title.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+export function formatSharedTitleLine(
+  title: string | null,
+  affectedPageCount: number,
+): string | null {
+  if (!title) {
+    return null;
+  }
+
+  if (affectedPageCount <= 1) {
+    return `Title: "${title}"`;
+  }
+
+  return `${affectedPageCount} pages use the same title: "${title}"`;
 }
 
 export function formatFindingsCount(count: number): string {
@@ -214,17 +285,7 @@ export function formatGroupedFindingTitle(
   fallbackTitle: string,
   affectedPageCount: number,
 ): string {
-  const problem = formatGroupedProblemTitle(
-    ruleKey,
-    fallbackTitle,
-    affectedPageCount,
-  );
-
-  if (affectedPageCount <= 1) {
-    return problem;
-  }
-
-  return `${problem} · ${affectedPageCount} pages affected`;
+  return formatGroupedProblemTitle(ruleKey, fallbackTitle, affectedPageCount);
 }
 
 export function formatAffectedPagesPhrase(affectedPageCount: number): string {

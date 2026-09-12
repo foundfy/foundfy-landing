@@ -16,6 +16,7 @@ describe("site overview links", () => {
         crawlRunId: "run-usable",
         completedAt: "2026-09-10T15:01:00.000Z",
         pagesCrawled: 10,
+        findings: [],
         findingsSummary: {
           totalCount: 22,
           highlightedFindingIds: [],

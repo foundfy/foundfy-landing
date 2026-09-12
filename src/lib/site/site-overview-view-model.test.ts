@@ -6,8 +6,10 @@ import {
   buildHighlightedFindingsForSitePage,
   buildSiteOverviewLinks,
   buildSiteProgressContent,
+  buildSiteResultsDisplayModel,
   buildSiteWhatMattersContent,
   formatHistoryFindingsLabel,
+  formatSiteMetadataLine,
   shouldShowActiveScanBanner,
   shouldShowCurrentState,
 } from "./site-overview-view-model";
@@ -27,6 +29,7 @@ function createOverview(
       crawlRunId: "run-usable",
       completedAt: "2026-09-10T15:01:00.000Z",
       pagesCrawled: 10,
+      findings: [],
       findingsSummary: {
         totalCount: 22,
         highlightedFindingIds: ["finding-1", "finding-2", "finding-3", "finding-4"],
@@ -146,7 +149,7 @@ describe("site overview view model", () => {
     const progress = buildSiteProgressContent(createOverview().latestUsableScan!.comparison);
     expect(progress.kind).toBe("comparison");
     expect(progress.copy).toBe(
-      "2 issues fixed. 3 new issues appeared. 14 are still present. 1 could not be verified.",
+      "2 findings fixed. 3 new findings appeared. 14 findings are still present. 1 could not be verified.",
     );
   });
 
@@ -240,6 +243,84 @@ describe("formatComparisonNarrative", () => {
         unverified: 0,
         fixedFindings: [],
       }),
-    ).toBe("1 issue fixed. 1 new issue appeared.");
+    ).toBe("1 finding fixed. 1 new finding appeared.");
+  });
+});
+
+describe("site work-list grouping", () => {
+  it("uses the same action grouping and job count as /scan", () => {
+    const overview = createOverview({
+      latestUsableScan: {
+        ...createOverview().latestUsableScan!,
+        findings: [
+          {
+            id: "title-1",
+            ruleKey: "page_fundamentals.duplicate_title",
+            category: "page_fundamentals",
+            severity: "warning",
+            title: "Duplicate page title",
+            description: "Duplicate",
+            pageUrl: "https://example.com/",
+            evidence: { title: "Home" },
+            priority: {
+              level: "high",
+              rank: 1,
+              whyItMatters: "Why",
+              recommendedAction: "Fix",
+              verification: "Verify",
+            },
+          },
+          {
+            id: "title-2",
+            ruleKey: "page_fundamentals.duplicate_title",
+            category: "page_fundamentals",
+            severity: "warning",
+            title: "Duplicate page title",
+            description: "Duplicate",
+            pageUrl: "https://example.com/ca",
+            evidence: { title: "Home" },
+            priority: {
+              level: "high",
+              rank: 2,
+              whyItMatters: "Why",
+              recommendedAction: "Fix",
+              verification: "Verify",
+            },
+          },
+          {
+            id: "meta-1",
+            ruleKey: "page_fundamentals.missing_meta_description",
+            category: "page_fundamentals",
+            severity: "warning",
+            title: "Missing meta description",
+            description: "Missing",
+            pageUrl: "https://example.com/about",
+            evidence: {},
+            priority: {
+              level: "medium",
+              rank: 3,
+              whyItMatters: "Why",
+              recommendedAction: "Fix",
+              verification: "Verify",
+            },
+          },
+        ],
+      },
+    });
+
+    const model = buildSiteResultsDisplayModel(overview);
+    expect(model?.actionGroupCount).toBe(2);
+    expect(model?.highlightCards[0]?.title).toBe("Duplicate page titles");
+    expect(model?.highlightCards[0]?.affectedUrls).toEqual([
+      "https://example.com/",
+      "https://example.com/ca",
+    ]);
+    expect(
+      formatSiteMetadataLine({
+        pagesCrawled: 10,
+        jobCount: model?.actionGroupCount ?? 0,
+        completedAt: "2026-09-10T15:01:00.000Z",
+      }),
+    ).toContain("2 jobs");
   });
 });

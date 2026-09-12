@@ -8,6 +8,14 @@ export function getLandingScanPageLinkLabel(): string {
   return "Open scan page →";
 }
 
+export function getScanAgainLabel(): string {
+  return "Scan again to verify →";
+}
+
+export function shouldShowScanAgain(websiteId: string | null | undefined): boolean {
+  return typeof websiteId === "string" && websiteId.length > 0;
+}
+
 export function getSiteScanLinkLabel(): string {
   return "View this scan →";
 }

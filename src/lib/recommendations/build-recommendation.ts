@@ -111,8 +111,8 @@ function buildCanonicalMissingRecommendation(
   input: RecommendationInput,
 ): FindingRecommendation | null {
   return withPageContext(input, (page) => ({
-    recommendedAction: `Add a canonical link element on ${page} that points to the preferred URL for this page.`,
-    verification: `Re-crawl ${page} and confirm a canonical tag is present.`,
+    recommendedAction: `Add a canonical link on ${page} that points to the preferred URL for this page.`,
+    verification: `Scan again and confirm ${page} includes a canonical tag.`,
   }));
 }
 
@@ -126,11 +126,10 @@ function buildCanonicalElsewhereRecommendation(
     return null;
   }
 
-  const base = baseRecommendation("indexability.canonical_points_elsewhere");
   return {
-    whyItMatters: base.whyItMatters,
-    recommendedAction: `Review whether ${page} should declare ${canonicalPath} as its canonical URL, or redirect to that URL if it is the preferred version.`,
-    verification: `Re-crawl ${page} and confirm the canonical URL matches the intended live page.`,
+    whyItMatters: `${page} tells Google that ${canonicalPath} is the real page, so Google may show ${canonicalPath} instead.`,
+    recommendedAction: `Decide whether ${page} should stay its own page. If it should, point its canonical at ${page}. If ${canonicalPath} is the real page, redirect ${page} there.`,
+    verification: `Scan again and confirm ${page} points at the URL you want shown.`,
   };
 }
 
@@ -185,16 +184,22 @@ function buildDuplicateTitleRecommendation(
   const pageCount = readNumber(input.evidence, "pageCount");
   const duplicatePages = readStringArray(input.evidence, "duplicatePages");
   const pageList = formatPageList(duplicatePages);
+  const sharedTitle = readString(input.evidence, "title");
 
   if (pageCount === null || pageCount < 2 || !pageList) {
     return null;
   }
 
   const base = baseRecommendation("page_fundamentals.duplicate_title");
+  const titleClause = sharedTitle
+    ? `${pageCount} pages use the same title: "${sharedTitle}".`
+    : `${pageCount} pages share the same title.`;
+
   return {
     whyItMatters: base.whyItMatters,
-    recommendedAction: `${pageCount} crawled pages share the same title. Give each page a unique title, starting with ${pageList}.`,
-    verification: "Re-crawl and confirm the affected pages no longer share the same title.",
+    recommendedAction: `${titleClause} Give each page a unique title, starting with ${pageList}.`,
+    verification:
+      "Scan again and confirm the affected pages no longer share the same title.",
   };
 }
 
@@ -333,22 +338,80 @@ export function buildFindingRecommendation(
 export function buildGroupedActionRecommendation(
   input: RecommendationInput,
   affectedPageCount: number,
+  members: RecommendationInput[] = [],
 ): FindingRecommendation {
   if (input.ruleKey === "internal_structure.broken_internal_link") {
     return buildGroupedBrokenLinkRecommendation(input, affectedPageCount);
+  }
+
+  if (input.ruleKey === "page_fundamentals.duplicate_title") {
+    return buildGroupedDuplicateTitleRecommendation(input, affectedPageCount);
+  }
+
+  if (input.ruleKey === "indexability.canonical_points_elsewhere") {
+    return buildGroupedCanonicalElsewhereRecommendation(
+      input,
+      affectedPageCount,
+      members,
+    );
   }
 
   if (!isRuleKey(input.ruleKey) || affectedPageCount < 2) {
     return buildFindingRecommendation(input);
   }
 
-  const base = baseRecommendation(input.ruleKey);
-  const pageWord = affectedPageCount === 1 ? "page" : "pages";
+  return buildFindingRecommendation(input);
+}
+
+export function buildGroupedDuplicateTitleRecommendation(
+  input: RecommendationInput,
+  affectedPageCount: number,
+): FindingRecommendation {
+  const sharedTitle = readString(input.evidence, "title");
+  const base = buildFindingRecommendation(input);
+
+  if (affectedPageCount < 2) {
+    return base;
+  }
+
+  const titleClause = sharedTitle
+    ? `${affectedPageCount} pages use the same title: "${sharedTitle}".`
+    : `${affectedPageCount} pages share the same title.`;
 
   return {
     whyItMatters: base.whyItMatters,
-    recommendedAction: `${base.recommendedAction} This affects ${affectedPageCount} ${pageWord}.`,
-    verification: base.verification,
+    recommendedAction: `${titleClause} Give each page a unique title that reflects its specific content.`,
+    verification:
+      "Scan again and confirm the affected pages no longer share the same title.",
+  };
+}
+
+export function buildGroupedCanonicalElsewhereRecommendation(
+  input: RecommendationInput,
+  affectedPageCount: number,
+  members: RecommendationInput[] = [],
+): FindingRecommendation {
+  const sources = (members.length > 0 ? members : [input])
+    .map((member) => pageLabel(member.evidence, member.pageUrl))
+    .filter((page): page is string => Boolean(page));
+  const uniqueSources = [...new Set(sources)];
+  const canonicalPath =
+    formatDisplayPath(readString(input.evidence, "canonical")) ??
+    members
+      .map((member) => formatDisplayPath(readString(member.evidence, "canonical")))
+      .find((value): value is string => Boolean(value));
+  const pageWord = affectedPageCount === 1 ? "page" : "pages";
+  const sourceList =
+    uniqueSources.length > 0 ? uniqueSources.join(" and ") : `${affectedPageCount} ${pageWord}`;
+
+  if (!canonicalPath) {
+    return buildFindingRecommendation(input);
+  }
+
+  return {
+    whyItMatters: `${sourceList} currently tell Google that ${canonicalPath} is the real page, so Google may show that page instead.`,
+    recommendedAction: `Decide whether ${sourceList} should stay as their own pages. If they should, point each canonical at its own URL. If ${canonicalPath} is the real page, redirect these pages there.`,
+    verification: `Scan again and confirm ${sourceList} point at the URL you want shown.`,
   };
 }
 

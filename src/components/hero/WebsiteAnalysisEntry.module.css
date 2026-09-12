@@ -825,6 +825,8 @@
   border: 1px solid rgba(245, 243, 238, 0.1);
   border-radius: 12px;
   background: rgba(8, 8, 8, 0.22);
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .findingCardHighlight {
@@ -851,6 +853,7 @@
   letter-spacing: -0.01em;
   line-height: 1.4;
   color: #f5f3ee;
+  overflow-wrap: anywhere;
 }
 
 .priorityBadge {
@@ -887,7 +890,19 @@
   margin-top: 6px;
   font-size: 12px;
   line-height: 1.4;
-  color: rgba(245, 243, 238, 0.42);
+  color: rgba(245, 243, 238, 0.48);
+  overflow-wrap: anywhere;
+}
+
+.findingSharedTitle {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(245, 243, 238, 0.72);
+}
+
+.findingCanonicalTarget {
+  color: rgba(245, 243, 238, 0.4);
 }
 
 .findingChangeStatus {
@@ -905,15 +920,8 @@
   color: rgba(245, 243, 238, 0.32);
 }
 
-.findingAffectedCount {
-  margin-top: 6px;
-  font-size: 12px;
-  line-height: 1.4;
-  color: rgba(245, 243, 238, 0.56);
-}
-
 .findingAffectedUrls {
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 .findingAffectedToggle {
@@ -953,7 +961,7 @@
 .findingWhyItMatters {
   font-size: 13px;
   line-height: 1.5;
-  color: rgba(245, 243, 238, 0.72);
+  color: rgba(245, 243, 238, 0.56);
 }
 
 .findingActionRow {
@@ -970,15 +978,28 @@
 }
 
 .findingRecommendedAction {
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 500;
   line-height: 1.45;
-  color: rgba(245, 243, 238, 0.82);
+  color: rgba(245, 243, 238, 0.92);
+}
+
+.findingWhyRow {
+  margin-top: 0;
+}
+
+.findingWhyLabel {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(245, 243, 238, 0.3);
 }
 
 .findingVerification {
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.45;
-  color: rgba(245, 243, 238, 0.38);
+  color: rgba(245, 243, 238, 0.68);
 }
 
 .findingVerifyRow {
@@ -986,11 +1007,11 @@
 }
 
 .findingVerifyLabel {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: rgba(245, 243, 238, 0.26);
+  color: rgba(245, 243, 238, 0.42);
 }
 
 .findingDescription {
@@ -1024,26 +1045,25 @@
 }
 
 .findingExplanationSection {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(245, 243, 238, 0.08);
+  margin-top: 10px;
+  padding-top: 8px;
 }
 
 .findingExplanationToggle {
   padding: 0;
   border: 0;
   background: transparent;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 400;
   letter-spacing: -0.01em;
-  color: rgba(245, 243, 238, 0.58);
+  color: rgba(245, 243, 238, 0.36);
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
 .findingExplanationToggle:hover {
-  color: rgba(245, 243, 238, 0.82);
+  color: rgba(245, 243, 238, 0.56);
 }
 
 .findingExplanationBody {
@@ -1068,7 +1088,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 14px 18px;
+  gap: 12px 16px;
   margin-top: 18px;
   padding-top: 4px;
 }
@@ -1076,13 +1096,38 @@
 .resultsActions .resetButton {
   margin-top: 0;
   padding-left: 0;
+  font-size: 12px;
+  color: rgba(245, 243, 238, 0.48);
+}
+
+.scanAgainButton {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #ffb08f;
+  cursor: pointer;
+}
+
+.scanAgainButton:hover:not(:disabled) {
+  color: #ffc4a8;
+  text-decoration: underline;
+}
+
+.scanAgainButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
 }
 
 .resultsFullAnalysisLink {
   font-size: 12px;
   font-weight: 500;
   letter-spacing: -0.01em;
-  color: rgba(245, 243, 238, 0.72);
+  color: rgba(245, 243, 238, 0.64);
   text-decoration: none;
   transition: color 0.2s ease;
 }
@@ -1090,6 +1135,14 @@
 .resultsFullAnalysisLink:hover {
   color: #ff7447;
   text-decoration: underline;
+}
+
+.rescanError {
+  width: 100%;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(255, 164, 138, 0.88);
 }
 
 @keyframes pillEdgeBloom {
@@ -1236,6 +1289,20 @@
 
   .resultsTitle {
     font-size: 16px;
+  }
+
+  .findingCard {
+    padding: 12px 14px;
+  }
+
+  .findingRecommendedAction,
+  .findingWhyItMatters,
+  .findingVerification {
+    overflow-wrap: anywhere;
+  }
+
+  .resultsActions {
+    gap: 10px 12px;
   }
 
   .button {

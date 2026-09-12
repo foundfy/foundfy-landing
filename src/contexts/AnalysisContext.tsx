@@ -29,6 +29,7 @@ type AnalysisContextValue = {
   domain: NormalizedDomain | null;
   phase: AnalysisPhase;
   crawlRunId: string | null;
+  websiteId: string | null;
   crawlStatus: CrawlLifecycleStatus | null;
   pagesCrawled: number;
   maxPages: number;
@@ -38,6 +39,7 @@ type AnalysisContextValue = {
   errorMessage: string | null;
   startAnalysis: (domain: NormalizedDomain) => void;
   setCrawlRunId: (crawlRunId: string) => void;
+  setWebsiteId: (websiteId: string) => void;
   updateCrawlProgress: (input: {
     status: CrawlLifecycleStatus;
     pagesCrawled?: number;
@@ -45,6 +47,7 @@ type AnalysisContextValue = {
     findings?: AnalysisFinding[];
     findingsSummary?: FindingsSummary;
     comparison?: CrawlComparison;
+    websiteId?: string;
     explanationEnrichmentStatus?: CrawlStatusPayload["explanationEnrichmentStatus"];
   }) => void;
   completeAnalysis: (input: CompleteAnalysisInput) => void;
@@ -64,6 +67,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
   const [domain, setDomain] = useState<NormalizedDomain | null>(null);
   const [phase, setPhase] = useState<AnalysisPhase>("idle");
   const [crawlRunId, setCrawlRunIdState] = useState<string | null>(null);
+  const [websiteId, setWebsiteIdState] = useState<string | null>(null);
   const [crawlStatus, setCrawlStatus] = useState<CrawlLifecycleStatus | null>(
     null,
   );
@@ -79,6 +83,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     setDomain(nextDomain);
     setPhase("starting");
     setCrawlRunIdState(null);
+    setWebsiteIdState(null);
     setCrawlStatus("queued");
     setPagesCrawled(0);
     setMaxPages(0);
@@ -92,6 +97,10 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     setCrawlRunIdState(nextCrawlRunId);
   }, []);
 
+  const setWebsiteId = useCallback((nextWebsiteId: string) => {
+    setWebsiteIdState(nextWebsiteId);
+  }, []);
+
   const updateCrawlProgress = useCallback(
     (input: {
       status: CrawlLifecycleStatus;
@@ -100,8 +109,13 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       findings?: AnalysisFinding[];
       findingsSummary?: FindingsSummary;
       comparison?: CrawlComparison;
+      websiteId?: string;
     }) => {
       setCrawlStatus(input.status);
+
+      if (input.websiteId) {
+        setWebsiteIdState(input.websiteId);
+      }
 
       if (typeof input.pagesCrawled === "number") {
         setPagesCrawled(input.pagesCrawled);
@@ -144,6 +158,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     setDomain(null);
     setPhase("idle");
     setCrawlRunIdState(null);
+    setWebsiteIdState(null);
     setCrawlStatus(null);
     setPagesCrawled(0);
     setMaxPages(0);
@@ -158,6 +173,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       domain,
       phase,
       crawlRunId,
+      websiteId,
       crawlStatus,
       pagesCrawled,
       maxPages,
@@ -167,6 +183,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       errorMessage,
       startAnalysis,
       setCrawlRunId,
+      setWebsiteId,
       updateCrawlProgress,
       completeAnalysis,
       failAnalysis,
@@ -176,6 +193,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       domain,
       phase,
       crawlRunId,
+      websiteId,
       crawlStatus,
       pagesCrawled,
       maxPages,
@@ -185,6 +203,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       errorMessage,
       startAnalysis,
       setCrawlRunId,
+      setWebsiteId,
       updateCrawlProgress,
       completeAnalysis,
       failAnalysis,

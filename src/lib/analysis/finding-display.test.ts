@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatAffectedPageLabel,
   formatEmptyHighlightsCopy,
   formatFindingEvidence,
   formatFindingsCount,
   formatGroupedFindingTitle,
+  formatJobCount,
   formatPriorityLabel,
   formatResultsBrief,
+  formatSharedTitleLine,
   formatSeriousnessLine,
   formatZeroFindingsCopy,
   shouldCollapseAllFindings,
+  shouldShowHostInAffectedPages,
 } from "./finding-display";
 import type { AnalysisFinding } from "./crawl-status";
 
@@ -157,6 +161,34 @@ describe("results comprehension copy", () => {
         "Duplicate page title",
         4,
       ),
-    ).toBe("Duplicate page titles · 4 pages affected");
+    ).toBe("Duplicate page titles");
+  });
+
+  it("surfaces a shared title from evidence without hard-coding a site", () => {
+    expect(formatSharedTitleLine("Pintura sobre seda | DBHOBBY", 4)).toBe(
+      '4 pages use the same title: "Pintura sobre seda | DBHOBBY"',
+    );
+    expect(formatSharedTitleLine("Home", 1)).toBe('Title: "Home"');
+    expect(formatSharedTitleLine(null, 4)).toBeNull();
+  });
+
+  it("keeps exact hosts visible when www and apex both appear", () => {
+    expect(
+      shouldShowHostInAffectedPages([
+        "https://dbhobby.com/",
+        "https://www.dbhobby.com/ca",
+      ]),
+    ).toBe(true);
+    expect(
+      formatAffectedPageLabel("https://www.dbhobby.com/ca", { includeHost: true }),
+    ).toBe("www.dbhobby.com/ca");
+    expect(formatAffectedPageLabel("https://dbhobby.com/", { includeHost: false })).toBe(
+      "/",
+    );
+  });
+
+  it("formats job counts for the work list", () => {
+    expect(formatJobCount(1)).toBe("1 job");
+    expect(formatJobCount(8)).toBe("8 jobs");
   });
 });

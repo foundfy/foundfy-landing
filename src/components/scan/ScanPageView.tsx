@@ -128,6 +128,7 @@ export default function ScanPageView({ crawlRunId }: ScanPageViewProps) {
           findings={findings}
           findingsSummary={buildFindingsSummary(payload)}
           comparison={payload.comparison ?? null}
+          websiteId={websiteId}
           onReset={handleReset}
           resetLabel={getScanResultsResetLabel(Boolean(siteHref))}
         />

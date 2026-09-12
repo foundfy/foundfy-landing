@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { formatChangeStatusLabel } from "@/lib/analysis/comparison-display";
 import {
+  AFFECTED_PAGE_PREVIEW_COUNT,
   formatFindingPath,
   formatPriorityLabel,
 } from "@/lib/analysis/finding-display";
+import type { AffectedPageDetail } from "@/lib/analysis/results-display-model";
 import type { AnalysisFinding } from "@/lib/analysis/crawl-status";
 import styles from "./WebsiteAnalysisEntry.module.css";
 
@@ -13,17 +15,32 @@ type FindingCardProps = {
   finding: AnalysisFinding;
   variant?: "highlight" | "default";
   title?: string;
+  sharedTitleLine?: string | null;
   affectedUrls?: string[];
+  affectedPages?: AffectedPageDetail[];
 };
 
 export default function FindingCard({
   finding,
   variant = "default",
   title,
+  sharedTitleLine: _sharedTitleLine = null,
   affectedUrls = [],
+  affectedPages = [],
 }: FindingCardProps) {
   const [showExplanation, setShowExplanation] = useState(false);
-  const [showUrls, setShowUrls] = useState(affectedUrls.length <= 3);
+  const uniqueUrls = affectedUrls.length > 0 ? affectedUrls : [];
+  const details =
+    affectedPages.length > 0
+      ? affectedPages
+      : uniqueUrls.map((url) => ({
+          url,
+          label: formatFindingPath(url) ?? url,
+          canonicalLabel: null,
+        }));
+  const previewCount = AFFECTED_PAGE_PREVIEW_COUNT;
+  const hasMorePages = details.length > previewCount;
+  const [showAllUrls, setShowAllUrls] = useState(false);
   const pagePath = formatFindingPath(finding.pageUrl);
   const isHighlight = variant === "highlight";
   const hasExplanation = !!finding.explanationEnrichment;
@@ -32,9 +49,16 @@ export default function FindingCard({
     ? formatChangeStatusLabel(finding.changeStatus)
     : null;
   const displayTitle = title ?? finding.title;
-  const affectedPageCount = finding.highlightAggregation?.affectedPageCount ?? 0;
-  const uniqueUrls = affectedUrls.length > 0 ? affectedUrls : [];
-  const showSinglePath = uniqueUrls.length === 0 && pagePath;
+  const visiblePages = showAllUrls || !hasMorePages
+    ? details
+    : details.slice(0, previewCount);
+  const hiddenCount = details.length - visiblePages.length;
+  const showSinglePath = details.length === 0 && pagePath;
+  const canonicalFromEvidence =
+    finding.ruleKey === "indexability.canonical_points_elsewhere" &&
+    typeof finding.evidence.canonical === "string"
+      ? formatFindingPath(finding.evidence.canonical)
+      : null;
 
   return (
     <article
@@ -58,65 +82,58 @@ export default function FindingCard({
         ) : null}
       </div>
 
-      {showSinglePath ? <p className={styles.findingPath}>{pagePath}</p> : null}
-
-      {uniqueUrls.length > 0 ? (
-        <div className={styles.findingAffectedUrls}>
-          {affectedPageCount > 1 ? (
-            <p className={styles.findingAffectedCount}>
-              {affectedPageCount} pages affected
-            </p>
+      {showSinglePath ? (
+        <p className={styles.findingPath} title={finding.pageUrl ?? undefined}>
+          {pagePath}
+          {canonicalFromEvidence ? (
+            <span className={styles.findingCanonicalTarget}>
+              {" "}
+              → {canonicalFromEvidence}
+            </span>
           ) : null}
-          {uniqueUrls.length > 3 ? (
-            <button
-              type="button"
-              className={styles.findingAffectedToggle}
-              aria-expanded={showUrls}
-              onClick={() => setShowUrls((current) => !current)}
-            >
-              {showUrls ? "Hide affected pages" : "Show affected pages"}
-            </button>
-          ) : null}
-          {showUrls || uniqueUrls.length <= 3 ? (
-            <ul className={styles.findingAffectedList}>
-              {uniqueUrls.map((url) => (
-                <li key={url} className={styles.findingPath}>
-                  {formatFindingPath(url) ?? url}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      ) : affectedPageCount > 1 ? (
-        <p className={styles.findingAffectedCount}>
-          Found on {affectedPageCount} pages
         </p>
       ) : null}
 
-      {changeStatusLabel ? (
-        <p
-          className={`${styles.findingChangeStatus} ${
-            finding.changeStatus === "new"
-              ? styles.findingChangeStatusNew
-              : styles.findingChangeStatusStillPresent
-          }`.trim()}
-        >
-          {changeStatusLabel}
-        </p>
+      {details.length > 0 ? (
+        <div className={styles.findingAffectedUrls}>
+          <ul className={styles.findingAffectedList}>
+            {visiblePages.map((page) => (
+              <li key={page.url} className={styles.findingPath} title={page.url}>
+                <span>{page.label}</span>
+                {page.canonicalLabel ? (
+                  <span className={styles.findingCanonicalTarget}>
+                    {" "}
+                    → {page.canonicalLabel}
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          {hasMorePages ? (
+            <button
+              type="button"
+              className={styles.findingAffectedToggle}
+              aria-expanded={showAllUrls}
+              onClick={() => setShowAllUrls((current) => !current)}
+            >
+              {showAllUrls ? "Show fewer pages" : `+ ${hiddenCount} more`}
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       {recommendation ? (
         <div className={styles.findingRecommendationBlock}>
           <div className={styles.findingActionRow}>
-            <span className={styles.findingActionLabel}>Why it matters</span>
-            <p className={styles.findingWhyItMatters}>{recommendation.whyItMatters}</p>
-          </div>
-
-          <div className={styles.findingActionRow}>
             <span className={styles.findingActionLabel}>What to change</span>
             <p className={styles.findingRecommendedAction}>
               {recommendation.recommendedAction}
             </p>
+          </div>
+
+          <div className={`${styles.findingActionRow} ${styles.findingWhyRow}`}>
+            <span className={styles.findingWhyLabel}>Why it matters</span>
+            <p className={styles.findingWhyItMatters}>{recommendation.whyItMatters}</p>
           </div>
 
           {recommendation.verification ? (
@@ -130,6 +147,18 @@ export default function FindingCard({
         <p className={styles.findingDescription}>{finding.description}</p>
       )}
 
+      {changeStatusLabel ? (
+        <p
+          className={`${styles.findingChangeStatus} ${
+            finding.changeStatus === "new"
+              ? styles.findingChangeStatusNew
+              : styles.findingChangeStatusStillPresent
+          }`.trim()}
+        >
+          {changeStatusLabel}
+        </p>
+      ) : null}
+
       {hasExplanation ? (
         <div className={styles.findingExplanationSection}>
           <button
@@ -138,7 +167,7 @@ export default function FindingCard({
             aria-expanded={showExplanation}
             onClick={() => setShowExplanation((current) => !current)}
           >
-            {showExplanation ? "Hide clearer explanation" : "Explain further"}
+            {showExplanation ? "Hide further explanation" : "Explain further"}
           </button>
           {showExplanation ? (
             <div className={styles.findingExplanationBody}>

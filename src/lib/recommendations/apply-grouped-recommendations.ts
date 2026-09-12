@@ -21,6 +21,16 @@ export function applyGroupedRecommendations(
       continue;
     }
 
+    const members = group.memberFindingIds
+      .map((findingId) => findings.find((finding) => finding.id === findingId))
+      .filter((finding): finding is AnalysisFinding => finding !== undefined)
+      .map((finding) => ({
+        ruleKey: finding.ruleKey,
+        pageUrl: finding.pageUrl,
+        evidence: finding.evidence,
+        priorityLevel: finding.priority?.level ?? null,
+      }));
+
     groupedRecommendationByFindingId.set(
       representative.id,
       buildGroupedActionRecommendation(
@@ -31,6 +41,7 @@ export function applyGroupedRecommendations(
           priorityLevel: representative.priority?.level ?? null,
         },
         group.affectedPageCount,
+        members,
       ),
     );
   }

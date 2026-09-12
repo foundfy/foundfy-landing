@@ -2,6 +2,7 @@ import Link from "next/link";
 import FindingCard from "@/components/hero/FindingCard";
 import { getSiteScanLinkLabel } from "@/lib/analysis/landing-persistent-bridge";
 import {
+  buildSiteResultsDisplayModel,
   buildSiteWhatMattersContent,
   formatSiteMetadataLine,
 } from "@/lib/site/site-overview-view-model";
@@ -19,6 +20,7 @@ export default function SiteWhatMattersSection({
 }: SiteWhatMattersSectionProps) {
   const content = buildSiteWhatMattersContent(overview);
   const latest = overview.latestUsableScan;
+  const model = buildSiteResultsDisplayModel(overview);
 
   if (content.kind === "no_scan") {
     return (
@@ -44,7 +46,7 @@ export default function SiteWhatMattersSection({
           <p className={styles.sectionMeta}>
             {formatSiteMetadataLine({
               pagesCrawled: latest.pagesCrawled,
-              findingsCount: latest.findingsSummary.totalCount,
+              jobCount: model?.actionGroupCount ?? 0,
               completedAt: latest.completedAt,
             })}
           </p>
@@ -54,18 +56,26 @@ export default function SiteWhatMattersSection({
       <div className={styles.whatMattersBlock}>
         <h3 className={styles.subsectionHeading}>What matters now</h3>
 
-        {content.kind === "highlights" ? (
+        {content.kind === "highlights" && model ? (
           <div className={styles.highlightList}>
-            {content.findings.map((finding) => (
-              <FindingCard key={finding.id} finding={finding} variant="highlight" />
+            {model.highlightCards.map((card) => (
+              <FindingCard
+                key={card.key}
+                finding={card.finding}
+                variant="highlight"
+                title={card.title}
+                sharedTitleLine={card.sharedTitleLine}
+                affectedUrls={card.affectedUrls}
+                affectedPages={card.affectedPages}
+              />
             ))}
           </div>
-        ) : (
+        ) : content.kind !== "highlights" ? (
           <div className={styles.emptyHighlightsBlock}>
             <p className={styles.emptyStateTitle}>{content.title}</p>
             <p className={styles.emptyStateCopy}>{content.description}</p>
           </div>
-        )}
+        ) : null}
 
         {latestScanHref ? (
           <Link href={latestScanHref} className={styles.fullAnalysisLink}>

@@ -305,7 +305,11 @@
 
 @media (max-width: 390px) {
   .title {
-    font-size: 1.875rem;
+    font-size: 1.75rem;
+  }
+
+  .highlightList {
+    gap: 12px;
   }
 
   .progressNarrative {

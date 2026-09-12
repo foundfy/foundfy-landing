@@ -2,15 +2,20 @@ import { describe, expect, it } from "vitest";
 import {
   buildFullAnalysisHref,
   getLandingScanPageLinkLabel,
+  getScanAgainLabel,
   getScanResultsResetLabel,
   getSiteScanLinkLabel,
   shouldShowLandingFullAnalysisLink,
+  shouldShowScanAgain,
 } from "./landing-persistent-bridge";
 
 describe("landing persistent bridge", () => {
   it("links completed landing results to the canonical scan route", () => {
     expect(buildFullAnalysisHref("run-abc-123")).toBe("/scan/run-abc-123");
     expect(getLandingScanPageLinkLabel()).toBe("Open scan page →");
+    expect(getScanAgainLabel()).toBe("Scan again to verify →");
+    expect(shouldShowScanAgain("website-1")).toBe(true);
+    expect(shouldShowScanAgain(null)).toBe(false);
     expect(getSiteScanLinkLabel()).toBe("View this scan →");
     expect(getScanResultsResetLabel(true)).toBe("View site overview");
     expect(getScanResultsResetLabel(false)).toBe("Back to home");
@@ -50,6 +55,13 @@ describe("landing persistent bridge", () => {
         crawlRunId: null,
       }),
     ).toBe(false);
+  });
+
+  it("keeps scan-again primary and Pass 02 navigation secondary", () => {
+    expect(getScanAgainLabel()).toBe("Scan again to verify →");
+    expect(getLandingScanPageLinkLabel()).toBe("Open scan page →");
+    expect(getScanResultsResetLabel(true)).toBe("View site overview");
+    expect(getSiteScanLinkLabel()).toBe("View this scan →");
   });
 
   it("preserves crawl run id independently from poll progress updates", () => {

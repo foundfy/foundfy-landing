@@ -3,9 +3,13 @@ import type {
   HighlightGroupSummary,
   PriorityLevel,
 } from "@/lib/analysis/crawl-status";
-import { normalizeCrawlUrl } from "@/lib/crawler/url/normalize";
+import {
+  normalizeCrawlUrl,
+  normalizeSiteHostname,
+} from "@/lib/crawler/url/normalize";
 import type { RuleKey } from "@/lib/observations/types";
 import { collectNormalizedAffectedSourceUrls } from "./highlight-aggregation";
+import { sortFindings } from "./order";
 
 export const HIGHLIGHT_MAX_COUNT = 3;
 
@@ -56,16 +60,55 @@ function buildDuplicateMetaGroupKey(finding: AnalysisFinding): string | null {
     : null;
 }
 
+export function normalizeHumanActionUrl(rawUrl: string): string | null {
+  const normalized = normalizeCrawlUrl(rawUrl);
+  if (!normalized) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(normalized);
+    parsed.protocol = "https:";
+    parsed.hostname = normalizeSiteHostname(parsed.hostname);
+    return parsed.toString();
+  } catch {
+    return normalized;
+  }
+}
+
 function buildCanonicalElsewhereGroupKey(finding: AnalysisFinding): string | null {
   const canonical = finding.evidence.canonical;
   if (typeof canonical !== "string" || canonical.length === 0) {
     return null;
   }
 
-  const normalized = normalizeCrawlUrl(canonical);
+  const normalized = normalizeHumanActionUrl(canonical);
   return normalized
     ? `indexability.canonical_points_elsewhere:${normalized}`
     : null;
+}
+
+export type ActionGroupContext = {
+  duplicateTitles: Set<string>;
+};
+
+export function buildActionGroupContext(
+  findings: AnalysisFinding[],
+): ActionGroupContext {
+  const duplicateTitles = new Set<string>();
+
+  for (const finding of findings) {
+    if (finding.ruleKey !== "page_fundamentals.duplicate_title") {
+      continue;
+    }
+
+    const title = normalizeEvidenceText(finding.evidence.title);
+    if (title) {
+      duplicateTitles.add(title);
+    }
+  }
+
+  return { duplicateTitles };
 }
 
 const GROUP_KEY_BUILDERS: Partial<Record<RuleKey, GroupKeyBuilder>> = {
@@ -75,7 +118,17 @@ const GROUP_KEY_BUILDERS: Partial<Record<RuleKey, GroupKeyBuilder>> = {
   "indexability.canonical_points_elsewhere": buildCanonicalElsewhereGroupKey,
 };
 
-export function getActionGroupKey(finding: AnalysisFinding): string {
+export function getActionGroupKey(
+  finding: AnalysisFinding,
+  context?: ActionGroupContext,
+): string {
+  if (finding.ruleKey === "page_fundamentals.title_length_out_of_range") {
+    const title = normalizeEvidenceText(finding.evidence.title);
+    if (title && context?.duplicateTitles.has(title)) {
+      return `page_fundamentals.duplicate_title:${title}`;
+    }
+  }
+
   const builder = GROUP_KEY_BUILDERS[finding.ruleKey as RuleKey];
   const evidenceKey = builder?.(finding);
   return evidenceKey ?? finding.ruleKey;
@@ -83,6 +136,12 @@ export function getActionGroupKey(finding: AnalysisFinding): string {
 
 export function getHighlightGroupKey(finding: AnalysisFinding): string | null {
   return getActionGroupKey(finding);
+}
+
+function isHighlightLevel(finding: AnalysisFinding): boolean {
+  return (
+    finding.priority !== null && HIGHLIGHT_LEVELS.has(finding.priority.level)
+  );
 }
 
 function finalizeHighlightGroupMetrics(
@@ -108,7 +167,9 @@ export function groupFindingsByAction(
   findings: AnalysisFinding[],
   options?: { highlightLevelsOnly?: boolean },
 ): HighlightGroup[] {
-  const findingsById = new Map(findings.map((finding) => [finding.id, finding]));
+  const ordered = sortFindings(findings);
+  const findingsById = new Map(ordered.map((finding) => [finding.id, finding]));
+  const context = buildActionGroupContext(ordered);
   const groups: Array<
     Omit<HighlightGroup, "rawFindingCount" | "affectedPageCount"> & {
       memberFindingIds: string[];
@@ -116,17 +177,8 @@ export function groupFindingsByAction(
   > = [];
   const groupIndexByKey = new Map<string, number>();
 
-  for (const finding of findings) {
-    if (options?.highlightLevelsOnly) {
-      if (
-        finding.priority === null ||
-        !HIGHLIGHT_LEVELS.has(finding.priority.level)
-      ) {
-        continue;
-      }
-    }
-
-    const groupKey = getActionGroupKey(finding);
+  for (const finding of ordered) {
+    const groupKey = getActionGroupKey(finding, context);
     const existingIndex = groupIndexByKey.get(groupKey);
 
     if (existingIndex !== undefined) {
@@ -142,7 +194,20 @@ export function groupFindingsByAction(
     });
   }
 
-  return groups.map((group) => finalizeHighlightGroupMetrics(group, findingsById));
+  const finalized = groups.map((group) =>
+    finalizeHighlightGroupMetrics(group, findingsById),
+  );
+
+  if (!options?.highlightLevelsOnly) {
+    return finalized;
+  }
+
+  return finalized.filter((group) =>
+    group.memberFindingIds.some((findingId) => {
+      const finding = findingsById.get(findingId);
+      return finding ? isHighlightLevel(finding) : false;
+    }),
+  );
 }
 
 export function selectHighlightGroups(

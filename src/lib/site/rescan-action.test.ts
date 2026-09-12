@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { parseRescanResponse } from "./rescan-action";
+import {
+  buildRescanRequestPath,
+  buildScanNavigationHref,
+  parseRescanResponse,
+} from "./rescan-action";
+
+describe("rescan action helpers", () => {
+  it("uses the website scan endpoint and navigates to that scan", () => {
+    expect(buildRescanRequestPath("website-1")).toBe("/api/websites/website-1/scan");
+    expect(buildScanNavigationHref("run-new")).toBe("/scan/run-new");
+  });
+});
 
 describe("parseRescanResponse", () => {
   it("returns a new crawl run id when scan creation succeeds", () => {

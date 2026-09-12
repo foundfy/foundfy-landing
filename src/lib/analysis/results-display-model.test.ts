@@ -86,8 +86,9 @@ describe("buildResultsDisplayModel", () => {
       "https://example.com/a",
       "https://example.com/b",
     ]);
-    expect(model.highlightCards[0]?.title).toBe(
-      "Duplicate page titles · 2 pages affected",
+    expect(model.highlightCards[0]?.title).toBe("Duplicate page titles");
+    expect(model.highlightCards[0]?.sharedTitleLine).toBe(
+      '2 pages use the same title: "Home"',
     );
     expect(model.brief).toBe(
       "Duplicate page titles on 2 pages. Next: missing meta description.",
@@ -125,5 +126,52 @@ describe("buildResultsDisplayModel", () => {
     expect(model.actionGroupCount).toBe(4);
     expect(model.collapseAllFindings).toBe(true);
     expect(model.highlightCards).toHaveLength(3);
+  });
+
+  it("shows affected pages and canonical targets from evidence", () => {
+    const findings = [
+      buildFinding({
+        id: "canonical-home",
+        ruleKey: "indexability.canonical_points_elsewhere",
+        rank: 1,
+        level: "medium",
+        pageUrl: "https://dbhobby.com/",
+        evidence: { canonical: "https://www.dbhobby.com/ca/pintura-en-seda" },
+        title: "Canonical points elsewhere",
+      }),
+      buildFinding({
+        id: "canonical-ca",
+        ruleKey: "indexability.canonical_points_elsewhere",
+        rank: 2,
+        level: "medium",
+        pageUrl: "https://www.dbhobby.com/ca",
+        evidence: { canonical: "https://dbhobby.com/ca/pintura-en-seda" },
+        title: "Canonical points elsewhere",
+      }),
+    ];
+
+    const model = buildResultsDisplayModel(findings, {
+      totalCount: 2,
+      highlightedFindingIds: ["canonical-home"],
+      highlightGroups: [
+        {
+          representativeFindingId: "canonical-home",
+          memberFindingIds: ["canonical-home"],
+          rawFindingCount: 1,
+          affectedPageCount: 1,
+        },
+      ],
+    });
+
+    expect(model.actionGroupCount).toBe(1);
+    expect(model.allFindingCards[0]?.affectedUrls).toEqual([
+      "https://dbhobby.com/",
+      "https://www.dbhobby.com/ca",
+    ]);
+    expect(model.allFindingCards[0]?.affectedPages[0]?.label).toBe("dbhobby.com/");
+    expect(model.allFindingCards[0]?.affectedPages[0]?.canonicalLabel).toBe(
+      "/ca/pintura-en-seda",
+    );
+    expect(model.highlightCards).toHaveLength(1);
   });
 });

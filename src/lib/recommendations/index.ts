@@ -3,5 +3,7 @@ export {
   buildFindingRecommendation,
   buildGroupedActionRecommendation,
   buildGroupedBrokenLinkRecommendation,
+  buildGroupedCanonicalElsewhereRecommendation,
+  buildGroupedDuplicateTitleRecommendation,
 } from "./build-recommendation";
 export { applyGroupedRecommendations } from "./apply-grouped-recommendations";

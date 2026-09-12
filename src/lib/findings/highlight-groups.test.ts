@@ -373,6 +373,292 @@ describe("selectHighlightGroups", () => {
     expect(groups.reduce((sum, group) => sum + group.rawFindingCount, 0)).toBe(41);
   });
 
+  it("merges canonical-elsewhere findings that share one human destination", () => {
+    const findings = sortFindings([
+      {
+        ...buildGenericFinding({
+          id: "canonical-home",
+          ruleKey: "indexability.canonical_points_elsewhere",
+          rank: 1,
+          level: "medium",
+        }),
+        pageUrl: "https://dbhobby.com/",
+        evidence: { canonical: "https://www.dbhobby.com/ca/pintura-en-seda" },
+      },
+      {
+        ...buildGenericFinding({
+          id: "canonical-ca",
+          ruleKey: "indexability.canonical_points_elsewhere",
+          rank: 2,
+          level: "medium",
+        }),
+        pageUrl: "https://www.dbhobby.com/ca",
+        evidence: { canonical: "https://dbhobby.com/ca/pintura-en-seda" },
+      },
+    ]);
+
+    const groups = groupFindingsByAction(findings);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.memberFindingIds).toEqual(["canonical-home", "canonical-ca"]);
+    expect(groups[0]?.affectedPageCount).toBe(2);
+    expect(groups[0]?.rawFindingCount).toBe(2);
+  });
+
+  it("keeps canonical remediations separate when destinations differ", () => {
+    const findings = sortFindings([
+      {
+        ...buildGenericFinding({
+          id: "canonical-a",
+          ruleKey: "indexability.canonical_points_elsewhere",
+          rank: 1,
+          level: "medium",
+        }),
+        pageUrl: "https://example.com/a",
+        evidence: { canonical: "https://example.com/product-a" },
+      },
+      {
+        ...buildGenericFinding({
+          id: "canonical-b",
+          ruleKey: "indexability.canonical_points_elsewhere",
+          rank: 2,
+          level: "medium",
+        }),
+        pageUrl: "https://example.com/b",
+        evidence: { canonical: "https://example.com/product-b" },
+      },
+    ]);
+
+    const groups = groupFindingsByAction(findings);
+    expect(groups).toHaveLength(2);
+    expect(groups[0]?.groupKey).not.toBe(groups[1]?.groupKey);
+  });
+
+  it("does not merge canonical-elsewhere with canonical-missing", () => {
+    const findings = sortFindings([
+      {
+        ...buildGenericFinding({
+          id: "elsewhere",
+          ruleKey: "indexability.canonical_points_elsewhere",
+          rank: 1,
+          level: "medium",
+        }),
+        pageUrl: "https://example.com/",
+        evidence: { canonical: "https://example.com/product" },
+      },
+      {
+        ...buildGenericFinding({
+          id: "missing",
+          ruleKey: "indexability.canonical_missing",
+          rank: 2,
+          level: "medium",
+        }),
+        pageUrl: "https://example.com/cart",
+        evidence: { canonical: null },
+      },
+    ]);
+
+    const groups = groupFindingsByAction(findings);
+    expect(groups).toHaveLength(2);
+    expect(groups.map((group) => group.representativeFindingId)).toEqual([
+      "elsewhere",
+      "missing",
+    ]);
+  });
+
+  it("merges title-length into a duplicate-title cluster only when the title matches", () => {
+    const findings = sortFindings([
+      {
+        ...buildGenericFinding({
+          id: "dup-1",
+          ruleKey: "page_fundamentals.duplicate_title",
+          rank: 1,
+          level: "high",
+        }),
+        pageUrl: "https://example.com/",
+        evidence: { title: "Pintura sobre seda | DBHOBBY" },
+      },
+      {
+        ...buildGenericFinding({
+          id: "dup-2",
+          ruleKey: "page_fundamentals.duplicate_title",
+          rank: 2,
+          level: "high",
+        }),
+        pageUrl: "https://example.com/ca",
+        evidence: { title: "Pintura sobre seda | DBHOBBY" },
+      },
+      {
+        ...buildGenericFinding({
+          id: "length-match",
+          ruleKey: "page_fundamentals.title_length_out_of_range",
+          rank: 3,
+          level: "low",
+        }),
+        pageUrl: "https://example.com/",
+        evidence: { title: "Pintura sobre seda | DBHOBBY", titleLength: 28 },
+      },
+      {
+        ...buildGenericFinding({
+          id: "length-other",
+          ruleKey: "page_fundamentals.title_length_out_of_range",
+          rank: 4,
+          level: "low",
+        }),
+        pageUrl: "https://example.com/login",
+        evidence: { title: "Entra | DBHOBBY", titleLength: 15 },
+      },
+    ]);
+
+    const groups = groupFindingsByAction(findings);
+
+    expect(groups).toHaveLength(2);
+    expect(groups[0]?.groupKey).toBe(
+      "page_fundamentals.duplicate_title:pintura sobre seda | dbhobby",
+    );
+    expect(groups[0]?.memberFindingIds).toEqual(["dup-1", "dup-2", "length-match"]);
+    expect(groups[0]?.affectedPageCount).toBe(2);
+    expect(groups[1]?.groupKey).toBe("page_fundamentals.title_length_out_of_range");
+    expect(groups[1]?.memberFindingIds).toEqual(["length-other"]);
+  });
+
+  it("keeps two different shared-title clusters as separate title jobs", () => {
+    const findings = sortFindings([
+      {
+        ...buildGenericFinding({
+          id: "cluster-a",
+          ruleKey: "page_fundamentals.duplicate_title",
+          rank: 1,
+          level: "high",
+        }),
+        pageUrl: "https://example.com/",
+        evidence: { title: "Pintura sobre seda | DBHOBBY" },
+      },
+      {
+        ...buildGenericFinding({
+          id: "cluster-b",
+          ruleKey: "page_fundamentals.duplicate_title",
+          rank: 2,
+          level: "medium",
+        }),
+        pageUrl: "https://example.com/product",
+        evidence: { title: "DBHOBBY | Pintura sobre seda" },
+      },
+      {
+        ...buildGenericFinding({
+          id: "length-b",
+          ruleKey: "page_fundamentals.title_length_out_of_range",
+          rank: 3,
+          level: "low",
+        }),
+        pageUrl: "https://example.com/product",
+        evidence: { title: "DBHOBBY | Pintura sobre seda", titleLength: 28 },
+      },
+    ]);
+
+    const groups = groupFindingsByAction(findings);
+    expect(groups).toHaveLength(2);
+    expect(groups[0]?.memberFindingIds).toEqual(["cluster-a"]);
+    expect(groups[1]?.memberFindingIds).toEqual(["cluster-b", "length-b"]);
+  });
+
+  it("keeps member evidence and page URLs after human-action merges", () => {
+    const findings = sortFindings([
+      {
+        ...buildGenericFinding({
+          id: "canonical-home",
+          ruleKey: "indexability.canonical_points_elsewhere",
+          rank: 1,
+          level: "medium",
+        }),
+        pageUrl: "https://dbhobby.com/",
+        evidence: { canonical: "https://www.dbhobby.com/silk" },
+      },
+      {
+        ...buildGenericFinding({
+          id: "canonical-ca",
+          ruleKey: "indexability.canonical_points_elsewhere",
+          rank: 2,
+          level: "medium",
+        }),
+        pageUrl: "https://www.dbhobby.com/ca",
+        evidence: { canonical: "https://dbhobby.com/silk" },
+      },
+    ]);
+
+    const groups = groupFindingsByAction(findings);
+    expect(groups[0]?.memberFindingIds).toEqual(["canonical-home", "canonical-ca"]);
+    expect(findings.find((finding) => finding.id === "canonical-ca")?.pageUrl).toBe(
+      "https://www.dbhobby.com/ca",
+    );
+    expect(findings.find((finding) => finding.id === "canonical-ca")?.evidence.canonical).toBe(
+      "https://dbhobby.com/silk",
+    );
+  });
+
+  it("uses merged human actions for distinct highlights so canonical cannot occupy two slots", () => {
+    const findings = sortFindings([
+      {
+        ...buildGenericFinding({
+          id: "title-1",
+          ruleKey: "page_fundamentals.duplicate_title",
+          rank: 1,
+          level: "high",
+        }),
+        pageUrl: "https://example.com/",
+        evidence: { title: "Shared A" },
+      },
+      {
+        ...buildGenericFinding({
+          id: "canonical-home",
+          ruleKey: "indexability.canonical_points_elsewhere",
+          rank: 2,
+          level: "medium",
+        }),
+        pageUrl: "https://example.com/",
+        evidence: { canonical: "https://www.example.com/product" },
+      },
+      {
+        ...buildGenericFinding({
+          id: "canonical-alt",
+          ruleKey: "indexability.canonical_points_elsewhere",
+          rank: 3,
+          level: "medium",
+        }),
+        pageUrl: "https://www.example.com/ca",
+        evidence: { canonical: "https://example.com/product" },
+      },
+      {
+        ...buildGenericFinding({
+          id: "title-2",
+          ruleKey: "page_fundamentals.duplicate_title",
+          rank: 4,
+          level: "medium",
+        }),
+        pageUrl: "https://example.com/b",
+        evidence: { title: "Shared B" },
+      },
+      {
+        ...buildGenericFinding({
+          id: "missing-h1",
+          ruleKey: "page_fundamentals.missing_h1",
+          rank: 5,
+          level: "medium",
+        }),
+        pageUrl: "https://example.com/c",
+      },
+    ]);
+
+    const groups = selectHighlightGroups(findings);
+    expect(groups).toHaveLength(3);
+    expect(groups.map((group) => group.representativeFindingId)).toEqual([
+      "title-1",
+      "canonical-home",
+      "title-2",
+    ]);
+    expect(groups[1]?.memberFindingIds).toEqual(["canonical-home", "canonical-alt"]);
+  });
+
   it("preserves deterministic ordering by rank", () => {
     const findings = sortFindings([
       buildGenericFinding({

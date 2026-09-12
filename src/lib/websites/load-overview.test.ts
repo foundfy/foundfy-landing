@@ -101,6 +101,7 @@ describe("loadWebsiteOverview", () => {
     const overview = await loadWebsiteOverview(website.id);
 
     expect(overview?.latestUsableScan?.crawlRunId).toBe("run-usable");
+    expect(overview?.latestUsableScan?.findings).toHaveLength(2);
     expect(overview?.latestUsableScan?.comparison?.fixed).toBe(1);
     expect(overview?.highlightedFindings).toEqual([
       { id: "finding-1", title: "Highlighted" },

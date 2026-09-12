@@ -42,6 +42,7 @@ export type WebsiteOverview = {
     crawlRunId: string;
     completedAt: string;
     pagesCrawled: number;
+    findings: AnalysisFinding[];
     findingsSummary: FindingsSummary;
     comparison: CrawlComparison | null;
     explanationEnrichmentStatus:

@@ -1,3 +1,4 @@
+import { buildResultsDisplayModel } from "@/lib/analysis/results-display-model";
 import { buildSiteProgressContent } from "@/lib/site/site-overview-view-model";
 import type { WebsiteOverview } from "@/lib/websites/types";
 import styles from "./SitePageView.module.css";
@@ -9,7 +10,11 @@ type SiteProgressSectionProps = {
 export default function SiteProgressSection({
   latestUsableScan,
 }: SiteProgressSectionProps) {
-  const progress = buildSiteProgressContent(latestUsableScan.comparison);
+  const jobCount = buildResultsDisplayModel(
+    latestUsableScan.findings,
+    latestUsableScan.findingsSummary,
+  ).actionGroupCount;
+  const progress = buildSiteProgressContent(latestUsableScan.comparison, jobCount);
 
   return (
     <section className={styles.section} aria-labelledby="site-progress">

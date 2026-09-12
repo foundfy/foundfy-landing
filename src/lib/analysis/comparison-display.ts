@@ -1,9 +1,25 @@
 import type { CrawlComparison, FindingChangeStatus } from "@/lib/analysis/crawl-status";
+import { formatJobCount } from "./finding-display";
 
-export function formatComparisonSummary(comparison: CrawlComparison): string {
+function formatFindingNoun(count: number): string {
+  return count === 1 ? "finding" : "findings";
+}
+
+function formatJobsSuffix(jobCount?: number | null): string {
+  if (typeof jobCount !== "number" || jobCount <= 0) {
+    return "";
+  }
+
+  return ` across ${formatJobCount(jobCount)}`;
+}
+
+export function formatComparisonSummary(
+  comparison: CrawlComparison,
+  jobCount?: number | null,
+): string {
   const parts = [
-    `${comparison.fixed} fixed`,
-    `${comparison.stillPresent} still present`,
+    `${comparison.fixed} ${formatFindingNoun(comparison.fixed)} fixed`,
+    `${comparison.stillPresent} ${formatFindingNoun(comparison.stillPresent)} still present`,
     `${comparison.new} new`,
   ];
 
@@ -13,25 +29,36 @@ export function formatComparisonSummary(comparison: CrawlComparison): string {
     summary += ` · ${comparison.unverified} could not be verified`;
   }
 
+  summary += formatJobsSuffix(jobCount);
+
   return summary;
 }
 
-export function formatComparisonNarrative(comparison: CrawlComparison): string {
+export function formatComparisonNarrative(
+  comparison: CrawlComparison,
+  jobCount?: number | null,
+): string {
   const sentences: string[] = [];
+  const jobsSuffix = formatJobsSuffix(jobCount);
 
   if (comparison.fixed > 0) {
-    const noun = comparison.fixed === 1 ? "issue" : "issues";
-    sentences.push(`${comparison.fixed} ${noun} fixed`);
+    sentences.push(
+      `${comparison.fixed} ${formatFindingNoun(comparison.fixed)} fixed`,
+    );
   }
 
   if (comparison.new > 0) {
-    const noun = comparison.new === 1 ? "issue" : "issues";
+    const noun = comparison.new === 1 ? "finding" : "findings";
     sentences.push(`${comparison.new} new ${noun} appeared`);
   }
 
   if (comparison.stillPresent > 0) {
     const verb = comparison.stillPresent === 1 ? "is" : "are";
-    sentences.push(`${comparison.stillPresent} ${verb} still present`);
+    sentences.push(
+      `${comparison.stillPresent} ${formatFindingNoun(comparison.stillPresent)} ${verb} still present${jobsSuffix}`,
+    );
+  } else if (jobsSuffix && comparison.fixed === 0 && comparison.new === 0) {
+    sentences.push(`No raw findings changed${jobsSuffix}`);
   }
 
   if (comparison.unverified > 0) {
