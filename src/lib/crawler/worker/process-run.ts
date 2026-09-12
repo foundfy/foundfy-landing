@@ -28,6 +28,11 @@ import {
 import { generateObservationsForCrawlRun } from "@/lib/observations/db/repository";
 import { parseHtmlPage } from "../parse/page";
 import { SsrfValidationError, ssrfSafeFetch } from "../security/ssrf-fetch";
+import {
+  SEED_QUEUE_PRIORITY,
+  scorePageUrl,
+  selectSitemapEnqueueUrls,
+} from "../select/page-priority";
 import type { RobotsRules } from "../types";
 import { FinalUrlDeduplicator } from "../url/final-url-dedup";
 import { getOriginForHostname, isSameSite, normalizeCrawlUrl } from "../url/normalize";
@@ -255,8 +260,11 @@ async function processQueueItem(
     ],
   });
 
+  const navigationUrlSet = new Set(parsed.navigationUrls);
+
   for (const link of parsed.internalLinks) {
-    await trackDiscovery(link.url, queueItem.depth + 1, 10);
+    const source = navigationUrlSet.has(link.url) ? "navigation" : "internal";
+    await trackDiscovery(link.url, queueItem.depth + 1, scorePageUrl(link.url, source));
   }
 
   await incrementCrawlProgress(run.id, 1, 0);
@@ -282,8 +290,8 @@ async function enqueueSitemapDiscoveries(
   ctx: CrawlWorkerContext,
   sitemapUrls: string[],
 ): Promise<void> {
-  for (const sitemapUrl of sitemapUrls.slice(0, 25)) {
-    await ctx.trackDiscovery(sitemapUrl, 0, 50);
+  for (const item of selectSitemapEnqueueUrls(sitemapUrls)) {
+    await ctx.trackDiscovery(item.url, 0, item.priority);
   }
 }
 
@@ -356,7 +364,7 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
       parsed: ctx.robotsRules,
     });
 
-    await trackDiscovery(run.seedUrl, 0, 100);
+    await trackDiscovery(run.seedUrl, 0, SEED_QUEUE_PRIORITY);
     await processSeedBeforeSitemapDiscovery(ctx);
 
     if (await hasSitemapArtifacts(run.id)) {

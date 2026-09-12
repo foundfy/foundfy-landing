@@ -50,7 +50,13 @@ describe("parseHtmlPage", () => {
     expect(parsed.xRobotsTag).toBe("index, follow");
     expect(parsed.h1).toEqual(["Understand visibility"]);
     expect(parsed.h2).toEqual(["Why now"]);
+    expect(parsed.h3).toEqual([]);
     expect(parsed.htmlLang).toBe("en");
+    expect(parsed.urlLocale).toBeNull();
+    expect(parsed.navLabels).toEqual([]);
+    expect(parsed.mainExcerpt).toContain("Foundfy helps founders");
+    expect(parsed.mainExcerpt?.length).toBeLessThanOrEqual(1000);
+    expect(parsed.contentHash).toMatch(/^[a-f0-9]{64}$/);
     expect(parsed.internalLinks).toEqual([
       { url: "https://foundfy.me/about", anchorText: "About" },
     ]);
@@ -60,6 +66,9 @@ describe("parseHtmlPage", () => {
     expect(parsed.imageCount).toBe(2);
     expect(parsed.missingAltCount).toBe(1);
     expect(parsed.jsonLdTypes).toEqual(["Organization"]);
+    expect(parsed.jsonLdProperties).toEqual([
+      { type: "Organization", name: "Foundfy" },
+    ]);
     expect(parsed.wordCount).toBeGreaterThan(5);
   });
 });

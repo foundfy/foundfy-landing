@@ -25,6 +25,31 @@ export type FetchResult = {
   body: string;
 };
 
+export type JsonLdOfferSnippet = {
+  price?: string;
+  priceCurrency?: string;
+  availability?: string;
+};
+
+export type JsonLdAddressSnippet = {
+  streetAddress?: string;
+  addressLocality?: string;
+  addressRegion?: string;
+  postalCode?: string;
+  addressCountry?: string;
+};
+
+export type JsonLdPropertySnippet = {
+  type: string;
+  name?: string;
+  description?: string;
+  brand?: string;
+  category?: string;
+  offers?: JsonLdOfferSnippet[];
+  address?: JsonLdAddressSnippet;
+  location?: string;
+};
+
 export type ParsedPage = {
   requestedUrl: string;
   finalUrl: string;
@@ -37,12 +62,19 @@ export type ParsedPage = {
   xRobotsTag: string | null;
   h1: string[];
   h2: string[];
+  h3: string[];
   htmlLang: string | null;
+  urlLocale: string | null;
+  navLabels: string[];
+  navigationUrls: string[];
+  mainExcerpt: string | null;
+  contentHash: string | null;
   internalLinks: Array<{ url: string; anchorText: string | null }>;
   externalLinks: Array<{ url: string; anchorText: string | null }>;
   imageCount: number;
   missingAltCount: number;
   jsonLdTypes: string[];
+  jsonLdProperties: JsonLdPropertySnippet[];
   wordCount: number;
 };
 

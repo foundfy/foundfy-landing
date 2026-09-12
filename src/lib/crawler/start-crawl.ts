@@ -3,6 +3,7 @@ import {
   enqueueUrl,
 } from "@/lib/crawler/db/repository";
 import { assertCanCreateNewCrawl } from "@/lib/crawler/daily-crawl-limit";
+import { SEED_QUEUE_PRIORITY } from "@/lib/crawler/select/page-priority";
 import { MAX_PAGES_PER_CRAWL } from "@/lib/crawler/types";
 
 export async function createAndEnqueueCrawl(input: {
@@ -21,7 +22,7 @@ export async function createAndEnqueueCrawl(input: {
     crawlRunId: crawlRun.id,
     url: input.seedUrl,
     depth: 0,
-    priority: 100,
+    priority: SEED_QUEUE_PRIORITY,
   });
 
   return {

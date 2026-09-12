@@ -1,61 +1,12 @@
 import * as cheerio from "cheerio";
 import type { FetchResult, ParsedPage } from "../types";
 import { isSameSite, normalizeCrawlUrl } from "../url/normalize";
-
-function extractJsonLdTypes(html: string): string[] {
-  const $ = cheerio.load(html);
-  const types = new Set<string>();
-
-  $('script[type="application/ld+json"]').each((_, element) => {
-    const raw = $(element).text().trim();
-    if (!raw) {
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(raw) as unknown;
-      collectJsonLdTypes(parsed, types);
-    } catch {
-      // Ignore invalid JSON-LD blocks.
-    }
-  });
-
-  return [...types];
-}
-
-function collectJsonLdTypes(value: unknown, types: Set<string>): void {
-  if (!value) {
-    return;
-  }
-
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      collectJsonLdTypes(item, types);
-    }
-    return;
-  }
-
-  if (typeof value !== "object") {
-    return;
-  }
-
-  const record = value as Record<string, unknown>;
-  const typeValue = record["@type"];
-
-  if (typeof typeValue === "string") {
-    types.add(typeValue);
-  } else if (Array.isArray(typeValue)) {
-    for (const entry of typeValue) {
-      if (typeof entry === "string") {
-        types.add(entry);
-      }
-    }
-  }
-
-  if (record["@graph"]) {
-    collectJsonLdTypes(record["@graph"], types);
-  }
-}
+import { hashNormalizedContent } from "./content-hash";
+import { extractMainContentText, extractMainExcerpt } from "./excerpt";
+import { extractBoundedHeadings } from "./headings";
+import { extractJsonLdProperties, extractJsonLdTypes } from "./json-ld";
+import { collectNavigationHrefs, extractNavLabels } from "./nav-labels";
+import { extractUrlLocale } from "./url-locale";
 
 function countWords(text: string): number {
   const words = text
@@ -94,11 +45,10 @@ export function parseHtmlPage(
     .map((_, element) => $(element).text().trim())
     .get()
     .filter(Boolean);
-  const h2 = $("h2")
-    .map((_, element) => $(element).text().trim())
-    .get()
-    .filter(Boolean);
+  const h2 = extractBoundedHeadings($, 2);
+  const h3 = extractBoundedHeadings($, 3);
   const htmlLang = $("html").attr("lang")?.trim() || null;
+  const navLabels = extractNavLabels($);
 
   const internalLinks: Array<{ url: string; anchorText: string | null }> = [];
   const externalLinks: Array<{ url: string; anchorText: string | null }> = [];
@@ -124,6 +74,15 @@ export function parseHtmlPage(
     }
   });
 
+  const navigationUrls = [
+    ...new Set(
+      collectNavigationHrefs($)
+        .map((href) => normalizeCrawlUrl(href, fetchResult.finalUrl))
+        .filter((url): url is string => url !== null)
+        .filter((url) => isSameSite(url, siteHostname)),
+    ),
+  ];
+
   let imageCount = 0;
   let missingAltCount = 0;
 
@@ -137,6 +96,10 @@ export function parseHtmlPage(
 
   const bodyText = $("body").text();
   const jsonLdTypes = extractJsonLdTypes(fetchResult.body);
+  const jsonLdProperties = extractJsonLdProperties(fetchResult.body);
+  const normalizedMainText = extractMainContentText(fetchResult.body);
+  const mainExcerpt = extractMainExcerpt(fetchResult.body);
+  const contentHash = hashNormalizedContent(normalizedMainText);
 
   return {
     requestedUrl: fetchResult.requestedUrl,
@@ -150,12 +113,19 @@ export function parseHtmlPage(
     xRobotsTag,
     h1,
     h2,
+    h3,
     htmlLang,
+    urlLocale: extractUrlLocale(fetchResult.finalUrl),
+    navLabels,
+    navigationUrls,
+    mainExcerpt,
+    contentHash,
     internalLinks,
     externalLinks,
     imageCount,
     missingAltCount,
     jsonLdTypes,
+    jsonLdProperties,
     wordCount: countWords(bodyText),
   };
 }

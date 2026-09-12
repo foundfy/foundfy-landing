@@ -618,12 +618,18 @@ export async function saveParsedPage(input: {
       x_robots_tag: input.parsed.xRobotsTag,
       h1: input.parsed.h1,
       h2: input.parsed.h2,
+      h3: input.parsed.h3,
       html_lang: input.parsed.htmlLang,
+      url_locale: input.parsed.urlLocale,
+      nav_labels: input.parsed.navLabels,
+      main_excerpt: input.parsed.mainExcerpt,
+      content_hash: input.parsed.contentHash,
       internal_link_count: input.parsed.internalLinks.length,
       external_link_count: input.parsed.externalLinks.length,
       image_count: input.parsed.imageCount,
       missing_alt_count: input.parsed.missingAltCount,
       json_ld_types: input.parsed.jsonLdTypes,
+      json_ld_properties: input.parsed.jsonLdProperties,
       word_count: input.parsed.wordCount,
     })
     .select("id")
