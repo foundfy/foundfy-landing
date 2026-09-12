@@ -4,6 +4,7 @@ import {
   getLandingScanPageLinkLabel,
   getScanAgainLabel,
   getScanResultsResetLabel,
+  getSiteRescanLabel,
   getSiteScanLinkLabel,
   shouldShowLandingFullAnalysisLink,
   shouldShowScanAgain,
@@ -13,10 +14,16 @@ describe("landing persistent bridge", () => {
   it("links completed landing results to the canonical scan route", () => {
     expect(buildFullAnalysisHref("run-abc-123")).toBe("/scan/run-abc-123");
     expect(getLandingScanPageLinkLabel()).toBe("Open scan page →");
-    expect(getScanAgainLabel()).toBe("Scan again to verify →");
-    expect(shouldShowScanAgain("website-1")).toBe(true);
-    expect(shouldShowScanAgain(null)).toBe(false);
+    expect(getScanAgainLabel()).toBe("Made changes? Scan again to verify →");
+    expect(
+      shouldShowScanAgain({ surface: "scan", websiteId: "website-1" }),
+    ).toBe(true);
+    expect(shouldShowScanAgain({ surface: "scan", websiteId: null })).toBe(false);
+    expect(
+      shouldShowScanAgain({ surface: "landing", websiteId: "website-1" }),
+    ).toBe(false);
     expect(getSiteScanLinkLabel()).toBe("View this scan →");
+    expect(getSiteRescanLabel()).toBe("Run new scan");
     expect(getScanResultsResetLabel(true)).toBe("View site overview");
     expect(getScanResultsResetLabel(false)).toBe("Back to home");
   });
@@ -57,10 +64,17 @@ describe("landing persistent bridge", () => {
     ).toBe(false);
   });
 
-  it("keeps scan-again primary and Pass 02 navigation secondary", () => {
-    expect(getScanAgainLabel()).toBe("Scan again to verify →");
+  it("makes open-scan-page the only landing continuation and keeps scan rescan contextual", () => {
+    expect(
+      shouldShowScanAgain({ surface: "landing", websiteId: "website-1" }),
+    ).toBe(false);
+    expect(
+      shouldShowScanAgain({ surface: "scan", websiteId: "website-1" }),
+    ).toBe(true);
     expect(getLandingScanPageLinkLabel()).toBe("Open scan page →");
+    expect(getScanAgainLabel()).toBe("Made changes? Scan again to verify →");
     expect(getScanResultsResetLabel(true)).toBe("View site overview");
+    expect(getSiteRescanLabel()).toBe("Run new scan");
     expect(getSiteScanLinkLabel()).toBe("View this scan →");
   });
 

@@ -1100,21 +1100,32 @@
   color: rgba(245, 243, 238, 0.48);
 }
 
+.scanAgainContextual {
+  width: 100%;
+  max-width: 100%;
+  margin-top: 16px;
+  padding-top: 2px;
+}
+
 .scanAgainButton {
   appearance: none;
   border: 0;
   background: transparent;
   padding: 0;
+  max-width: 100%;
   font: inherit;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 500;
   letter-spacing: -0.01em;
-  color: #ffb08f;
+  line-height: 1.4;
+  color: rgba(245, 243, 238, 0.56);
   cursor: pointer;
+  text-align: left;
+  overflow-wrap: anywhere;
 }
 
 .scanAgainButton:hover:not(:disabled) {
-  color: #ffc4a8;
+  color: rgba(245, 243, 238, 0.84);
   text-decoration: underline;
 }
 
@@ -1124,16 +1135,16 @@
 }
 
 .resultsFullAnalysisLink {
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   letter-spacing: -0.01em;
-  color: rgba(245, 243, 238, 0.64);
+  color: #ffb08f;
   text-decoration: none;
   transition: color 0.2s ease;
 }
 
 .resultsFullAnalysisLink:hover {
-  color: #ff7447;
+  color: #ffc4a8;
   text-decoration: underline;
 }
 
@@ -1303,6 +1314,12 @@
 
   .resultsActions {
     gap: 10px 12px;
+  }
+
+  .scanAgainContextual,
+  .scanAgainButton,
+  .resultsFullAnalysisLink {
+    overflow-wrap: anywhere;
   }
 
   .button {

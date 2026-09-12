@@ -1,5 +1,7 @@
 import type { AnalysisPhase } from "@/contexts/AnalysisContext";
 
+export type ResultsCtaSurface = "landing" | "scan";
+
 export function buildFullAnalysisHref(crawlRunId: string): string {
   return `/scan/${crawlRunId}`;
 }
@@ -9,11 +11,22 @@ export function getLandingScanPageLinkLabel(): string {
 }
 
 export function getScanAgainLabel(): string {
-  return "Scan again to verify →";
+  return "Made changes? Scan again to verify →";
 }
 
-export function shouldShowScanAgain(websiteId: string | null | undefined): boolean {
-  return typeof websiteId === "string" && websiteId.length > 0;
+export function getSiteRescanLabel(): string {
+  return "Run new scan";
+}
+
+export function shouldShowScanAgain(input: {
+  surface: ResultsCtaSurface;
+  websiteId: string | null | undefined;
+}): boolean {
+  return (
+    input.surface === "scan" &&
+    typeof input.websiteId === "string" &&
+    input.websiteId.length > 0
+  );
 }
 
 export function getSiteScanLinkLabel(): string {

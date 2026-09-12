@@ -14,6 +14,7 @@ import {
   getScanAgainLabel,
   shouldShowLandingFullAnalysisLink,
   shouldShowScanAgain,
+  type ResultsCtaSurface,
 } from "@/lib/analysis/landing-persistent-bridge";
 import { buildResultsDisplayModel } from "@/lib/analysis/results-display-model";
 import type {
@@ -33,6 +34,7 @@ type AnalysisResultsViewProps = {
   comparison?: CrawlComparison | null;
   crawlRunId?: string | null;
   websiteId?: string | null;
+  surface?: ResultsCtaSurface;
   onReset: () => void;
   resetLabel?: string;
 };
@@ -44,6 +46,7 @@ export default function AnalysisResultsView({
   comparison,
   crawlRunId = null,
   websiteId = null,
+  surface = "landing",
   onReset,
   resetLabel = "Try another website",
 }: AnalysisResultsViewProps) {
@@ -57,7 +60,7 @@ export default function AnalysisResultsView({
   );
   const zeroFindingsCopy = formatZeroFindingsCopy();
   const emptyHighlightsCopy = formatEmptyHighlightsCopy();
-  const showScanAgain = shouldShowScanAgain(websiteId);
+  const showScanAgain = shouldShowScanAgain({ surface, websiteId });
   const { scanAgain, isRescanning, rescanError } = useRescanNavigation(websiteId);
 
   return (
@@ -171,8 +174,8 @@ export default function AnalysisResultsView({
           </>
         )}
 
-        <div className={styles.resultsActions}>
-          {showScanAgain ? (
+        {showScanAgain ? (
+          <div className={styles.scanAgainContextual}>
             <button
               type="button"
               className={styles.scanAgainButton}
@@ -181,7 +184,15 @@ export default function AnalysisResultsView({
             >
               {isRescanning ? "Starting scan…" : getScanAgainLabel()}
             </button>
-          ) : null}
+            {rescanError ? (
+              <p className={styles.rescanError} role="alert">
+                {rescanError}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className={styles.resultsActions}>
           {showFullAnalysisLink && crawlRunId ? (
             <Link
               href={buildFullAnalysisHref(crawlRunId)}
@@ -193,11 +204,6 @@ export default function AnalysisResultsView({
           <button type="button" className={styles.resetButton} onClick={onReset}>
             {resetLabel}
           </button>
-          {rescanError ? (
-            <p className={styles.rescanError} role="alert">
-              {rescanError}
-            </p>
-          ) : null}
         </div>
       </div>
     </div>

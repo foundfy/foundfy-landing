@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getSiteRescanLabel } from "@/lib/analysis/landing-persistent-bridge";
 import { formatSiteScanDate } from "@/lib/site/site-overview-view-model";
 import type { WebsiteOverview } from "@/lib/websites/types";
 import styles from "./SitePageView.module.css";
@@ -44,7 +45,7 @@ export default function SiteHeader({
           onClick={onRescan}
           disabled={isRescanning}
         >
-          {isRescanning ? "Starting scan…" : "Run new scan"}
+          {isRescanning ? "Starting scan…" : getSiteRescanLabel()}
         </button>
       </div>
     </header>
