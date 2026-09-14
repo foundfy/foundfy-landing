@@ -1,4 +1,6 @@
 import { loadCompletedCrawlResults } from "@/lib/findings/load-completed-results";
+import { loadOrCreateSiteModel } from "@/lib/site-model/load-for-website";
+import type { SiteModelRecord } from "@/lib/site-model/types";
 import { loadTrustworthyFindingsCount } from "./findings-count";
 import {
   findActiveCrawlRunForWebsite,
@@ -64,6 +66,20 @@ export async function loadWebsiteOverview(
     buildScanHistoryItem(run, findingsCounts[index] ?? null),
   );
 
+  let siteModel: SiteModelRecord | null = null;
+  if (latestUsable) {
+    try {
+      siteModel = await loadOrCreateSiteModel({
+        website,
+        crawlRun: latestUsable,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to load site model.";
+      console.error("[Site Model] Failed to load or create site model:", message);
+    }
+  }
+
   return {
     website,
     latestUsableScan: latestUsable
@@ -85,6 +101,7 @@ export async function loadWebsiteOverview(
         }
       : null,
     highlightedFindings,
+    siteModel,
     activeScan: activeScan
       ? {
           crawlRunId: activeScan.id,

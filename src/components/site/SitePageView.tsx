@@ -12,6 +12,7 @@ import SiteActiveScanNotice from "./SiteActiveScanNotice";
 import SiteHeader from "./SiteHeader";
 import SiteProgressSection from "./SiteProgressSection";
 import SiteScanHistorySection from "./SiteScanHistorySection";
+import SiteUnderstandingSection from "./SiteUnderstandingSection";
 import SiteWhatMattersSection from "./SiteWhatMattersSection";
 import styles from "./SitePageView.module.css";
 
@@ -57,6 +58,10 @@ export default function SitePageView({ websiteId }: SitePageViewProps) {
 
       {shouldShowActiveScanBanner(overview) && overview.activeScan ? (
         <SiteActiveScanNotice activeScan={overview.activeScan} />
+      ) : null}
+
+      {overview.siteModel ? (
+        <SiteUnderstandingSection siteModel={overview.siteModel} />
       ) : null}
 
       <SiteWhatMattersSection overview={overview} latestScanHref={links.latestScanHref} />

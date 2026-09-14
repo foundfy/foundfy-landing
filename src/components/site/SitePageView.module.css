@@ -193,6 +193,71 @@
   line-height: 1.5;
 }
 
+.understandingBlock {
+  display: grid;
+  gap: 16px;
+  max-width: 46rem;
+}
+
+.understandingCopy {
+  margin: 0;
+  color: rgba(245, 243, 238, 0.72);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.understandingPageList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 18px;
+}
+
+.understandingPageItem {
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(245, 243, 238, 0.08);
+}
+
+.understandingPageItem:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.understandingPageTitle {
+  margin: 0 0 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: #f5f3ee;
+}
+
+.understandingPageClass {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(245, 243, 238, 0.48);
+}
+
+.understandingExcerpt {
+  margin: 8px 0 0;
+  color: rgba(245, 243, 238, 0.58);
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.understandingNote {
+  margin: 8px 0 0;
+  color: rgba(245, 243, 238, 0.48);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
 .whatMattersBlock {
   display: grid;
   gap: 20px;

@@ -6,6 +6,7 @@ const findLatestUsableCrawlRunMock = vi.fn();
 const findActiveCrawlRunForWebsiteMock = vi.fn();
 const loadCompletedCrawlResultsMock = vi.fn();
 const loadTrustworthyFindingsCountMock = vi.fn();
+const loadOrCreateSiteModelMock = vi.fn();
 
 vi.mock("./repository", () => ({
   getWebsiteById: (...args: unknown[]) => getWebsiteByIdMock(...args),
@@ -26,6 +27,10 @@ vi.mock("@/lib/findings/load-completed-results", () => ({
   loadCompletedCrawlResults: (...args: unknown[]) => loadCompletedCrawlResultsMock(...args),
 }));
 
+vi.mock("@/lib/site-model/load-for-website", () => ({
+  loadOrCreateSiteModel: (...args: unknown[]) => loadOrCreateSiteModelMock(...args),
+}));
+
 import { loadWebsiteOverview } from "./load-overview";
 
 const website = {
@@ -41,6 +46,7 @@ describe("loadWebsiteOverview", () => {
     vi.clearAllMocks();
     getWebsiteByIdMock.mockResolvedValue(website);
     findActiveCrawlRunForWebsiteMock.mockResolvedValue(null);
+    loadOrCreateSiteModelMock.mockResolvedValue(null);
   });
 
   it("keeps latest usable scan when a newer crawl failed", async () => {
@@ -108,6 +114,51 @@ describe("loadWebsiteOverview", () => {
     ]);
     expect(overview?.scanHistory[0]?.findingsCount).toBeNull();
     expect(overview?.scanHistory[1]?.findingsCount).toBe(22);
+    expect(overview?.siteModel).toBeNull();
+    expect(loadOrCreateSiteModelMock).toHaveBeenCalledWith({
+      website,
+      crawlRun: latestUsable,
+    });
+  });
+
+  it("still returns crawl jobs when site model persistence fails", async () => {
+    const latestUsable = {
+      id: "run-usable",
+      websiteId: website.id,
+      status: "completed" as const,
+      seedUrl: "https://www.ekoiq.com/",
+      pagesCrawled: 10,
+      maxPages: 10,
+      errorMessage: null,
+      startedAt: "2026-09-10T15:00:00.000Z",
+      completedAt: "2026-09-10T15:01:00.000Z",
+      createdAt: "2026-09-10T14:59:59.000Z",
+    };
+
+    findLatestUsableCrawlRunMock.mockResolvedValue(latestUsable);
+    listCrawlRunsForWebsiteMock.mockResolvedValue([latestUsable]);
+    loadCompletedCrawlResultsMock.mockResolvedValue({
+      findings: [{ id: "finding-1", title: "Highlighted" }],
+      findingsSummary: {
+        totalCount: 1,
+        highlightedFindingIds: ["finding-1"],
+        highlightGroups: [],
+      },
+      comparison: null,
+      explanationEnrichmentStatus: "disabled",
+    });
+    loadTrustworthyFindingsCountMock.mockResolvedValue(1);
+    loadOrCreateSiteModelMock.mockRejectedValue(
+      new Error("Could not find the table 'public.site_models' in the schema cache"),
+    );
+
+    const overview = await loadWebsiteOverview(website.id);
+
+    expect(overview?.highlightedFindings).toEqual([
+      { id: "finding-1", title: "Highlighted" },
+    ]);
+    expect(overview?.latestUsableScan?.findings).toHaveLength(1);
+    expect(overview?.siteModel).toBeNull();
   });
 
   it("returns null when the website does not exist", async () => {
