@@ -3,8 +3,44 @@ import type { PathClass } from "@/lib/crawler/select/page-priority";
 
 export const SITE_MODEL_ROW_VERSION = 1;
 export const SITE_MODEL_DERIVATION_VERSION = 1;
+export const SITE_INTERPRETATION_PROMPT_VERSION = "site-interpretation-v1";
 
 export type SiteModelStatus = "draft" | "confirmed" | "stale";
+
+export type SiteInterpretationGenerator = "heuristic" | "openai";
+
+export type SiteInterpretationDraft = {
+  promptVersion: string;
+  generatedAt: string;
+  generator: SiteInterpretationGenerator;
+  status: "ready" | "failed";
+  evidenceHash: string;
+  sourceCrawlRunId: string;
+  siteDescription: string;
+  offers: string[];
+  audiences: string[];
+  locations: string[];
+  uncertainty: string[];
+};
+
+export type SiteConfirmedUnderstanding = {
+  confirmedAt: string;
+  sourceInterpretationGeneratedAt: string;
+  sourceGenerator: SiteInterpretationGenerator;
+  evidenceHash: string;
+  sourceCrawlRunId: string;
+  siteDescription: string;
+  offers: string[];
+  audiences: string[];
+  locations: string[];
+};
+
+export type SiteInterpretationFields = {
+  siteDescription: string;
+  offers: string[];
+  audiences: string[];
+  locations: string[];
+};
 
 export const PATH_CLASS_ORDER: PathClass[] = [
   "homepage",
@@ -91,8 +127,8 @@ export type SiteModelRecord = {
   version: number;
   status: SiteModelStatus;
   understanding: SiteModelUnderstanding;
-  interpretation: Record<string, unknown> | null;
-  confirmed: Record<string, unknown> | null;
+  interpretation: SiteInterpretationDraft | null;
+  confirmed: SiteConfirmedUnderstanding | null;
   evidence: SiteModelEvidence;
   derivedAt: string;
 };

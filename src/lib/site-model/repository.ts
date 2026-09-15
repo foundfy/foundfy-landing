@@ -1,6 +1,8 @@
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
 import type { JsonLdPropertySnippet } from "@/lib/crawler/types";
 import type {
+  SiteConfirmedUnderstanding,
+  SiteInterpretationDraft,
   SiteModelArtifactInput,
   SiteModelEvidence,
   SiteModelPageInput,
@@ -8,6 +10,10 @@ import type {
   SiteModelStatus,
   SiteModelUnderstanding,
 } from "./types";
+import {
+  parseSiteConfirmedUnderstanding,
+  parseSiteInterpretationDraft,
+} from "./interpretation/parse";
 
 type SiteModelRow = {
   id: string;
@@ -16,8 +22,8 @@ type SiteModelRow = {
   version: number;
   status: SiteModelStatus;
   understanding: SiteModelUnderstanding;
-  interpretation: Record<string, unknown> | null;
-  confirmed: Record<string, unknown> | null;
+  interpretation: unknown;
+  confirmed: unknown;
   evidence: SiteModelEvidence;
   derived_at: string;
 };
@@ -66,8 +72,8 @@ function mapSiteModelRow(row: SiteModelRow): SiteModelRecord {
     version: row.version,
     status: row.status,
     understanding: row.understanding,
-    interpretation: row.interpretation,
-    confirmed: row.confirmed,
+    interpretation: parseSiteInterpretationDraft(row.interpretation),
+    confirmed: parseSiteConfirmedUnderstanding(row.confirmed),
     evidence: row.evidence,
     derivedAt: row.derived_at,
   };
@@ -245,4 +251,111 @@ export async function loadSiteModelEvidence(crawlRunId: string): Promise<{
       statusCode: row.status_code,
     })),
   };
+}
+
+const SITE_MODEL_SELECT =
+  "id, website_id, source_crawl_run_id, version, status, understanding, interpretation, confirmed, evidence, derived_at";
+
+export async function findLatestConfirmedSiteModelForWebsite(
+  websiteId: string,
+): Promise<SiteModelRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("site_models")
+    .select(SITE_MODEL_SELECT)
+    .eq("website_id", websiteId)
+    .in("status", ["confirmed", "stale"])
+    .order("derived_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load confirmed site model: ${error.message}`);
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return mapSiteModelRow(data as SiteModelRow);
+}
+
+export async function updateDraftInterpretation(input: {
+  id: string;
+  interpretation: SiteInterpretationDraft;
+}): Promise<SiteModelRecord> {
+  const supabase = getSupabaseAdmin();
+  const now = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("site_models")
+    .update({
+      interpretation: input.interpretation,
+      updated_at: now,
+    })
+    .eq("id", input.id)
+    .eq("status", "draft")
+    .select(SITE_MODEL_SELECT)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to update site interpretation: ${error.message}`);
+  }
+
+  if (!data) {
+    throw new Error("Failed to update site interpretation: draft row was not found.");
+  }
+
+  return mapSiteModelRow(data as SiteModelRow);
+}
+
+export async function markSiteModelStale(id: string): Promise<SiteModelRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const now = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("site_models")
+    .update({
+      status: "stale",
+      updated_at: now,
+    })
+    .eq("id", id)
+    .eq("status", "confirmed")
+    .select(SITE_MODEL_SELECT)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to mark site model stale: ${error.message}`);
+  }
+
+  return data ? mapSiteModelRow(data as SiteModelRow) : null;
+}
+
+export async function confirmSiteModelRow(input: {
+  id: string;
+  confirmed: SiteConfirmedUnderstanding;
+}): Promise<SiteModelRecord> {
+  const supabase = getSupabaseAdmin();
+  const now = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("site_models")
+    .update({
+      confirmed: input.confirmed,
+      status: "confirmed",
+      updated_at: now,
+    })
+    .eq("id", input.id)
+    .select(SITE_MODEL_SELECT)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to confirm site model: ${error.message}`);
+  }
+
+  if (!data) {
+    throw new Error("Failed to confirm site model: row was not found.");
+  }
+
+  return mapSiteModelRow(data as SiteModelRow);
 }

@@ -21,7 +21,7 @@ type SitePageViewProps = {
 };
 
 export default function SitePageView({ websiteId }: SitePageViewProps) {
-  const { state } = useWebsiteOverviewLoader(websiteId);
+  const { state, reload } = useWebsiteOverviewLoader(websiteId);
   const { scanAgain, isRescanning, rescanError } = useRescanNavigation(websiteId);
 
   if (state.phase === "loading") {
@@ -61,7 +61,11 @@ export default function SitePageView({ websiteId }: SitePageViewProps) {
       ) : null}
 
       {overview.siteModel ? (
-        <SiteUnderstandingSection siteModel={overview.siteModel} />
+        <SiteUnderstandingSection
+          websiteId={websiteId}
+          siteModel={overview.siteModel}
+          onUpdated={() => reload({ silent: true })}
+        />
       ) : null}
 
       <SiteWhatMattersSection overview={overview} latestScanHref={links.latestScanHref} />

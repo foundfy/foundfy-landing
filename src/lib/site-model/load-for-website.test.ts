@@ -1,16 +1,23 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { SITE_MODEL_DERIVATION_VERSION } from "./types";
 
 const findSiteModelForCrawlMock = vi.fn();
 const insertSiteModelMock = vi.fn();
 const loadSiteModelEvidenceMock = vi.fn();
 const updateDraftSiteModelMock = vi.fn();
+const findLatestConfirmedSiteModelForWebsiteMock = vi.fn();
+const updateDraftInterpretationMock = vi.fn();
+const markSiteModelStaleMock = vi.fn();
 
 vi.mock("./repository", () => ({
   findSiteModelForCrawl: (...args: unknown[]) => findSiteModelForCrawlMock(...args),
   insertSiteModel: (...args: unknown[]) => insertSiteModelMock(...args),
   loadSiteModelEvidence: (...args: unknown[]) => loadSiteModelEvidenceMock(...args),
   updateDraftSiteModel: (...args: unknown[]) => updateDraftSiteModelMock(...args),
+  findLatestConfirmedSiteModelForWebsite: (...args: unknown[]) =>
+    findLatestConfirmedSiteModelForWebsiteMock(...args),
+  updateDraftInterpretation: (...args: unknown[]) => updateDraftInterpretationMock(...args),
+  markSiteModelStale: (...args: unknown[]) => markSiteModelStaleMock(...args),
 }));
 
 import { loadOrCreateSiteModel } from "./load-for-website";
@@ -73,6 +80,7 @@ describe("loadOrCreateSiteModel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     loadSiteModelEvidenceMock.mockResolvedValue(evidenceBundle);
+    findLatestConfirmedSiteModelForWebsiteMock.mockResolvedValue(null);
   });
 
   it("returns the stored draft when derivation version matches", async () => {
@@ -95,6 +103,7 @@ describe("loadOrCreateSiteModel", () => {
     expect(result).toBe(existing);
     expect(insertSiteModelMock).not.toHaveBeenCalled();
     expect(updateDraftSiteModelMock).not.toHaveBeenCalled();
+    expect(updateDraftInterpretationMock).not.toHaveBeenCalled();
   });
 
   it("does not overwrite a confirmed model", async () => {
@@ -106,7 +115,7 @@ describe("loadOrCreateSiteModel", () => {
       status: "confirmed" as const,
       understanding: { derivationVersion: 0 },
       interpretation: null,
-      confirmed: { summary: "user confirmed" },
+      confirmed: { siteDescription: "user confirmed" },
       evidence: { source: "crawl" },
       derivedAt: "2026-09-14T16:26:20.000Z",
     };
@@ -116,6 +125,7 @@ describe("loadOrCreateSiteModel", () => {
 
     expect(result).toBe(existing);
     expect(updateDraftSiteModelMock).not.toHaveBeenCalled();
+    expect(updateDraftInterpretationMock).not.toHaveBeenCalled();
   });
 
   it("inserts a draft when none exists", async () => {
@@ -123,6 +133,7 @@ describe("loadOrCreateSiteModel", () => {
     insertSiteModelMock.mockResolvedValue({
       id: "model-new",
       status: "draft",
+      understanding: { derivationVersion: SITE_MODEL_DERIVATION_VERSION },
       interpretation: null,
       confirmed: null,
     });
@@ -136,5 +147,38 @@ describe("loadOrCreateSiteModel", () => {
       "homepage",
     );
     expect(insertSiteModelMock.mock.calls[0]?.[0]?.interpretation).toBeUndefined();
+  });
+
+  it("returns an older confirmed model after a later crawl instead of replacing it", async () => {
+    findSiteModelForCrawlMock.mockResolvedValue(null);
+    insertSiteModelMock.mockResolvedValue({
+      id: "model-new-draft",
+      status: "draft",
+      sourceCrawlRunId: crawlRun.id,
+      understanding: { derivationVersion: SITE_MODEL_DERIVATION_VERSION, pages: [] },
+      interpretation: null,
+      confirmed: null,
+    });
+    const confirmed = {
+      id: "model-confirmed",
+      websiteId: website.id,
+      sourceCrawlRunId: "run-old",
+      status: "confirmed" as const,
+      confirmed: { siteDescription: "Foundfy helps people get found." },
+    };
+    findLatestConfirmedSiteModelForWebsiteMock.mockResolvedValue(confirmed);
+    markSiteModelStaleMock.mockResolvedValue({
+      ...confirmed,
+      status: "stale",
+    });
+
+    const result = await loadOrCreateSiteModel({ website, crawlRun });
+
+    expect(insertSiteModelMock).toHaveBeenCalledTimes(1);
+    expect(markSiteModelStaleMock).toHaveBeenCalledWith("model-confirmed");
+    expect(result?.id).toBe("model-confirmed");
+    expect(result?.status).toBe("stale");
+    expect(result?.confirmed).toEqual(confirmed.confirmed);
+    expect(updateDraftInterpretationMock).not.toHaveBeenCalled();
   });
 });

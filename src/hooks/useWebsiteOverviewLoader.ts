@@ -16,8 +16,10 @@ const FETCH_OPTIONS: RequestInit = {
 export function useWebsiteOverviewLoader(websiteId: string) {
   const [state, setState] = useState<WebsiteOverviewViewState>({ phase: "loading" });
 
-  const reload = useCallback(async () => {
-    setState({ phase: "loading" });
+  const reload = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setState({ phase: "loading" });
+    }
 
     try {
       const response = await fetch(`/api/websites/${websiteId}`, FETCH_OPTIONS);

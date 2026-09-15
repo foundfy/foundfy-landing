@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { loadWebsiteOverview } from "@/lib/websites/load-overview";
+import { scheduleSiteInterpretationIfNeeded } from "@/lib/site-model/interpretation/scheduler";
 import { isValidUuid } from "@/lib/websites/uuid";
 
 export const runtime = "nodejs";
@@ -23,6 +24,18 @@ export async function GET(_request: Request, context: RouteContext) {
     if (!overview) {
       return NextResponse.json({ error: "Website not found." }, { status: 404 });
     }
+
+    after(async () => {
+      try {
+        await scheduleSiteInterpretationIfNeeded(overview.siteModel);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Site interpretation scheduling failed.";
+        console.error("[Site Interpretation] Async scheduling failed:", message);
+      }
+    });
 
     return NextResponse.json(overview, {
       headers: {
