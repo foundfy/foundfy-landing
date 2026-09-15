@@ -364,6 +364,40 @@
   color: rgba(245, 243, 238, 0.8);
 }
 
+.confirmedMark {
+  color: rgba(255, 176, 143, 0.9);
+  font-weight: 500;
+}
+
+.goalOptions {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.goalLegend {
+  padding: 0;
+  margin-bottom: 10px;
+  color: rgba(245, 243, 238, 0.72);
+  font-size: 0.875rem;
+}
+
+.goalOption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(245, 243, 238, 0.88);
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.goalOption input {
+  accent-color: #ff4a1c;
+}
+
 .whatMattersBlock {
   display: grid;
   gap: 20px;

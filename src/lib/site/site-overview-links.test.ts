@@ -28,6 +28,7 @@ describe("site overview links", () => {
       },
       highlightedFindings: [],
       siteModel: null,
+      goals: null,
       activeScan: {
         crawlRunId: "run-active",
         status: "running",

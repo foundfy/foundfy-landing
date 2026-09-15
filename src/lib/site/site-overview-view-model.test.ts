@@ -102,6 +102,7 @@ function createOverview(
       },
     ],
     siteModel: null,
+    goals: null,
     activeScan: null,
     scanHistory: [],
     ...overrides,

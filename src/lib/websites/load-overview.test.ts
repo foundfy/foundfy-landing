@@ -7,6 +7,7 @@ const findActiveCrawlRunForWebsiteMock = vi.fn();
 const loadCompletedCrawlResultsMock = vi.fn();
 const loadTrustworthyFindingsCountMock = vi.fn();
 const loadOrCreateSiteModelMock = vi.fn();
+const findWebsiteGoalsMock = vi.fn();
 
 vi.mock("./repository", () => ({
   getWebsiteById: (...args: unknown[]) => getWebsiteByIdMock(...args),
@@ -31,6 +32,10 @@ vi.mock("@/lib/site-model/load-for-website", () => ({
   loadOrCreateSiteModel: (...args: unknown[]) => loadOrCreateSiteModelMock(...args),
 }));
 
+vi.mock("@/lib/goals/repository", () => ({
+  findWebsiteGoals: (...args: unknown[]) => findWebsiteGoalsMock(...args),
+}));
+
 import { loadWebsiteOverview } from "./load-overview";
 
 const website = {
@@ -47,6 +52,7 @@ describe("loadWebsiteOverview", () => {
     getWebsiteByIdMock.mockResolvedValue(website);
     findActiveCrawlRunForWebsiteMock.mockResolvedValue(null);
     loadOrCreateSiteModelMock.mockResolvedValue(null);
+    findWebsiteGoalsMock.mockResolvedValue(null);
   });
 
   it("keeps latest usable scan when a newer crawl failed", async () => {
@@ -115,6 +121,8 @@ describe("loadWebsiteOverview", () => {
     expect(overview?.scanHistory[0]?.findingsCount).toBeNull();
     expect(overview?.scanHistory[1]?.findingsCount).toBe(22);
     expect(overview?.siteModel).toBeNull();
+    expect(overview?.goals).toBeNull();
+    expect(findWebsiteGoalsMock).toHaveBeenCalledWith(website.id);
     expect(loadOrCreateSiteModelMock).toHaveBeenCalledWith({
       website,
       crawlRun: latestUsable,
@@ -159,6 +167,46 @@ describe("loadWebsiteOverview", () => {
     ]);
     expect(overview?.latestUsableScan?.findings).toHaveLength(1);
     expect(overview?.siteModel).toBeNull();
+    expect(overview?.goals).toBeNull();
+  });
+
+  it("loads website goals independently of the latest crawl", async () => {
+    const latestUsable = {
+      id: "run-usable",
+      websiteId: website.id,
+      status: "completed" as const,
+      seedUrl: "https://www.ekoiq.com/",
+      pagesCrawled: 10,
+      maxPages: 10,
+      errorMessage: null,
+      startedAt: "2026-09-10T15:00:00.000Z",
+      completedAt: "2026-09-10T15:01:00.000Z",
+      createdAt: "2026-09-10T14:59:59.000Z",
+    };
+
+    findLatestUsableCrawlRunMock.mockResolvedValue(latestUsable);
+    listCrawlRunsForWebsiteMock.mockResolvedValue([latestUsable]);
+    loadCompletedCrawlResultsMock.mockResolvedValue({
+      findings: [],
+      findingsSummary: {
+        totalCount: 0,
+        highlightedFindingIds: [],
+        highlightGroups: [],
+      },
+      comparison: null,
+      explanationEnrichmentStatus: "disabled",
+    });
+    loadTrustworthyFindingsCountMock.mockResolvedValue(0);
+    findWebsiteGoalsMock.mockResolvedValue({
+      websiteId: website.id,
+      primaryType: "grow_signups",
+      source: "user_declared",
+    });
+
+    const overview = await loadWebsiteOverview(website.id);
+
+    expect(overview?.goals?.primaryType).toBe("grow_signups");
+    expect(findWebsiteGoalsMock).toHaveBeenCalledWith(website.id);
   });
 
   it("returns null when the website does not exist", async () => {

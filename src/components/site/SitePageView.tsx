@@ -12,6 +12,8 @@ import SiteActiveScanNotice from "./SiteActiveScanNotice";
 import SiteHeader from "./SiteHeader";
 import SiteProgressSection from "./SiteProgressSection";
 import SiteScanHistorySection from "./SiteScanHistorySection";
+import { shouldShowWebsiteGoals } from "@/lib/goals/display";
+import SiteGoalsSection from "./SiteGoalsSection";
 import SiteUnderstandingSection from "./SiteUnderstandingSection";
 import SiteWhatMattersSection from "./SiteWhatMattersSection";
 import styles from "./SitePageView.module.css";
@@ -64,6 +66,14 @@ export default function SitePageView({ websiteId }: SitePageViewProps) {
         <SiteUnderstandingSection
           websiteId={websiteId}
           siteModel={overview.siteModel}
+          onUpdated={() => reload({ silent: true })}
+        />
+      ) : null}
+
+      {shouldShowWebsiteGoals(overview.siteModel) ? (
+        <SiteGoalsSection
+          websiteId={websiteId}
+          goals={overview.goals}
           onUpdated={() => reload({ silent: true })}
         />
       ) : null}

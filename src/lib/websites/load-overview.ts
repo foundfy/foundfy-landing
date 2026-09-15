@@ -1,3 +1,5 @@
+import { findWebsiteGoals } from "@/lib/goals/repository";
+import type { WebsiteGoalsRecord } from "@/lib/goals/types";
 import { loadCompletedCrawlResults } from "@/lib/findings/load-completed-results";
 import { loadOrCreateSiteModel } from "@/lib/site-model/load-for-website";
 import type { SiteModelRecord } from "@/lib/site-model/types";
@@ -80,6 +82,14 @@ export async function loadWebsiteOverview(
     }
   }
 
+  let goals: WebsiteGoalsRecord | null = null;
+  try {
+    goals = await findWebsiteGoals(websiteId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to load website goals.";
+    console.error("[Goals] Failed to load website goals:", message);
+  }
+
   return {
     website,
     latestUsableScan: latestUsable
@@ -102,6 +112,7 @@ export async function loadWebsiteOverview(
       : null,
     highlightedFindings,
     siteModel,
+    goals,
     activeScan: activeScan
       ? {
           crawlRunId: activeScan.id,

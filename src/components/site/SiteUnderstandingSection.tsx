@@ -72,6 +72,12 @@ export default function SiteUnderstandingSection({
       <div className={styles.sectionIntro}>
         <h2 id="site-understanding" className={styles.sectionHeading}>
           {interpretation.heading}
+          {siteModel.confirmed ? (
+            <span className={styles.confirmedMark} aria-hidden="true">
+              {" "}
+              ✓
+            </span>
+          ) : null}
         </h2>
         <p className={styles.sectionMeta}>{interpretation.statusLabel}</p>
       </div>

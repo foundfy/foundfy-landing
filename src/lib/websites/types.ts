@@ -5,6 +5,7 @@ import type {
   FindingsSummary,
   SearchPresenceSignals,
 } from "@/lib/analysis/crawl-status";
+import type { WebsiteGoalsRecord } from "@/lib/goals/types";
 import type { SiteModelRecord } from "@/lib/site-model/types";
 
 export type WebsiteRecord = {
@@ -57,6 +58,7 @@ export type WebsiteOverview = {
   } | null;
   highlightedFindings: AnalysisFinding[];
   siteModel: SiteModelRecord | null;
+  goals: WebsiteGoalsRecord | null;
   activeScan: {
     crawlRunId: string;
     status: "queued" | "running";
