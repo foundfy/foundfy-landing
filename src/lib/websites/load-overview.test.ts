@@ -207,6 +207,10 @@ describe("loadWebsiteOverview", () => {
 
     expect(overview?.goals?.primaryType).toBe("grow_signups");
     expect(findWebsiteGoalsMock).toHaveBeenCalledWith(website.id);
+    expect(overview).not.toHaveProperty("observe");
+    expect(JSON.stringify(overview)).not.toMatch(
+      /refresh_token|google_sub|gsc_|ciphertext|oauth/i,
+    );
   });
 
   it("returns null when the website does not exist", async () => {
