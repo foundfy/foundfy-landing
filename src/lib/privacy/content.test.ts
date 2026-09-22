@@ -18,6 +18,19 @@ describe("privacy page content", () => {
     expect(text).toContain("does not measure your rankings");
     expect(text).toContain("Google");
     expect(text).toContain("hello@foundfy.me");
-    expect(text).not.toMatch(/legal basis|subprocessor|cookie|retain for|registered in/i);
+    expect(text).not.toMatch(/legal basis|subprocessor|retain for|registered in/i);
+  });
+
+  it("discloses optional Google OAuth without claiming Search Analytics import", () => {
+    const googleSection = PRIVACY_SECTIONS.find((section) => section.title === "Google account");
+    expect(googleSection).toBeDefined();
+    expect(googleSection?.body).toContain("Connect Google");
+    expect(googleSection?.body).toContain("read-only Search Console access");
+    expect(googleSection?.body).toContain("Google account identifier and email");
+    expect(googleSection?.body).toContain("encrypted refresh token");
+    expect(googleSection?.body).toContain("session cookie");
+    expect(googleSection?.body).toContain("disconnect");
+    expect(googleSection?.body).toContain("does not import Search Console performance data yet");
+    expect(googleSection?.body).not.toMatch(/impressions|clicks|CTR|average position/i);
   });
 });

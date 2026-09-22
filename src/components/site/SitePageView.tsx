@@ -16,13 +16,19 @@ import { shouldShowWebsiteGoals } from "@/lib/goals/display";
 import SiteGoalsSection from "./SiteGoalsSection";
 import SiteUnderstandingSection from "./SiteUnderstandingSection";
 import SiteWhatMattersSection from "./SiteWhatMattersSection";
+import SiteObserveSection from "./SiteObserveSection";
+import type { ObserveNotice } from "@/lib/gsc/config";
 import styles from "./SitePageView.module.css";
 
 type SitePageViewProps = {
   websiteId: string;
+  observeNotice?: ObserveNotice | null;
 };
 
-export default function SitePageView({ websiteId }: SitePageViewProps) {
+export default function SitePageView({
+  websiteId,
+  observeNotice = null,
+}: SitePageViewProps) {
   const { state, reload } = useWebsiteOverviewLoader(websiteId);
   const { scanAgain, isRescanning, rescanError } = useRescanNavigation(websiteId);
 
@@ -77,6 +83,8 @@ export default function SitePageView({ websiteId }: SitePageViewProps) {
           onUpdated={() => reload({ silent: true })}
         />
       ) : null}
+
+      <SiteObserveSection websiteId={websiteId} notice={observeNotice} />
 
       <SiteWhatMattersSection overview={overview} latestScanHref={links.latestScanHref} />
 
