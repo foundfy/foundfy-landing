@@ -4,6 +4,8 @@ export const GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
 export const GOOGLE_OAUTH_USERINFO_URL =
   "https://openidconnect.googleapis.com/v1/userinfo";
 export const GOOGLE_OAUTH_REVOKE_URL = "https://oauth2.googleapis.com/revoke";
+export const GOOGLE_WEBMASTERS_SITES_URL =
+  "https://www.googleapis.com/webmasters/v3/sites";
 
 export const GOOGLE_OAUTH_SCOPES = [
   "openid",

@@ -1,6 +1,6 @@
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
 import { GOOGLE_OAUTH_SCOPE_STRING } from "./config";
-import { OAuthStateError, type GoogleIdentityRecord, type GoogleOAuthTokenRecord, type ObserveOwnerRecord, type OAuthStateRecord, type OwnerSessionRecord } from "./types";
+import { OAuthStateError, type GoogleIdentityRecord, type GoogleOAuthTokenRecord, type GscPropertyConnectionRecord, type GscPropertyType, type ObserveOwnerRecord, type OAuthStateRecord, type OwnerSessionRecord } from "./types";
 
 type GoogleIdentityRow = {
   id: string;
@@ -39,6 +39,18 @@ type OwnerSessionRow = {
   google_identity_id: string;
   website_id: string;
   expires_at: string;
+};
+
+type PropertyConnectionRow = {
+  id: string;
+  website_id: string;
+  observe_owner_id: string;
+  google_identity_id: string;
+  property_uri: string;
+  property_type: GscPropertyType;
+  permission_level: string | null;
+  confirmation_source: "user";
+  status: "connected" | "revoked";
 };
 
 function mapIdentity(row: GoogleIdentityRow): GoogleIdentityRecord {
@@ -434,4 +446,127 @@ export async function findGoogleIdentityById(
   }
 
   return mapIdentity(data as GoogleIdentityRow);
+}
+
+function mapPropertyConnection(row: PropertyConnectionRow): GscPropertyConnectionRecord {
+  return {
+    id: row.id,
+    websiteId: row.website_id,
+    observeOwnerId: row.observe_owner_id,
+    googleIdentityId: row.google_identity_id,
+    propertyUri: row.property_uri,
+    propertyType: row.property_type,
+    permissionLevel: row.permission_level,
+    confirmationSource: row.confirmation_source,
+    status: row.status,
+  };
+}
+
+const PROPERTY_CONNECTION_COLUMNS =
+  "id, website_id, observe_owner_id, google_identity_id, property_uri, property_type, permission_level, confirmation_source, status";
+
+export async function findActivePropertyConnection(
+  websiteId: string,
+): Promise<GscPropertyConnectionRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("gsc_property_connections")
+    .select(PROPERTY_CONNECTION_COLUMNS)
+    .eq("website_id", websiteId)
+    .eq("status", "connected")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load Search Console property: ${error.message}`);
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return mapPropertyConnection(data as PropertyConnectionRow);
+}
+
+export async function upsertActivePropertyConnection(input: {
+  websiteId: string;
+  observeOwnerId: string;
+  googleIdentityId: string;
+  propertyUri: string;
+  propertyType: GscPropertyType;
+  permissionLevel: string | null;
+}): Promise<GscPropertyConnectionRecord> {
+  const existing = await findActivePropertyConnection(input.websiteId);
+  const supabase = getSupabaseAdmin();
+  const now = new Date().toISOString();
+
+  if (existing) {
+    const { data, error } = await supabase
+      .from("gsc_property_connections")
+      .update({
+        observe_owner_id: input.observeOwnerId,
+        google_identity_id: input.googleIdentityId,
+        property_uri: input.propertyUri,
+        property_type: input.propertyType,
+        permission_level: input.permissionLevel,
+        confirmation_source: "user",
+        updated_at: now,
+      })
+      .eq("id", existing.id)
+      .eq("status", "connected")
+      .select(PROPERTY_CONNECTION_COLUMNS)
+      .maybeSingle();
+
+    if (error || !data) {
+      throw new Error(
+        `Failed to update Search Console property: ${error?.message ?? "unknown error"}`,
+      );
+    }
+
+    return mapPropertyConnection(data as PropertyConnectionRow);
+  }
+
+  const { data, error } = await supabase
+    .from("gsc_property_connections")
+    .insert({
+      website_id: input.websiteId,
+      observe_owner_id: input.observeOwnerId,
+      google_identity_id: input.googleIdentityId,
+      property_uri: input.propertyUri,
+      property_type: input.propertyType,
+      permission_level: input.permissionLevel,
+      confirmation_source: "user",
+      status: "connected",
+      connected_at: now,
+      updated_at: now,
+    })
+    .select(PROPERTY_CONNECTION_COLUMNS)
+    .maybeSingle();
+
+  if (error || !data) {
+    throw new Error(
+      `Failed to store Search Console property: ${error?.message ?? "unknown error"}`,
+    );
+  }
+
+  return mapPropertyConnection(data as PropertyConnectionRow);
+}
+
+export async function revokeActivePropertyConnectionsForWebsite(
+  websiteId: string,
+): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("gsc_property_connections")
+    .update({
+      status: "revoked",
+      revoked_at: now,
+      updated_at: now,
+    })
+    .eq("website_id", websiteId)
+    .eq("status", "connected");
+
+  if (error) {
+    throw new Error(`Failed to revoke Search Console property: ${error.message}`);
+  }
 }

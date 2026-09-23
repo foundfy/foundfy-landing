@@ -10,7 +10,7 @@ export const PRIVACY_SECTIONS = [
   },
   {
     title: "Google account",
-    body: "If you choose Connect Google, Foundfy asks Google for read-only Search Console access and stores your Google account identifier and email so it can remember that connection. Foundfy also stores an encrypted refresh token on the server so it can keep that connection. This does not import Search Console performance data yet. A private session cookie remembers that you are the Google account that connected this site. Knowing a site link is not enough to see that Google account information. You can disconnect, which revokes Foundfy’s Google access when possible and deletes the stored token. Crawl and site-understanding data are kept.",
+    body: "If you choose Connect Google, Foundfy asks Google for read-only Search Console access and stores your Google account identifier and email so it can remember that connection. Foundfy also stores an encrypted refresh token on the server so it can keep that connection. You can then confirm which Search Console property belongs to this site. This does not import Search Console performance data yet. A private session cookie remembers that you are the Google account that connected this site. Knowing a site link is not enough to see that Google account information. You can disconnect, which revokes Foundfy’s Google access when possible and deletes the stored token. Crawl and site-understanding data are kept.",
   },
   {
     title: "What we store",

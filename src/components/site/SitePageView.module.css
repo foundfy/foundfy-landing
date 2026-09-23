@@ -111,6 +111,56 @@
   border-color: rgba(255, 74, 28, 0.58);
 }
 
+.observePropertyId {
+  margin: 8px 0 0;
+  color: rgba(245, 243, 238, 0.82);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.observePropertyList {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.observePropertyItem {
+  margin: 0;
+}
+
+.observePropertyChoice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(245, 243, 238, 0.12);
+  border-radius: 12px;
+  background: rgba(245, 243, 238, 0.03);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.observePropertyChoice[aria-pressed="true"] {
+  border-color: rgba(255, 74, 28, 0.42);
+  background: rgba(255, 74, 28, 0.08);
+}
+
+.observePropertyGroupHeading {
+  margin: 18px 0 0;
+  color: rgba(245, 243, 238, 0.48);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .activeScanNotice {
   display: flex;
   align-items: center;

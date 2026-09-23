@@ -49,6 +49,7 @@ describe("GET /api/websites/[websiteId]/observe", () => {
       status: "google_connected",
       email: "jose@foundfy.me",
       propertySelected: false,
+      property: null,
     });
 
     const response = await GET(
@@ -64,6 +65,7 @@ describe("GET /api/websites/[websiteId]/observe", () => {
       status: "google_connected",
       email: "jose@foundfy.me",
       propertySelected: false,
+      property: null,
     });
     expect(JSON.stringify(payload)).not.toMatch(/refresh|ciphertext|access_token/i);
   });
