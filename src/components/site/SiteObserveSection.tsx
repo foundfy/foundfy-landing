@@ -46,6 +46,7 @@ import styles from "./SitePageView.module.css";
 type SiteObserveSectionProps = {
   websiteId: string;
   notice: ObserveNotice | null;
+  onUpdated?: () => void;
 };
 
 type ObserveLoadState =
@@ -63,6 +64,7 @@ type ObserveLoadState =
 export default function SiteObserveSection({
   websiteId,
   notice,
+  onUpdated,
 }: SiteObserveSectionProps) {
   const [state, setState] = useState<ObserveLoadState>({ phase: "loading" });
   const [isDisconnecting, setIsDisconnecting] = useState(false);
@@ -248,6 +250,7 @@ export default function SiteObserveSection({
       setState({ phase: "disconnected" });
       setEvidence(null);
       setDetailsOpen(false);
+      onUpdated?.();
     } catch {
       setActionError("Unable to disconnect.");
     } finally {
@@ -294,6 +297,7 @@ export default function SiteObserveSection({
       });
       setEvidence(null);
       setDetailsOpen(false);
+      onUpdated?.();
     } catch {
       setActionError("Unable to save the Search Console property.");
     } finally {
@@ -318,6 +322,7 @@ export default function SiteObserveSection({
       properties: null,
       selectedSiteUrl: state.view.property?.siteUrl ?? null,
     });
+    onUpdated?.();
   };
 
   const syncEvidence = async () => {
@@ -344,6 +349,7 @@ export default function SiteObserveSection({
       }
 
       setEvidence(payload);
+      onUpdated?.();
     } catch {
       setActionError(OBSERVE_EVIDENCE_SYNC_ERROR);
     } finally {

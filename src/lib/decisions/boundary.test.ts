@@ -29,6 +29,8 @@ describe("Decision Engine v1 source boundary", () => {
     expect(overviewLoader).not.toMatch(/decision_runs|from \"@\/lib\/decisions/);
     expect(publicRoute).not.toMatch(/from \"@\/lib\/decisions|decisions\/generate/);
     expect(pageView).toContain("SiteDecisionsSection");
+    expect(pageView).toContain("refreshKey={decideRefreshKey}");
+    expect(pageView).toContain("onUpdated={refreshDecide}");
     expect(pageView).toContain("SiteWhatMattersSection");
   });
 

@@ -19,6 +19,7 @@ describe("public vs owner-private OBSERVE boundary", () => {
 
   it("keeps Search Analytics evidence in the owner-only observe UI", () => {
     const ui = read("../../components/site/SiteObserveSection.tsx");
+    expect(ui).toContain("onUpdated?.()");
     expect(ui).toContain("OBSERVE_CONNECT_LABEL");
     expect(ui).toContain("OBSERVE_CONNECTED_TITLE");
     expect(ui).toContain("OBSERVE_SEARCH_CONSOLE_CONNECTED_TITLE");
@@ -29,6 +30,7 @@ describe("public vs owner-private OBSERVE boundary", () => {
 
   it("keeps Decision Engine output in the owner-only section", () => {
     const decisionsUi = read("../../components/site/SiteDecisionsSection.tsx");
+    expect(decisionsUi).toContain("refreshKey");
     expect(decisionsUi).toContain("/api/websites/${websiteId}/decisions");
     expect(decisionsUi).toContain("DECISION_SECTION_HEADING");
     expect(decisionsUi).toContain("DECISION_BLOCKED_COPY");

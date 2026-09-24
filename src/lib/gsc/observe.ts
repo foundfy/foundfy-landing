@@ -1,12 +1,12 @@
 import { getWebsiteById } from "@/lib/websites/repository";
 import type { WebsiteRecord } from "@/lib/websites/types";
 import { hashSessionToken } from "./cookie";
+import { findOwnerSearchConsoleConnection } from "./connection";
 import { decryptSecret } from "./crypto";
 import {
   countActiveOwnersForIdentity,
   disableGoogleOAuthToken,
   findActiveObserveOwner,
-  findActivePropertyConnection,
   findGoogleIdentityById,
   findGoogleOAuthTokenById,
   findOwnerSessionByTokenHash,
@@ -76,12 +76,11 @@ export async function requireSearchConsoleConnection(input: {
   sessionToken: string | null;
 }): Promise<ObserveSearchConsoleContext> {
   const context = await requireObserveOwner(input);
-  const connection = await findActivePropertyConnection(input.websiteId);
-  if (
-    !connection ||
-    connection.status !== "connected" ||
-    connection.googleIdentityId !== context.owner.googleIdentityId
-  ) {
+  const connection = await findOwnerSearchConsoleConnection({
+    websiteId: input.websiteId,
+    owner: context.owner,
+  });
+  if (!connection) {
     throw new SearchConsoleNotConnectedError();
   }
 
@@ -93,15 +92,17 @@ export async function resolveObserveOwnerView(input: {
   sessionToken: string | null;
 }): Promise<ObserveOwnerView> {
   const context = await requireObserveOwner(input);
-  const connection = await findActivePropertyConnection(input.websiteId);
-  const property =
-    connection && connection.googleIdentityId === context.owner.googleIdentityId
-      ? {
-          siteUrl: connection.propertyUri,
-          propertyType: connection.propertyType,
-          permissionLevel: connection.permissionLevel,
-        }
-      : null;
+  const connection = await findOwnerSearchConsoleConnection({
+    websiteId: input.websiteId,
+    owner: context.owner,
+  });
+  const property = connection
+    ? {
+        siteUrl: connection.propertyUri,
+        propertyType: connection.propertyType,
+        permissionLevel: connection.permissionLevel,
+      }
+    : null;
 
   return {
     status: property ? "search_console_connected" : "google_connected",

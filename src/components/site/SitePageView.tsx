@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   buildSiteOverviewLinks,
   shouldShowActiveScanBanner,
@@ -32,6 +33,16 @@ export default function SitePageView({
 }: SitePageViewProps) {
   const { state, reload } = useWebsiteOverviewLoader(websiteId);
   const { scanAgain, isRescanning, rescanError } = useRescanNavigation(websiteId);
+  const [decideRefreshKey, setDecideRefreshKey] = useState(0);
+
+  function refreshDecide() {
+    setDecideRefreshKey((value) => value + 1);
+  }
+
+  async function refreshOverviewAndDecide() {
+    await reload({ silent: true });
+    refreshDecide();
+  }
 
   if (state.phase === "loading") {
     return <p className={shellStyles.loading}>Loading site report…</p>;
@@ -73,7 +84,7 @@ export default function SitePageView({
         <SiteUnderstandingSection
           websiteId={websiteId}
           siteModel={overview.siteModel}
-          onUpdated={() => reload({ silent: true })}
+          onUpdated={refreshOverviewAndDecide}
         />
       ) : null}
 
@@ -81,13 +92,13 @@ export default function SitePageView({
         <SiteGoalsSection
           websiteId={websiteId}
           goals={overview.goals}
-          onUpdated={() => reload({ silent: true })}
+          onUpdated={refreshOverviewAndDecide}
         />
       ) : null}
 
-      <SiteObserveSection websiteId={websiteId} notice={observeNotice} />
+      <SiteObserveSection websiteId={websiteId} notice={observeNotice} onUpdated={refreshDecide} />
 
-      <SiteDecisionsSection websiteId={websiteId} />
+      <SiteDecisionsSection websiteId={websiteId} refreshKey={decideRefreshKey} />
 
       <SiteWhatMattersSection overview={overview} latestScanHref={links.latestScanHref} />
 

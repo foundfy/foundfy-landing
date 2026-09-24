@@ -176,6 +176,29 @@ describe("observe owner authorization", () => {
     });
   });
 
+  it("does not treat another identity's property as Search Console connected", async () => {
+    findActivePropertyConnectionMock.mockResolvedValue({
+      id: "connection-1",
+      websiteId: WEBSITE_ID,
+      observeOwnerId: "owner-other",
+      googleIdentityId: "identity-other",
+      propertyUri: "sc-domain:foundfy.me",
+      propertyType: "domain",
+      permissionLevel: "siteOwner",
+      confirmationSource: "user",
+      status: "connected",
+    });
+
+    const view = await resolveObserveOwnerView({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION_TOKEN,
+    });
+
+    expect(view.status).toBe("google_connected");
+    expect(view.propertySelected).toBe(false);
+    expect(view.property).toBeNull();
+  });
+
   it("requires an active property binding for Search Analytics", async () => {
     await expect(
       requireSearchConsoleConnection({
