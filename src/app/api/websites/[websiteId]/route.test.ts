@@ -59,7 +59,8 @@ describe("GET /api/websites/[websiteId]", () => {
     expect(payload).not.toHaveProperty("observe");
     expect(payload).not.toHaveProperty("googleIdentity");
     expect(payload).not.toHaveProperty("email");
-    expect(serialized).not.toMatch(/refresh_token|google_sub|gsc_|ciphertext|oauth|impressions|searchAnalytics/i);
+    expect(payload).not.toHaveProperty("decisions");
+    expect(serialized).not.toMatch(/refresh_token|google_sub|gsc_|ciphertext|oauth|impressions|searchAnalytics|decision_runs/i);
     expect(payload.goals.primaryType).toBe("grow_signups");
     expect(payload.siteModel.status).toBe("confirmed");
   });

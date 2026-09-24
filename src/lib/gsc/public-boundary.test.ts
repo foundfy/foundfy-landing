@@ -12,9 +12,9 @@ describe("public vs owner-private OBSERVE boundary", () => {
     const publicRoute = read("../../app/api/websites/[websiteId]/route.ts");
     const overviewTypes = read("../websites/types.ts");
 
-    expect(overviewLoader).not.toMatch(/google_identit|observeOwner|refresh_token|gsc_property|gsc_search|impressions|query_text/i);
-    expect(publicRoute).not.toMatch(/from \"@\/lib\/gsc|observeOwner|propertyUri|search-analytics/i);
-    expect(overviewTypes).not.toMatch(/googleIdentity|refreshToken|observeOwner|searchAnalytics/i);
+    expect(overviewLoader).not.toMatch(/google_identit|observeOwner|refresh_token|gsc_property|gsc_search|impressions|query_text|decision_runs/i);
+    expect(publicRoute).not.toMatch(/from \"@\/lib\/gsc|from \"@\/lib\/decisions|observeOwner|propertyUri|search-analytics/i);
+    expect(overviewTypes).not.toMatch(/googleIdentity|refreshToken|observeOwner|searchAnalytics|DecisionView/i);
   });
 
   it("keeps Search Analytics evidence in the owner-only observe UI", () => {
@@ -25,5 +25,12 @@ describe("public vs owner-private OBSERVE boundary", () => {
     expect(ui).toContain("OBSERVE_SYNC_LABEL");
     expect(ui).toContain("Connect Google to begin observing how people discover this site.");
     expect(ui).not.toMatch(/high priority|opportunity|optimize this|CTR is too low|you should target/i);
+  });
+
+  it("keeps Decision Engine output in the owner-only section", () => {
+    const decisionsUi = read("../../components/site/SiteDecisionsSection.tsx");
+    expect(decisionsUi).toContain("/api/websites/${websiteId}/decisions");
+    expect(decisionsUi).toContain("DECISION_SECTION_HEADING");
+    expect(decisionsUi).not.toMatch(/CTR is too low|you should target|increase traffic by/i);
   });
 });

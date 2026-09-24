@@ -14,6 +14,7 @@ import {
   revokeObserveOwner,
   revokeOwnerSessionsForWebsiteIdentity,
 } from "./db";
+import { deleteDecisionEngineForWebsite } from "@/lib/decisions/db";
 import { deleteSearchAnalyticsForWebsite } from "./db-search";
 import { revokeGoogleToken } from "./google";
 import {
@@ -125,6 +126,7 @@ export async function disconnectObserveOwner(input: {
     }
   }
 
+  await deleteDecisionEngineForWebsite(input.websiteId);
   await deleteSearchAnalyticsForWebsite(input.websiteId);
   await revokeActivePropertyConnectionsForWebsite(input.websiteId);
   await revokeObserveOwner(context.owner.id);

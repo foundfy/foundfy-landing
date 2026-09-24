@@ -28,10 +28,16 @@ vi.mock("./db", () => ({
 }));
 
 const deleteSearchAnalyticsForWebsiteMock = vi.fn();
+const deleteDecisionEngineForWebsiteMock = vi.fn();
 
 vi.mock("./db-search", () => ({
   deleteSearchAnalyticsForWebsite: (...args: unknown[]) =>
     deleteSearchAnalyticsForWebsiteMock(...args),
+}));
+
+vi.mock("@/lib/decisions/db", () => ({
+  deleteDecisionEngineForWebsite: (...args: unknown[]) =>
+    deleteDecisionEngineForWebsiteMock(...args),
 }));
 
 vi.mock("./google", () => ({
@@ -85,6 +91,7 @@ describe("Search Console property discovery and binding", () => {
     refreshGoogleAccessTokenMock.mockResolvedValue("short-lived-access");
     findActivePropertyConnectionMock.mockResolvedValue(null);
     deleteSearchAnalyticsForWebsiteMock.mockResolvedValue(undefined);
+    deleteDecisionEngineForWebsiteMock.mockResolvedValue(undefined);
     listSearchConsoleSitesMock.mockResolvedValue([
       { siteUrl: "sc-domain:foundfy.me", permissionLevel: "siteOwner" },
       { siteUrl: "https://www.foundfy.me/", permissionLevel: "siteFullUser" },
@@ -210,6 +217,7 @@ describe("Search Console property discovery and binding", () => {
       siteUrl: "https://www.foundfy.me/",
     });
 
+    expect(deleteDecisionEngineForWebsiteMock).toHaveBeenCalledWith(WEBSITE_ID);
     expect(deleteSearchAnalyticsForWebsiteMock).toHaveBeenCalledWith(WEBSITE_ID);
   });
 });

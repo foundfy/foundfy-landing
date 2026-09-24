@@ -8,6 +8,7 @@ const findGoogleIdentityByIdMock = vi.fn();
 const findActivePropertyConnectionMock = vi.fn();
 const revokeActivePropertyConnectionsForWebsiteMock = vi.fn();
 const deleteSearchAnalyticsForWebsiteMock = vi.fn();
+const deleteDecisionEngineForWebsiteMock = vi.fn();
 const findGoogleOAuthTokenByIdMock = vi.fn();
 const revokeObserveOwnerMock = vi.fn();
 const revokeOwnerSessionsForWebsiteIdentityMock = vi.fn();
@@ -39,6 +40,11 @@ vi.mock("./db", () => ({
 vi.mock("./db-search", () => ({
   deleteSearchAnalyticsForWebsite: (...args: unknown[]) =>
     deleteSearchAnalyticsForWebsiteMock(...args),
+}));
+
+vi.mock("@/lib/decisions/db", () => ({
+  deleteDecisionEngineForWebsite: (...args: unknown[]) =>
+    deleteDecisionEngineForWebsiteMock(...args),
 }));
 
 vi.mock("./google", () => ({
@@ -94,6 +100,7 @@ describe("observe owner authorization", () => {
     findActivePropertyConnectionMock.mockResolvedValue(null);
     revokeActivePropertyConnectionsForWebsiteMock.mockResolvedValue(undefined);
     deleteSearchAnalyticsForWebsiteMock.mockResolvedValue(undefined);
+    deleteDecisionEngineForWebsiteMock.mockResolvedValue(undefined);
     countActiveOwnersForIdentityMock.mockResolvedValue(0);
     revokeObserveOwnerMock.mockResolvedValue(undefined);
     revokeOwnerSessionsForWebsiteIdentityMock.mockResolvedValue(undefined);
@@ -206,6 +213,7 @@ describe("observe owner authorization", () => {
     });
 
     expect(revokeObserveOwnerMock).toHaveBeenCalledWith("owner-1");
+    expect(deleteDecisionEngineForWebsiteMock).toHaveBeenCalledWith(WEBSITE_ID);
     expect(deleteSearchAnalyticsForWebsiteMock).toHaveBeenCalledWith(WEBSITE_ID);
     expect(revokeActivePropertyConnectionsForWebsiteMock).toHaveBeenCalledWith(WEBSITE_ID);
     expect(revokeOwnerSessionsForWebsiteIdentityMock).toHaveBeenCalledWith({
