@@ -619,6 +619,61 @@
   }
 }
 
+.decisionList {
+  display: grid;
+  gap: 28px;
+  margin: 0 0 24px;
+  padding: 0;
+  list-style: none;
+  max-width: 46rem;
+}
+
+.decisionItem {
+  margin: 0;
+}
+
+.decisionBand {
+  margin: 0 0 8px;
+  color: rgba(245, 243, 238, 0.52);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.decisionTitle {
+  margin: 0 0 10px;
+  font-size: 1.0625rem;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.4;
+  color: #f5f3ee;
+}
+
+.decisionRank {
+  color: rgba(245, 243, 238, 0.48);
+  font-weight: 600;
+}
+
+.decisionWhyBody {
+  display: grid;
+  gap: 16px;
+}
+
+.decisionWhyBlock {
+  display: grid;
+  gap: 4px;
+}
+
+.decisionWhyLabel {
+  margin: 0;
+  color: rgba(245, 243, 238, 0.52);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 @media (max-width: 390px) {
   .title {
     font-size: 1.75rem;

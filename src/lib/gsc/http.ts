@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { DecisionPrerequisiteError } from "@/lib/decisions/types";
 import {
   GoogleAuthExpiredError,
   GoogleSearchAnalyticsError,
@@ -10,6 +11,13 @@ import {
 export function observeErrorResponse(error: unknown, fallback: string): NextResponse {
   if (error instanceof ObserveAuthError) {
     return NextResponse.json({ error: error.message }, { status: error.status });
+  }
+
+  if (error instanceof DecisionPrerequisiteError) {
+    return NextResponse.json(
+      { error: error.message, reason: error.reason },
+      { status: 409 },
+    );
   }
 
   if (error instanceof GoogleAuthExpiredError) {

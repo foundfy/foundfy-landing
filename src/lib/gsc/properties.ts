@@ -1,3 +1,4 @@
+import { deleteDecisionEngineForWebsite } from "@/lib/decisions/db";
 import { decryptSecret } from "./crypto";
 import { findActivePropertyConnection, upsertActivePropertyConnection } from "./db";
 import { deleteSearchAnalyticsForWebsite } from "./db-search";
@@ -69,6 +70,7 @@ export async function bindObserveProperty(input: {
 
   const existing = await findActivePropertyConnection(input.websiteId);
   if (existing && existing.propertyUri !== verified.siteUrl) {
+    await deleteDecisionEngineForWebsite(input.websiteId);
     await deleteSearchAnalyticsForWebsite(input.websiteId);
   }
 

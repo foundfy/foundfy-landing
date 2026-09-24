@@ -37,6 +37,8 @@ describe("privacy page content", () => {
     expect(googleSection?.body).toContain("average position");
     expect(googleSection?.body).toContain("queries Google reported");
     expect(googleSection?.body).toContain("deletes stored Search Console performance evidence");
+    expect(googleSection?.body).toContain("derive prioritized next actions");
+    expect(googleSection?.body).toContain("deletes derived next actions");
     expect(googleSection?.body).not.toMatch(/does not import Search Console performance data yet/i);
   });
 });
