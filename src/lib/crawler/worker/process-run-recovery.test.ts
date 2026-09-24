@@ -39,6 +39,8 @@ vi.mock("../db/repository", () => ({
     reconcileOrphanedPageProgressMock(...args),
   hasSitemapArtifacts: (...args: unknown[]) => hasSitemapArtifactsMock(...args),
   listQueueUrls: (...args: unknown[]) => listQueueUrlsMock(...args),
+  listQueueItems: async () => [],
+  updateQueueItemPriority: async () => undefined,
   toActiveCrawlRun: (row: {
     id: string;
     website_id: string;

@@ -38,6 +38,10 @@ type QueueRow = {
   status: QueueItemStatus;
 };
 
+export type CrawlQueueItem = QueueRow & {
+  createdAt: string;
+};
+
 function unwrapWebsite(row: CrawlRunRow): WebsiteRow | null {
   if (!row.websites) {
     return null;
@@ -430,6 +434,29 @@ export async function listQueueUrls(crawlRunId: string): Promise<string[]> {
   return (data ?? []).map((row) => row.url);
 }
 
+export async function listQueueItems(crawlRunId: string): Promise<CrawlQueueItem[]> {
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase
+    .from("crawl_queue")
+    .select("id, url, depth, priority, status, created_at")
+    .eq("crawl_run_id", crawlRunId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error(`Failed to list queue items: ${error.message}`);
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    url: row.url as string,
+    depth: row.depth as number,
+    priority: row.priority as number,
+    status: row.status as QueueItemStatus,
+    createdAt: row.created_at as string,
+  }));
+}
+
 export async function saveSiteArtifact(input: {
   crawlRunId: string;
   websiteId: string;
@@ -494,6 +521,22 @@ export async function updateQueueItem(
 
   if (error) {
     throw new Error(`Failed to update queue item: ${error.message}`);
+  }
+}
+
+export async function updateQueueItemPriority(
+  queueItemId: string,
+  priority: number,
+): Promise<void> {
+  const supabase = getSupabaseAdmin();
+
+  const { error } = await supabase
+    .from("crawl_queue")
+    .update({ priority })
+    .eq("id", queueItemId);
+
+  if (error) {
+    throw new Error(`Failed to update queue item priority: ${error.message}`);
   }
 }
 

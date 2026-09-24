@@ -38,4 +38,12 @@ describe("public vs owner-private OBSERVE boundary", () => {
     expect(decisionsUi).not.toMatch(/enough cross-signal evidence to prioritize an action yet/);
     expect(decisionsUi).not.toMatch(/CTR is too low|you should target|increase traffic by/i);
   });
+
+  it("does not let public first-scan crawl use private GSC evidence", () => {
+    const publicCrawl = read("../../app/api/crawl/route.ts");
+    const startCrawl = read("../crawler/start-crawl.ts");
+
+    expect(publicCrawl).not.toMatch(/from \"@\/lib\/gsc|gscVisibility|resolveOwnerGsc/);
+    expect(startCrawl).not.toMatch(/impressions|clicks|query_text/);
+  });
 });

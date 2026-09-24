@@ -3,8 +3,10 @@ import {
   DAILY_CRAWL_LIMIT_STATUS,
   isDailyCrawlLimitReachedError,
 } from "@/lib/crawler/daily-crawl-limit";
+import { resolveOwnerGscVisibilityPages } from "@/lib/crawler/select/gsc-visibility";
 import { createAndEnqueueCrawl } from "@/lib/crawler/start-crawl";
 import { validatePublicHttpUrl } from "@/lib/crawler/url/normalize";
+import { readObserveSessionToken } from "@/lib/gsc/cookie";
 import { findActiveCrawlRunForWebsite, getWebsiteById } from "@/lib/websites/repository";
 import { resolveRescanPriorityUrls } from "@/lib/websites/rescan-priority-urls";
 import { resolveRescanSeedUrl } from "@/lib/websites/rescan-seed";
@@ -51,11 +53,19 @@ export async function POST(_request: Request, context: RouteContext) {
     }
 
     const priorityUrls = await resolveRescanPriorityUrls(website, validated.url);
+    const gscVisibilityUrls = (
+      await resolveOwnerGscVisibilityPages({
+        websiteId,
+        hostname: website.hostname,
+        sessionToken: readObserveSessionToken(_request),
+      })
+    ).map((page) => page.url);
 
     const started = await createAndEnqueueCrawl({
       websiteId,
       seedUrl: validated.url,
       priorityUrls,
+      ...(gscVisibilityUrls.length > 0 ? { gscVisibilityUrls } : {}),
     });
 
     return NextResponse.json(
