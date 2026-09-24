@@ -194,12 +194,61 @@ describe("Decision Engine generation", () => {
     ).rejects.toMatchObject({ reason: "missing_crawl" });
   });
 
+  it("requires a Search Console connection", async () => {
+    findActivePropertyConnectionMock.mockResolvedValue(null);
+
+    await expect(
+      loadDecisionPrerequisites({ websiteId: WEBSITE_ID, sessionToken: SESSION }),
+    ).rejects.toMatchObject({ reason: "google_not_connected" });
+  });
+
   it("requires a completed GSC sync", async () => {
     findLatestCompletedSearchSyncMock.mockResolvedValue(null);
 
     await expect(
       loadDecisionPrerequisites({ websiteId: WEBSITE_ID, sessionToken: SESSION }),
+    ).rejects.toMatchObject({ reason: "missing_gsc_sync" });
+  });
+
+  it("does not create a decision run when a Site Model is missing", async () => {
+    findLatestConfirmedSiteModelForWebsiteMock.mockResolvedValue({
+      id: "site-model-draft",
+      confirmed: null,
+      status: "draft",
+    });
+
+    await expect(
+      generateDecisionsForWebsite({ websiteId: WEBSITE_ID, sessionToken: SESSION }),
     ).rejects.toBeInstanceOf(DecisionPrerequisiteError);
+    expect(insertRunningDecisionRunMock).not.toHaveBeenCalled();
+    expect(completeDecisionRunMock).not.toHaveBeenCalled();
+  });
+
+  it("does not create a decision run when a Goal is missing", async () => {
+    findWebsiteGoalsMock.mockResolvedValue(null);
+
+    await expect(
+      generateDecisionsForWebsite({ websiteId: WEBSITE_ID, sessionToken: SESSION }),
+    ).rejects.toMatchObject({ reason: "missing_goal" });
+    expect(insertRunningDecisionRunMock).not.toHaveBeenCalled();
+  });
+
+  it("does not create a decision run when Google is not connected", async () => {
+    findActivePropertyConnectionMock.mockResolvedValue(null);
+
+    await expect(
+      generateDecisionsForWebsite({ websiteId: WEBSITE_ID, sessionToken: SESSION }),
+    ).rejects.toMatchObject({ reason: "google_not_connected" });
+    expect(insertRunningDecisionRunMock).not.toHaveBeenCalled();
+  });
+
+  it("does not create a decision run when Search Console has never synced", async () => {
+    findLatestCompletedSearchSyncMock.mockResolvedValue(null);
+
+    await expect(
+      generateDecisionsForWebsite({ websiteId: WEBSITE_ID, sessionToken: SESSION }),
+    ).rejects.toMatchObject({ reason: "missing_gsc_sync" });
+    expect(insertRunningDecisionRunMock).not.toHaveBeenCalled();
   });
 
   it("persists ranked decisions with GSC page evidence and ignores query rows", async () => {
@@ -229,8 +278,21 @@ describe("Decision Engine generation", () => {
 
     await generateDecisionsForWebsite({ websiteId: WEBSITE_ID, sessionToken: SESSION });
 
+    expect(insertRunningDecisionRunMock).toHaveBeenCalled();
     const stored = completeDecisionRunMock.mock.calls[0][0] as { decisions: unknown[] };
     expect(stored.decisions).toEqual([]);
+  });
+
+  it("persists a completed run when GSC pages exist but candidates are empty", async () => {
+    listObservationsMock.mockResolvedValue([]);
+    listPrioritiesMock.mockResolvedValue([]);
+
+    await generateDecisionsForWebsite({ websiteId: WEBSITE_ID, sessionToken: SESSION });
+
+    expect(insertRunningDecisionRunMock).toHaveBeenCalled();
+    const stored = completeDecisionRunMock.mock.calls[0][0] as { decisions: unknown[] };
+    expect(stored.decisions).toEqual([]);
+    expect(completeDecisionRunMock).toHaveBeenCalled();
   });
 
   it("marks a failed run failed and does not complete it", async () => {

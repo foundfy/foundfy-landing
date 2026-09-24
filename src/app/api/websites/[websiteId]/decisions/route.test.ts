@@ -64,4 +64,52 @@ describe("GET /api/websites/[websiteId]/decisions", () => {
     expect(response.headers.get("cache-control")).toMatch(/no-store/);
     expect(await response.json()).toMatchObject({ status: "completed" });
   });
+
+  it("returns blocked prerequisite state without generating", async () => {
+    loadDecisionsForWebsiteMock.mockResolvedValue({
+      status: "blocked",
+      canGenerate: false,
+      blockedReason: "missing_site_model",
+      emptyReason: null,
+      decisions: [],
+    });
+
+    const response = await GET(
+      new Request("https://www.foundfy.me/decisions", {
+        headers: { cookie: "foundfy_gsc_session=owner-token" },
+      }),
+      { params: Promise.resolve({ websiteId: WEBSITE_ID }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      status: "blocked",
+      blockedReason: "missing_site_model",
+    });
+    expect(loadDecisionsForWebsiteMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns a completed zero-candidate run as no_cross_signal_candidates", async () => {
+    loadDecisionsForWebsiteMock.mockResolvedValue({
+      status: "empty",
+      canGenerate: true,
+      blockedReason: null,
+      emptyReason: "no_cross_signal_candidates",
+      run: { id: "run-1" },
+      decisions: [],
+    });
+
+    const response = await GET(
+      new Request("https://www.foundfy.me/decisions", {
+        headers: { cookie: "foundfy_gsc_session=owner-token" },
+      }),
+      { params: Promise.resolve({ websiteId: WEBSITE_ID }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      status: "empty",
+      emptyReason: "no_cross_signal_candidates",
+    });
+  });
 });

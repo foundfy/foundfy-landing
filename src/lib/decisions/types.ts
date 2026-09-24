@@ -137,13 +137,30 @@ export type DecisionView = {
   };
 };
 
+export const DECISION_PREREQUISITE_REASONS = [
+  "missing_site_model",
+  "missing_goal",
+  "missing_crawl",
+  "google_not_connected",
+  "missing_gsc_sync",
+] as const;
+
+export type DecisionPrerequisiteReason = (typeof DECISION_PREREQUISITE_REASONS)[number];
+
+export const DECISION_EMPTY_REASONS = [
+  "empty_gsc_evidence",
+  "no_cross_signal_candidates",
+] as const;
+
+export type DecisionEmptyReason = (typeof DECISION_EMPTY_REASONS)[number];
+
 export type DecisionsOwnerView = {
-  status: "not_generated" | "completed" | "empty" | "failed";
+  status: "blocked" | "not_generated" | "completed" | "empty";
   current: boolean;
   staleReason: string | null;
   canGenerate: boolean;
-  generateBlockedReason: string | null;
-  emptyReason: "no_gsc_evidence" | "no_cross_signal" | null;
+  blockedReason: DecisionPrerequisiteReason | null;
+  emptyReason: DecisionEmptyReason | null;
   run: {
     id: string;
     engineVersion: string;
@@ -152,12 +169,6 @@ export type DecisionsOwnerView = {
   } | null;
   decisions: DecisionView[];
 };
-
-export type DecisionPrerequisiteReason =
-  | "missing_goal"
-  | "missing_site_model"
-  | "missing_crawl"
-  | "missing_gsc_sync";
 
 export class DecisionPrerequisiteError extends Error {
   readonly reason: DecisionPrerequisiteReason;
