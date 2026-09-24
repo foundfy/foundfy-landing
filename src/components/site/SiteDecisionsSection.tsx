@@ -3,14 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   DECISION_BAND_LABELS,
+  DECISION_BLOCKED_ACTION,
+  DECISION_BLOCKED_COPY,
   DECISION_BOUNDED_COPY,
   DECISION_CONFIDENCE_HEADING,
   DECISION_DEMAND_HEADING,
-  DECISION_EMPTY_COPY,
+  DECISION_EMPTY_GSC_COPY,
   DECISION_ERROR_COPY,
   DECISION_GENERATE_LABEL,
   DECISION_GOAL_HEADING,
-  DECISION_NO_GSC_COPY,
+  DECISION_NO_OVERLAP_COPY,
   DECISION_PERIOD_HEADING,
   DECISION_PERIOD_VALUE,
   DECISION_PRIORITY_HEADING,
@@ -22,7 +24,7 @@ import {
   DECISION_WHY_HEADING,
   DECISION_WHY_LABEL,
 } from "@/lib/decisions/display";
-import type { DecisionView, DecisionsOwnerView } from "@/lib/decisions/types";
+import type { DecisionPrerequisiteReason, DecisionView, DecisionsOwnerView } from "@/lib/decisions/types";
 import { formatEvidenceDate } from "@/lib/gsc/window";
 import styles from "./SitePageView.module.css";
 
@@ -96,6 +98,30 @@ function DecisionWhy({ decision }: { decision: DecisionView }) {
   );
 }
 
+function blockedCopy(reason: DecisionPrerequisiteReason | null): string | null {
+  return reason ? DECISION_BLOCKED_COPY[reason] : null;
+}
+
+function emptyStateCopy(view: DecisionsOwnerView): string | null {
+  if (view.decisions.length > 0) {
+    return null;
+  }
+
+  if (view.blockedReason) {
+    return blockedCopy(view.blockedReason);
+  }
+
+  if (view.emptyReason === "empty_gsc_evidence") {
+    return DECISION_EMPTY_GSC_COPY;
+  }
+
+  if (view.emptyReason === "no_cross_signal_candidates") {
+    return DECISION_NO_OVERLAP_COPY;
+  }
+
+  return null;
+}
+
 export default function SiteDecisionsSection({ websiteId }: SiteDecisionsSectionProps) {
   const [view, setView] = useState<DecisionsOwnerView | null>(null);
   const [visible, setVisible] = useState(false);
@@ -144,10 +170,14 @@ export default function SiteDecisionsSection({ websiteId }: SiteDecisionsSection
       });
       const payload = (await response.json().catch(() => ({}))) as DecisionsOwnerView & {
         error?: string;
+        reason?: DecisionPrerequisiteReason;
       };
 
       if (!response.ok) {
         setActionError(payload.error ?? DECISION_ERROR_COPY);
+        if (payload.reason) {
+          void load();
+        }
         return;
       }
 
@@ -180,9 +210,9 @@ export default function SiteDecisionsSection({ websiteId }: SiteDecisionsSection
     );
   }
 
-  const emptyCopy =
-    view.emptyReason === "no_gsc_evidence" ? DECISION_NO_GSC_COPY : DECISION_EMPTY_COPY;
-  const showGenerate = view.canGenerate && (view.status === "not_generated" || view.staleReason != null);
+  const copy = emptyStateCopy(view);
+  const action = view.blockedReason ? DECISION_BLOCKED_ACTION[view.blockedReason] : null;
+  const showGenerate = view.canGenerate && (view.run == null || view.staleReason != null);
   const generateLabel = view.staleReason ? DECISION_REFRESH_LABEL : DECISION_GENERATE_LABEL;
 
   return (
@@ -194,7 +224,9 @@ export default function SiteDecisionsSection({ websiteId }: SiteDecisionsSection
         {view.status === "not_generated" && view.canGenerate ? (
           <p className={styles.sectionMeta}>{DECISION_READY_COPY}</p>
         ) : null}
-        {view.staleReason ? <p className={styles.sectionMeta}>{DECISION_STALE_COPY}</p> : null}
+        {view.staleReason && !view.blockedReason ? (
+          <p className={styles.sectionMeta}>{DECISION_STALE_COPY}</p>
+        ) : null}
       </div>
 
       {view.decisions.length > 0 ? (
@@ -210,9 +242,16 @@ export default function SiteDecisionsSection({ websiteId }: SiteDecisionsSection
             </li>
           ))}
         </ol>
-      ) : view.status !== "not_generated" || !view.canGenerate ? (
+      ) : copy ? (
         <div className={styles.emptyStateBlock}>
-          <p className={styles.emptyStateCopy}>{emptyCopy}</p>
+          <p className={styles.emptyStateCopy}>{copy}</p>
+          {action ? (
+            <p className={styles.emptyStateAction}>
+              <a className={styles.textLink} href={action.href}>
+                {action.label}
+              </a>
+            </p>
+          ) : null}
         </div>
       ) : null}
 

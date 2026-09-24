@@ -1,5 +1,7 @@
 import {
   DecisionPrerequisiteError,
+  type DecisionEmptyReason,
+  type DecisionPrerequisiteReason,
   type DecisionRecord,
   type DecisionView,
   type DecisionsOwnerView,
@@ -113,12 +115,65 @@ export function staleReasonForRun(input: {
   return null;
 }
 
+function emptyReasonForCompletedRun(
+  decisionCount: number,
+  pageRowCount: number,
+): DecisionEmptyReason | null {
+  if (decisionCount > 0) {
+    return null;
+  }
+
+  return pageRowCount === 0 ? "empty_gsc_evidence" : "no_cross_signal_candidates";
+}
+
+function ownerViewWithoutRun(input: {
+  blocked: DecisionPrerequisiteReason | null;
+  pageRowCount: number;
+}): DecisionsOwnerView {
+  if (input.blocked != null) {
+    return {
+      status: "blocked",
+      current: false,
+      staleReason: null,
+      canGenerate: false,
+      blockedReason: input.blocked,
+      emptyReason: null,
+      run: null,
+      decisions: [],
+    };
+  }
+
+  if (input.pageRowCount === 0) {
+    return {
+      status: "empty",
+      current: false,
+      staleReason: null,
+      canGenerate: true,
+      blockedReason: null,
+      emptyReason: "empty_gsc_evidence",
+      run: null,
+      decisions: [],
+    };
+  }
+
+  return {
+    status: "not_generated",
+    current: false,
+    staleReason: null,
+    canGenerate: true,
+    blockedReason: null,
+    emptyReason: null,
+    run: null,
+    decisions: [],
+  };
+}
+
 export async function loadDecisionsForWebsite(input: {
   websiteId: string;
   sessionToken: string | null;
 }): Promise<DecisionsOwnerView> {
   let prerequisites: Awaited<ReturnType<typeof loadDecisionPrerequisites>> | null = null;
-  let blocked: string | null = null;
+  let blocked: DecisionPrerequisiteReason | null = null;
 
   try {
     prerequisites = await loadDecisionPrerequisites(input);
@@ -132,16 +187,10 @@ export async function loadDecisionsForWebsite(input: {
 
   const run = await findLatestCompletedDecisionRun(input.websiteId);
   if (!run) {
-    return {
-      status: "not_generated",
-      current: false,
-      staleReason: null,
-      canGenerate: blocked == null,
-      generateBlockedReason: blocked,
-      emptyReason: blocked === "missing_gsc_sync" ? "no_gsc_evidence" : null,
-      run: null,
-      decisions: [],
-    };
+    return ownerViewWithoutRun({
+      blocked,
+      pageRowCount: prerequisites?.sync.pageRowCount ?? 0,
+    });
   }
 
   const decisions = await listDecisionsForRun(run.id);
@@ -156,18 +205,16 @@ export async function loadDecisionsForWebsite(input: {
           goal: prerequisites.goal,
         });
   const emptyReason =
-    decisions.length === 0
-      ? prerequisites && prerequisites.sync.pageRowCount === 0
-        ? "no_gsc_evidence"
-        : "no_cross_signal"
-      : null;
+    prerequisites == null
+      ? null
+      : emptyReasonForCompletedRun(decisions.length, prerequisites.sync.pageRowCount);
 
   return {
     status: decisions.length === 0 ? "empty" : "completed",
     current: stale == null,
     staleReason: stale,
     canGenerate: blocked == null,
-    generateBlockedReason: blocked,
+    blockedReason: blocked,
     emptyReason,
     run: {
       id: run.id,

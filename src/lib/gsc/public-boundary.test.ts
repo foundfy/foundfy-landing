@@ -31,6 +31,11 @@ describe("public vs owner-private OBSERVE boundary", () => {
     const decisionsUi = read("../../components/site/SiteDecisionsSection.tsx");
     expect(decisionsUi).toContain("/api/websites/${websiteId}/decisions");
     expect(decisionsUi).toContain("DECISION_SECTION_HEADING");
+    expect(decisionsUi).toContain("DECISION_BLOCKED_COPY");
+    expect(decisionsUi).toContain("DECISION_EMPTY_GSC_COPY");
+    expect(decisionsUi).toContain("DECISION_NO_OVERLAP_COPY");
+    expect(decisionsUi).not.toContain("DECISION_EMPTY_COPY");
+    expect(decisionsUi).not.toMatch(/enough cross-signal evidence to prioritize an action yet/);
     expect(decisionsUi).not.toMatch(/CTR is too low|you should target|increase traffic by/i);
   });
 });

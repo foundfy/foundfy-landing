@@ -31,4 +31,29 @@ describe("Decision Engine v1 source boundary", () => {
     expect(pageView).toContain("SiteDecisionsSection");
     expect(pageView).toContain("SiteWhatMattersSection");
   });
+
+  it("does not change candidate or scoring rules", () => {
+    const candidates = read("./candidates.ts");
+    const score = read("./score.ts");
+    const config = read("./config.ts");
+
+    expect(config).toContain('export const DECISION_ENGINE_VERSION = "decision_v1" as const;');
+    expect(config).toContain("export const DECISION_MAX_COUNT = 5;");
+    expect(config).toContain("export const DECISION_TYPE_B_MIN_SHARE = 0.1;");
+    expect(score).toContain("input.issueImportance * 0.45 + input.searchDemand * 0.4 + input.evidenceConfidence * 0.15");
+    expect(score).toContain("page.impressions / maxImpressions");
+    expect(score).toContain("DECISION_TYPE_B_MIN_SHARE");
+    expect(candidates).toContain("existing_demand_page_issue");
+    expect(candidates).toContain("inspect_unanalyzed_page");
+    expect(candidates).toContain("multi_page_issue_with_visibility");
+    expect(candidates).toContain("DECISION_MAX_COUNT");
+  });
+
+  it("never generates a decision run from GET", () => {
+    const getRoute = read("../../app/api/websites/[websiteId]/decisions/route.ts");
+    const load = read("./load.ts");
+
+    expect(getRoute).not.toMatch(/generateDecisionsForWebsite|insertRunningDecisionRun/);
+    expect(load).not.toMatch(/generateDecisionsForWebsite|insertRunningDecisionRun|completeDecisionRun/);
+  });
 });

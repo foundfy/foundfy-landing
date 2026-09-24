@@ -539,6 +539,10 @@
   line-height: 1.6;
 }
 
+.emptyStateAction {
+  margin: 12px 0 0;
+}
+
 .fullAnalysisLink {
   display: inline-block;
   margin-top: 4px;

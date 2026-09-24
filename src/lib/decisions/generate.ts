@@ -43,18 +43,21 @@ export async function loadDecisionPrerequisites(input: {
   if (!siteModel?.confirmed) {
     throw new DecisionPrerequisiteError(
       "missing_site_model",
-      "A confirmed understanding of this site is required.",
+      "Confirm how Foundfy understands this site before prioritizing actions.",
     );
   }
 
   if (!goal) {
-    throw new DecisionPrerequisiteError("missing_goal", "A website goal is required.");
+    throw new DecisionPrerequisiteError(
+      "missing_goal",
+      "Tell Foundfy what should happen when the right people find this site before prioritizing actions.",
+    );
   }
 
   if (!crawl) {
     throw new DecisionPrerequisiteError(
       "missing_crawl",
-      "A completed crawl is required.",
+      "Complete a website crawl before Foundfy can prioritize actions.",
     );
   }
 
@@ -65,8 +68,8 @@ export async function loadDecisionPrerequisites(input: {
     connection.googleIdentityId !== context.owner.googleIdentityId
   ) {
     throw new DecisionPrerequisiteError(
-      "missing_gsc_sync",
-      "Google Search evidence is required.",
+      "google_not_connected",
+      "Connect Google Search before Foundfy can combine search demand with website evidence.",
     );
   }
 
@@ -74,7 +77,7 @@ export async function loadDecisionPrerequisites(input: {
   if (!sync) {
     throw new DecisionPrerequisiteError(
       "missing_gsc_sync",
-      "Google Search evidence is required.",
+      "Sync Google search data before Foundfy can prioritize cross-signal actions.",
     );
   }
 
