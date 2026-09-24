@@ -6,6 +6,23 @@ export const GOOGLE_OAUTH_USERINFO_URL =
 export const GOOGLE_OAUTH_REVOKE_URL = "https://oauth2.googleapis.com/revoke";
 export const GOOGLE_WEBMASTERS_SITES_URL =
   "https://www.googleapis.com/webmasters/v3/sites";
+export const GOOGLE_SEARCH_ANALYTICS_QUERY_PATH = "searchAnalytics/query";
+
+/** Inclusive day count for v0 Search Analytics evidence. Dates use America/Los_Angeles. */
+export const SEARCH_ANALYTICS_WINDOW_DAYS = 28;
+export const SEARCH_ANALYTICS_TIME_ZONE = "America/Los_Angeles";
+export const SEARCH_ANALYTICS_SOURCE = "google_search_console_search_analytics" as const;
+
+/** Official API maximum for rowLimit is 25,000. Foundfy v0 uses conservative caps below that. */
+export const GOOGLE_SEARCH_ANALYTICS_MAX_ROW_LIMIT = 25_000;
+export const SEARCH_ANALYTICS_REQUEST_PAGE_SIZE = 1_000;
+
+export const SEARCH_ANALYTICS_CAPS = {
+  site: 1,
+  page: 100,
+  query: 100,
+  queryPage: 250,
+} as const;
 
 export const GOOGLE_OAUTH_SCOPES = [
   "openid",

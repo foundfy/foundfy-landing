@@ -6,7 +6,24 @@ export const OBSERVE_CONNECTED_NEXT =
 export const OBSERVE_DISCONNECT_LABEL = "Disconnect";
 export const OBSERVE_SEARCH_CONSOLE_CONNECTED_TITLE = "Search Console connected";
 export const OBSERVE_SEARCH_CONSOLE_CONNECTED_NEXT =
-  "Foundfy can now begin observing how this site appears in Google Search.";
+  "Foundfy is ready to observe how this site appears in Google Search.";
+export const OBSERVE_SYNC_LABEL = "Sync Google search data";
+export const OBSERVE_EVIDENCE_TITLE = "Google Search evidence";
+export const OBSERVE_EVIDENCE_PERIOD_LABEL = "Last 28 days";
+export const OBSERVE_EVIDENCE_EMPTY_COPY =
+  "Google hasn't reported search performance for this period yet.";
+export const OBSERVE_EVIDENCE_DETAIL_LABEL = "View Google search evidence";
+export const OBSERVE_EVIDENCE_HIDE_LABEL = "Hide Google search evidence";
+export const OBSERVE_EVIDENCE_LAG_COPY =
+  "Google Search data is not always complete for the most recent days.";
+export const OBSERVE_EVIDENCE_SYNC_ERROR = "Google Search data couldn't be refreshed right now.";
+export const OBSERVE_APPEARANCES_LABEL = "Search appearances";
+export const OBSERVE_VISITS_LABEL = "Visits from Google";
+export const OBSERVE_PAGES_SEEN_LABEL = "Pages seen in search";
+export const OBSERVE_QUERIES_REPORTED_LABEL = "Queries Google reported";
+export const OBSERVE_LAST_SYNCED_LABEL = "Last synced";
+export const OBSERVE_QUERIES_HEADING = "Queries Google reported";
+export const OBSERVE_PAGES_HEADING = "Pages";
 export const OBSERVE_FOUND_PROPERTY_TITLE =
   "We found a Search Console property for this site";
 export const OBSERVE_USE_PROPERTY_LABEL = "Use this property";

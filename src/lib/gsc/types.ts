@@ -122,3 +122,107 @@ export class UnverifiedPropertyError extends Error {
     this.name = "UnverifiedPropertyError";
   }
 }
+
+export class SearchConsoleNotConnectedError extends Error {
+  constructor() {
+    super("Search Console is not connected.");
+    this.name = "SearchConsoleNotConnectedError";
+  }
+}
+
+export type GoogleSearchAnalyticsErrorCode = "quota" | "unavailable" | "malformed" | "partial";
+
+export class GoogleSearchAnalyticsError extends Error {
+  readonly code: GoogleSearchAnalyticsErrorCode;
+
+  constructor(code: GoogleSearchAnalyticsErrorCode) {
+    super("Google Search data couldn't be refreshed right now.");
+    this.name = "GoogleSearchAnalyticsError";
+    this.code = code;
+  }
+}
+
+export type GscSearchEvidenceType = "site" | "page" | "query" | "query_page";
+
+export type GscSearchSyncStatus = "running" | "completed" | "failed";
+
+export type GscSearchSyncRecord = {
+  id: string;
+  websiteId: string;
+  propertyConnectionId: string;
+  periodStart: string;
+  periodEnd: string;
+  status: GscSearchSyncStatus;
+  source: "google_search_console_search_analytics";
+  startedAt: string;
+  completedAt: string | null;
+  errorCode: string | null;
+  siteRowCount: number;
+  pageRowCount: number;
+  queryRowCount: number;
+  queryPageRowCount: number;
+  pagesTruncated: boolean;
+  queriesTruncated: boolean;
+  queryPagesTruncated: boolean;
+};
+
+export type GscSearchEvidenceRecord = {
+  id: string;
+  syncId: string;
+  websiteId: string;
+  propertyConnectionId: string;
+  evidenceType: GscSearchEvidenceType;
+  pageUrl: string | null;
+  pageId: string | null;
+  queryText: string | null;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+  periodStart: string;
+  periodEnd: string;
+  retrievedAt: string;
+};
+
+export type SearchAnalyticsMetrics = {
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+};
+
+export type SearchAnalyticsPageRow = SearchAnalyticsMetrics & {
+  pageUrl: string;
+  pageId: string | null;
+};
+
+export type SearchAnalyticsQueryRow = SearchAnalyticsMetrics & {
+  query: string;
+};
+
+export type SearchAnalyticsQueryPageRow = SearchAnalyticsMetrics & {
+  query: string;
+  pageUrl: string;
+  pageId: string | null;
+};
+
+export type SearchAnalyticsView = {
+  status: "not_synced" | "completed";
+  empty: boolean;
+  periodStart: string;
+  periodEnd: string;
+  windowDays: number;
+  syncedAt: string | null;
+  source: "google_search_console_search_analytics";
+  summary: SearchAnalyticsMetrics & {
+    pagesSeen: number;
+    queriesReported: number;
+  };
+  truncated: {
+    pages: boolean;
+    queries: boolean;
+    queryPages: boolean;
+  };
+  pages: SearchAnalyticsPageRow[];
+  queries: SearchAnalyticsQueryRow[];
+};

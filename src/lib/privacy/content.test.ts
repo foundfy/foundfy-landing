@@ -21,7 +21,7 @@ describe("privacy page content", () => {
     expect(text).not.toMatch(/legal basis|subprocessor|retain for|registered in/i);
   });
 
-  it("discloses optional Google OAuth without claiming Search Analytics import", () => {
+  it("discloses Search Console performance evidence and disconnect deletion", () => {
     const googleSection = PRIVACY_SECTIONS.find((section) => section.title === "Google account");
     expect(googleSection).toBeDefined();
     expect(googleSection?.body).toContain("Connect Google");
@@ -31,7 +31,12 @@ describe("privacy page content", () => {
     expect(googleSection?.body).toContain("session cookie");
     expect(googleSection?.body).toContain("disconnect");
     expect(googleSection?.body).toContain("confirm which Search Console property");
-    expect(googleSection?.body).toContain("does not import Search Console performance data yet");
-    expect(googleSection?.body).not.toMatch(/impressions|clicks|CTR|average position/i);
+    expect(googleSection?.body).toContain("impressions");
+    expect(googleSection?.body).toContain("clicks");
+    expect(googleSection?.body).toContain("CTR");
+    expect(googleSection?.body).toContain("average position");
+    expect(googleSection?.body).toContain("queries Google reported");
+    expect(googleSection?.body).toContain("deletes stored Search Console performance evidence");
+    expect(googleSection?.body).not.toMatch(/does not import Search Console performance data yet/i);
   });
 });
