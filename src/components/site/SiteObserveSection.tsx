@@ -3,27 +3,44 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ObserveNotice } from "@/lib/gsc/config";
 import {
+  OBSERVE_APPEARANCES_LABEL,
   OBSERVE_CHANGE_PROPERTY_LABEL,
   OBSERVE_CONNECT_LABEL,
   OBSERVE_CONNECTED_TITLE,
   OBSERVE_DISCONNECT_LABEL,
+  OBSERVE_EVIDENCE_DETAIL_LABEL,
+  OBSERVE_EVIDENCE_EMPTY_COPY,
+  OBSERVE_EVIDENCE_HIDE_LABEL,
+  OBSERVE_EVIDENCE_LAG_COPY,
+  OBSERVE_EVIDENCE_PERIOD_LABEL,
+  OBSERVE_EVIDENCE_SYNC_ERROR,
+  OBSERVE_EVIDENCE_TITLE,
   OBSERVE_EXPIRED_COPY,
   OBSERVE_FOUND_PROPERTY_TITLE,
+  OBSERVE_LAST_SYNCED_LABEL,
   OBSERVE_LIKELY_HEADING,
   OBSERVE_LOADING_PROPERTIES,
   OBSERVE_NO_PROPERTY_COPY,
   OBSERVE_NOTICE_COPY,
   OBSERVE_OTHER_HEADING,
+  OBSERVE_PAGES_HEADING,
+  OBSERVE_PAGES_SEEN_LABEL,
+  OBSERVE_QUERIES_HEADING,
+  OBSERVE_QUERIES_REPORTED_LABEL,
   OBSERVE_SEARCH_CONSOLE_CONNECTED_NEXT,
   OBSERVE_SEARCH_CONSOLE_CONNECTED_TITLE,
   OBSERVE_SECTION_HEADING,
+  OBSERVE_SYNC_LABEL,
   OBSERVE_USE_PROPERTY_LABEL,
+  OBSERVE_VISITS_LABEL,
 } from "@/lib/gsc/display";
 import type {
   ObserveOwnerView,
   ObservePropertyList,
   RankedGscProperty,
+  SearchAnalyticsView,
 } from "@/lib/gsc/types";
+import { formatEvidenceDate } from "@/lib/gsc/window";
 import styles from "./SitePageView.module.css";
 
 type SiteObserveSectionProps = {
@@ -50,6 +67,9 @@ export default function SiteObserveSection({
   const [state, setState] = useState<ObserveLoadState>({ phase: "loading" });
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isBinding, setIsBinding] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [evidence, setEvidence] = useState<SearchAnalyticsView | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -75,6 +95,7 @@ export default function SiteObserveSection({
 
       if (payload.status === "search_console_connected" && payload.property) {
         setState({ phase: "search_console_connected", view: payload, changing: false });
+        setEvidence(null);
         return;
       }
 
@@ -159,6 +180,56 @@ export default function SiteObserveSection({
     };
   }, [state, websiteId]);
 
+  useEffect(() => {
+    if (state.phase !== "search_console_connected" || state.changing || evidence) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadEvidence() {
+      try {
+        const response = await fetch(`/api/websites/${websiteId}/observe/search-analytics`, {
+          cache: "no-store",
+        });
+        const payload = (await response.json().catch(() => ({}))) as SearchAnalyticsView & {
+          error?: string;
+        };
+
+        if (cancelled) {
+          return;
+        }
+
+        if (response.status === 401 && payload.error === OBSERVE_EXPIRED_COPY) {
+          setState({ phase: "disconnected" });
+          setActionError(OBSERVE_EXPIRED_COPY);
+          return;
+        }
+
+        if (response.status === 401 || response.status === 403) {
+          setState({ phase: "disconnected" });
+          return;
+        }
+
+        if (!response.ok) {
+          setActionError(payload.error ?? OBSERVE_EVIDENCE_SYNC_ERROR);
+          return;
+        }
+
+        setEvidence(payload);
+      } catch {
+        if (!cancelled) {
+          setActionError(OBSERVE_EVIDENCE_SYNC_ERROR);
+        }
+      }
+    }
+
+    void loadEvidence();
+    return () => {
+      cancelled = true;
+    };
+  }, [state, websiteId, evidence]);
+
   const disconnect = async () => {
     setIsDisconnecting(true);
     setActionError(null);
@@ -175,6 +246,8 @@ export default function SiteObserveSection({
       }
 
       setState({ phase: "disconnected" });
+      setEvidence(null);
+      setDetailsOpen(false);
     } catch {
       setActionError("Unable to disconnect.");
     } finally {
@@ -219,6 +292,8 @@ export default function SiteObserveSection({
         },
         changing: false,
       });
+      setEvidence(null);
+      setDetailsOpen(false);
     } catch {
       setActionError("Unable to save the Search Console property.");
     } finally {
@@ -231,6 +306,8 @@ export default function SiteObserveSection({
       return;
     }
     setActionError(null);
+    setEvidence(null);
+    setDetailsOpen(false);
     setState({
       phase: "google_connected",
       view: {
@@ -241,6 +318,37 @@ export default function SiteObserveSection({
       properties: null,
       selectedSiteUrl: state.view.property?.siteUrl ?? null,
     });
+  };
+
+  const syncEvidence = async () => {
+    setIsSyncing(true);
+    setActionError(null);
+
+    try {
+      const response = await fetch(`/api/websites/${websiteId}/observe/search-analytics/sync`, {
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => ({}))) as SearchAnalyticsView & {
+        error?: string;
+      };
+
+      if (response.status === 401 && payload.error === OBSERVE_EXPIRED_COPY) {
+        setState({ phase: "disconnected" });
+        setActionError(OBSERVE_EXPIRED_COPY);
+        return;
+      }
+
+      if (!response.ok) {
+        setActionError(payload.error ?? OBSERVE_EVIDENCE_SYNC_ERROR);
+        return;
+      }
+
+      setEvidence(payload);
+    } catch {
+      setActionError(OBSERVE_EVIDENCE_SYNC_ERROR);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const noticeCopy = notice ? OBSERVE_NOTICE_COPY[notice] : null;
@@ -291,27 +399,18 @@ export default function SiteObserveSection({
       ) : null}
 
       {state.phase === "search_console_connected" && state.view.property ? (
-        <div className={styles.emptyStateBlock}>
-          <p className={styles.emptyStateTitle}>{OBSERVE_SEARCH_CONSOLE_CONNECTED_TITLE}</p>
-          <p className={styles.observePropertyId}>{state.view.property.siteUrl}</p>
-          <p className={styles.emptyStateCopy}>{OBSERVE_SEARCH_CONSOLE_CONNECTED_NEXT}</p>
-          <button
-            type="button"
-            className={styles.textButton}
-            onClick={startChangeProperty}
-            disabled={isDisconnecting || isBinding}
-          >
-            {OBSERVE_CHANGE_PROPERTY_LABEL}
-          </button>
-          <button
-            type="button"
-            className={styles.textButton}
-            onClick={() => void disconnect()}
-            disabled={isDisconnecting}
-          >
-            {isDisconnecting ? "Disconnecting…" : OBSERVE_DISCONNECT_LABEL}
-          </button>
-        </div>
+        <SearchConsoleConnectedPanel
+          siteUrl={state.view.property.siteUrl}
+          evidence={evidence}
+          detailsOpen={detailsOpen}
+          isSyncing={isSyncing}
+          isDisconnecting={isDisconnecting}
+          isBinding={isBinding}
+          onSync={() => void syncEvidence()}
+          onToggleDetails={() => setDetailsOpen((open) => !open)}
+          onChangeProperty={startChangeProperty}
+          onDisconnect={() => void disconnect()}
+        />
       ) : null}
 
       {state.phase === "error" ? (
@@ -466,5 +565,177 @@ function PropertyGroup({
         ))}
       </ul>
     </>
+  );
+}
+
+function formatCount(value: number): string {
+  return Math.round(value).toLocaleString("en-US");
+}
+
+function formatPercent(ctr: number): string {
+  return `${(ctr * 100).toFixed(1)}%`;
+}
+
+function formatPosition(position: number): string {
+  return position.toFixed(1);
+}
+
+function formatSyncedAt(syncedAt: string | null): string | null {
+  if (!syncedAt) {
+    return null;
+  }
+
+  return formatEvidenceDate(syncedAt.slice(0, 10));
+}
+
+function SearchConsoleConnectedPanel({
+  siteUrl,
+  evidence,
+  detailsOpen,
+  isSyncing,
+  isDisconnecting,
+  isBinding,
+  onSync,
+  onToggleDetails,
+  onChangeProperty,
+  onDisconnect,
+}: {
+  siteUrl: string;
+  evidence: SearchAnalyticsView | null;
+  detailsOpen: boolean;
+  isSyncing: boolean;
+  isDisconnecting: boolean;
+  isBinding: boolean;
+  onSync: () => void;
+  onToggleDetails: () => void;
+  onChangeProperty: () => void;
+  onDisconnect: () => void;
+}) {
+  const synced = evidence?.status === "completed";
+  const syncedAtLabel = formatSyncedAt(evidence?.syncedAt ?? null);
+
+  return (
+    <div className={styles.emptyStateBlock}>
+      <p className={styles.emptyStateTitle}>
+        {synced ? OBSERVE_EVIDENCE_TITLE : OBSERVE_SEARCH_CONSOLE_CONNECTED_TITLE}
+      </p>
+      <p className={styles.observePropertyId}>{siteUrl}</p>
+
+      {!synced ? (
+        <p className={styles.emptyStateCopy}>{OBSERVE_SEARCH_CONSOLE_CONNECTED_NEXT}</p>
+      ) : (
+        <p className={styles.emptyStateCopy}>{OBSERVE_EVIDENCE_PERIOD_LABEL}</p>
+      )}
+
+      {synced && evidence?.empty ? (
+        <p className={styles.emptyStateCopy}>{OBSERVE_EVIDENCE_EMPTY_COPY}</p>
+      ) : null}
+
+      {synced && evidence && !evidence.empty ? (
+        <dl className={styles.observeEvidenceStats}>
+          <div>
+            <dt>{OBSERVE_APPEARANCES_LABEL}</dt>
+            <dd>{formatCount(evidence.summary.impressions)}</dd>
+          </div>
+          <div>
+            <dt>{OBSERVE_VISITS_LABEL}</dt>
+            <dd>{formatCount(evidence.summary.clicks)}</dd>
+          </div>
+          <div>
+            <dt>{OBSERVE_PAGES_SEEN_LABEL}</dt>
+            <dd>{formatCount(evidence.summary.pagesSeen)}</dd>
+          </div>
+          <div>
+            <dt>{OBSERVE_QUERIES_REPORTED_LABEL}</dt>
+            <dd>{formatCount(evidence.summary.queriesReported)}</dd>
+          </div>
+        </dl>
+      ) : null}
+
+      {synced && syncedAtLabel ? (
+        <p className={styles.sectionMeta}>
+          {OBSERVE_LAST_SYNCED_LABEL}: {syncedAtLabel}
+        </p>
+      ) : null}
+
+      {synced ? <p className={styles.sectionMeta}>{OBSERVE_EVIDENCE_LAG_COPY}</p> : null}
+
+      {synced && evidence && (evidence.truncated.pages || evidence.truncated.queries) ? (
+        <p className={styles.sectionMeta}>This import reached Foundfy’s current row cap.</p>
+      ) : null}
+
+      <button
+        type="button"
+        className={styles.observeConnectButton}
+        onClick={onSync}
+        disabled={isSyncing || isDisconnecting}
+      >
+        {isSyncing ? "Syncing…" : OBSERVE_SYNC_LABEL}
+      </button>
+
+      {synced && evidence && !evidence.empty ? (
+        <button type="button" className={styles.textButton} onClick={onToggleDetails}>
+          {detailsOpen ? OBSERVE_EVIDENCE_HIDE_LABEL : OBSERVE_EVIDENCE_DETAIL_LABEL}
+        </button>
+      ) : null}
+
+      {detailsOpen && evidence && !evidence.empty ? (
+        <div className={styles.observeEvidenceDetail}>
+          <p className={styles.emptyStateCopy}>
+            CTR {formatPercent(evidence.summary.ctr)} · Average position{" "}
+            {formatPosition(evidence.summary.position)}
+          </p>
+          {evidence.pages.length > 0 ? (
+            <>
+              <p className={styles.observePropertyGroupHeading}>{OBSERVE_PAGES_HEADING}</p>
+              <ul className={styles.observeEvidenceList}>
+                {evidence.pages.slice(0, 10).map((page) => (
+                  <li key={page.pageUrl}>
+                    <span className={styles.observePropertyId}>{page.pageUrl}</span>
+                    <span className={styles.sectionMeta}>
+                      {formatCount(page.impressions)} appearances · {formatCount(page.clicks)}{" "}
+                      visits · CTR {formatPercent(page.ctr)} · position{" "}
+                      {formatPosition(page.position)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+          {evidence.queries.length > 0 ? (
+            <>
+              <p className={styles.observePropertyGroupHeading}>{OBSERVE_QUERIES_HEADING}</p>
+              <ul className={styles.observeEvidenceList}>
+                {evidence.queries.slice(0, 10).map((row) => (
+                  <li key={row.query}>
+                    <span>{row.query}</span>
+                    <span className={styles.sectionMeta}>
+                      {formatCount(row.impressions)} appearances · {formatCount(row.clicks)} visits
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
+      <button
+        type="button"
+        className={styles.textButton}
+        onClick={onChangeProperty}
+        disabled={isDisconnecting || isBinding || isSyncing}
+      >
+        {OBSERVE_CHANGE_PROPERTY_LABEL}
+      </button>
+      <button
+        type="button"
+        className={styles.textButton}
+        onClick={onDisconnect}
+        disabled={isDisconnecting}
+      >
+        {isDisconnecting ? "Disconnecting…" : OBSERVE_DISCONNECT_LABEL}
+      </button>
+    </div>
   );
 }

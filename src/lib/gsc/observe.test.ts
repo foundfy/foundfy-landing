@@ -7,6 +7,7 @@ const findActiveObserveOwnerMock = vi.fn();
 const findGoogleIdentityByIdMock = vi.fn();
 const findActivePropertyConnectionMock = vi.fn();
 const revokeActivePropertyConnectionsForWebsiteMock = vi.fn();
+const deleteSearchAnalyticsForWebsiteMock = vi.fn();
 const findGoogleOAuthTokenByIdMock = vi.fn();
 const revokeObserveOwnerMock = vi.fn();
 const revokeOwnerSessionsForWebsiteIdentityMock = vi.fn();
@@ -35,13 +36,18 @@ vi.mock("./db", () => ({
   disableGoogleOAuthToken: (...args: unknown[]) => disableGoogleOAuthTokenMock(...args),
 }));
 
+vi.mock("./db-search", () => ({
+  deleteSearchAnalyticsForWebsite: (...args: unknown[]) =>
+    deleteSearchAnalyticsForWebsiteMock(...args),
+}));
+
 vi.mock("./google", () => ({
   revokeGoogleToken: (...args: unknown[]) => revokeGoogleTokenMock(...args),
 }));
 
 import { encryptSecret } from "./crypto";
 import { hashSessionToken } from "./cookie";
-import { disconnectObserveOwner, resolveObserveOwnerView } from "./observe";
+import { disconnectObserveOwner, requireSearchConsoleConnection, resolveObserveOwnerView } from "./observe";
 
 const WEBSITE_ID = "388c5109-fa75-4ba7-af55-f7c95a69122b";
 const SESSION_TOKEN = "owner-session-token";
@@ -87,6 +93,7 @@ describe("observe owner authorization", () => {
     });
     findActivePropertyConnectionMock.mockResolvedValue(null);
     revokeActivePropertyConnectionsForWebsiteMock.mockResolvedValue(undefined);
+    deleteSearchAnalyticsForWebsiteMock.mockResolvedValue(undefined);
     countActiveOwnersForIdentityMock.mockResolvedValue(0);
     revokeObserveOwnerMock.mockResolvedValue(undefined);
     revokeOwnerSessionsForWebsiteIdentityMock.mockResolvedValue(undefined);
@@ -162,6 +169,36 @@ describe("observe owner authorization", () => {
     });
   });
 
+  it("requires an active property binding for Search Analytics", async () => {
+    await expect(
+      requireSearchConsoleConnection({
+        websiteId: WEBSITE_ID,
+        sessionToken: SESSION_TOKEN,
+      }),
+    ).rejects.toMatchObject({ name: "SearchConsoleNotConnectedError" });
+  });
+
+  it("denies Search Analytics when the property binding is revoked", async () => {
+    findActivePropertyConnectionMock.mockResolvedValue({
+      id: "connection-1",
+      websiteId: WEBSITE_ID,
+      observeOwnerId: "owner-1",
+      googleIdentityId: "identity-1",
+      propertyUri: "sc-domain:foundfy.me",
+      propertyType: "domain",
+      permissionLevel: "siteOwner",
+      confirmationSource: "user",
+      status: "revoked",
+    });
+
+    await expect(
+      requireSearchConsoleConnection({
+        websiteId: WEBSITE_ID,
+        sessionToken: SESSION_TOKEN,
+      }),
+    ).rejects.toMatchObject({ name: "SearchConsoleNotConnectedError" });
+  });
+
   it("disconnects for the owner and wipes the stored refresh token", async () => {
     await disconnectObserveOwner({
       websiteId: WEBSITE_ID,
@@ -169,6 +206,7 @@ describe("observe owner authorization", () => {
     });
 
     expect(revokeObserveOwnerMock).toHaveBeenCalledWith("owner-1");
+    expect(deleteSearchAnalyticsForWebsiteMock).toHaveBeenCalledWith(WEBSITE_ID);
     expect(revokeActivePropertyConnectionsForWebsiteMock).toHaveBeenCalledWith(WEBSITE_ID);
     expect(revokeOwnerSessionsForWebsiteIdentityMock).toHaveBeenCalledWith({
       websiteId: WEBSITE_ID,

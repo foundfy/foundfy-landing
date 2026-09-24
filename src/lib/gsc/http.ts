@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
-import { GoogleAuthExpiredError, ObserveAuthError, UnverifiedPropertyError } from "@/lib/gsc/types";
+import {
+  GoogleAuthExpiredError,
+  GoogleSearchAnalyticsError,
+  ObserveAuthError,
+  SearchConsoleNotConnectedError,
+  UnverifiedPropertyError,
+} from "@/lib/gsc/types";
 
 export function observeErrorResponse(error: unknown, fallback: string): NextResponse {
   if (error instanceof ObserveAuthError) {
@@ -10,8 +16,12 @@ export function observeErrorResponse(error: unknown, fallback: string): NextResp
     return NextResponse.json({ error: error.message }, { status: 401 });
   }
 
-  if (error instanceof UnverifiedPropertyError) {
+  if (error instanceof UnverifiedPropertyError || error instanceof SearchConsoleNotConnectedError) {
     return NextResponse.json({ error: error.message }, { status: 403 });
+  }
+
+  if (error instanceof GoogleSearchAnalyticsError) {
+    return NextResponse.json({ error: error.message, code: error.code }, { status: 502 });
   }
 
   const message = error instanceof Error ? error.message : fallback;

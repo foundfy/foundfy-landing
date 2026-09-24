@@ -14,11 +14,14 @@ import {
   revokeObserveOwner,
   revokeOwnerSessionsForWebsiteIdentity,
 } from "./db";
+import { deleteSearchAnalyticsForWebsite } from "./db-search";
 import { revokeGoogleToken } from "./google";
 import {
   ObserveAuthError,
+  SearchConsoleNotConnectedError,
   type GoogleIdentityRecord,
   type GoogleOAuthTokenRecord,
+  type GscPropertyConnectionRecord,
   type ObserveOwnerRecord,
   type ObserveOwnerView,
   type OwnerSessionRecord,
@@ -30,6 +33,10 @@ export type ObserveOwnerContext = {
   owner: ObserveOwnerRecord;
   identity: GoogleIdentityRecord | null;
   token: GoogleOAuthTokenRecord | null;
+};
+
+export type ObserveSearchConsoleContext = ObserveOwnerContext & {
+  connection: GscPropertyConnectionRecord;
 };
 
 export async function requireObserveOwner(input: {
@@ -61,6 +68,23 @@ export async function requireObserveOwner(input: {
   ]);
 
   return { website, session, owner, identity, token };
+}
+
+export async function requireSearchConsoleConnection(input: {
+  websiteId: string;
+  sessionToken: string | null;
+}): Promise<ObserveSearchConsoleContext> {
+  const context = await requireObserveOwner(input);
+  const connection = await findActivePropertyConnection(input.websiteId);
+  if (
+    !connection ||
+    connection.status !== "connected" ||
+    connection.googleIdentityId !== context.owner.googleIdentityId
+  ) {
+    throw new SearchConsoleNotConnectedError();
+  }
+
+  return { ...context, connection };
 }
 
 export async function resolveObserveOwnerView(input: {
@@ -101,6 +125,7 @@ export async function disconnectObserveOwner(input: {
     }
   }
 
+  await deleteSearchAnalyticsForWebsite(input.websiteId);
   await revokeActivePropertyConnectionsForWebsite(input.websiteId);
   await revokeObserveOwner(context.owner.id);
   await revokeOwnerSessionsForWebsiteIdentity({

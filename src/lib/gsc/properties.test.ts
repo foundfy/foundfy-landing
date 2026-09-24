@@ -27,6 +27,13 @@ vi.mock("./db", () => ({
     upsertActivePropertyConnectionMock(...args),
 }));
 
+const deleteSearchAnalyticsForWebsiteMock = vi.fn();
+
+vi.mock("./db-search", () => ({
+  deleteSearchAnalyticsForWebsite: (...args: unknown[]) =>
+    deleteSearchAnalyticsForWebsiteMock(...args),
+}));
+
 vi.mock("./google", () => ({
   refreshGoogleAccessToken: (...args: unknown[]) => refreshGoogleAccessTokenMock(...args),
   listSearchConsoleSites: (...args: unknown[]) => listSearchConsoleSitesMock(...args),
@@ -76,6 +83,8 @@ describe("Search Console property discovery and binding", () => {
       revokedAt: null,
     });
     refreshGoogleAccessTokenMock.mockResolvedValue("short-lived-access");
+    findActivePropertyConnectionMock.mockResolvedValue(null);
+    deleteSearchAnalyticsForWebsiteMock.mockResolvedValue(undefined);
     listSearchConsoleSitesMock.mockResolvedValue([
       { siteUrl: "sc-domain:foundfy.me", permissionLevel: "siteOwner" },
       { siteUrl: "https://www.foundfy.me/", permissionLevel: "siteFullUser" },
@@ -180,5 +189,27 @@ describe("Search Console property discovery and binding", () => {
     expect(upsertActivePropertyConnectionMock).toHaveBeenCalledWith(
       expect.objectContaining({ propertyUri: "https://www.foundfy.me/" }),
     );
+  });
+
+  it("deletes Search Analytics evidence when the bound property URI changes", async () => {
+    findActivePropertyConnectionMock.mockResolvedValue({
+      id: "connection-1",
+      websiteId: WEBSITE_ID,
+      observeOwnerId: "owner-1",
+      googleIdentityId: "identity-1",
+      propertyUri: "sc-domain:foundfy.me",
+      propertyType: "domain",
+      permissionLevel: "siteOwner",
+      confirmationSource: "user",
+      status: "connected",
+    });
+
+    await bindObserveProperty({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION_TOKEN,
+      siteUrl: "https://www.foundfy.me/",
+    });
+
+    expect(deleteSearchAnalyticsForWebsiteMock).toHaveBeenCalledWith(WEBSITE_ID);
   });
 });
