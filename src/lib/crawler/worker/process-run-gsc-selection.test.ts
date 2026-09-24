@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { GSC_QUEUE_PRIORITY, UNSELECTED_QUEUE_PRIORITY } from "../select/gsc-informed-selection";
 
 const claimNextQueuedRunMock = vi.fn();
 const getCrawlRunSummaryMock = vi.fn();
@@ -15,6 +16,8 @@ const findPageByRequestedUrlMock = vi.fn();
 const reconcileOrphanedPageProgressMock = vi.fn();
 const hasSitemapArtifactsMock = vi.fn();
 const listQueueUrlsMock = vi.fn();
+const listQueueItemsMock = vi.fn();
+const updateQueueItemPriorityMock = vi.fn();
 const ssrfSafeFetchMock = vi.fn();
 const generateObservationsForCrawlRunMock = vi.fn();
 
@@ -40,8 +43,8 @@ vi.mock("../db/repository", () => ({
     reconcileOrphanedPageProgressMock(...args),
   hasSitemapArtifacts: (...args: unknown[]) => hasSitemapArtifactsMock(...args),
   listQueueUrls: (...args: unknown[]) => listQueueUrlsMock(...args),
-  listQueueItems: async () => [],
-  updateQueueItemPriority: async () => undefined,
+  listQueueItems: (...args: unknown[]) => listQueueItemsMock(...args),
+  updateQueueItemPriority: (...args: unknown[]) => updateQueueItemPriorityMock(...args),
   toActiveCrawlRun: (row: {
     id: string;
     website_id: string;
@@ -61,17 +64,17 @@ vi.mock("../db/repository", () => ({
 vi.mock("../discover/robots", () => ({
   discoverRobotsUrl: () => "https://example.com/robots.txt",
   discoverDefaultSitemapUrls: () => ["https://example.com/sitemap.xml"],
-  isAllowedByRobots: (pathname: string) => pathname !== "/blocked",
+  isAllowedByRobots: () => true,
   parseRobotsTxt: () => ({
     sitemaps: ["https://example.com/sitemap.xml"],
-    disallow: ["/blocked"],
+    disallow: [],
     allow: [],
   }),
 }));
 
 vi.mock("../discover/sitemap", () => ({
   isSitemapIndex: () => false,
-  parseSitemapXml: () => ["https://example.com/sitemap-page"],
+  parseSitemapXml: () => ["https://example.com/about", "https://example.com/old-post"],
 }));
 
 vi.mock("../security/ssrf-fetch", () => ({
@@ -79,43 +82,20 @@ vi.mock("../security/ssrf-fetch", () => ({
   ssrfSafeFetch: (...args: unknown[]) => ssrfSafeFetchMock(...args),
 }));
 
-vi.mock("../parse/page", () => ({
-  parseHtmlPage: (fetched: { requestedUrl: string; finalUrl: string }) => ({
-    requestedUrl: fetched.requestedUrl,
-    finalUrl: fetched.finalUrl,
-    statusCode: 200,
-    redirectChain: [],
-    title: "Page",
-    metaDescription: null,
-    canonical: null,
-    robotsMeta: null,
-    xRobotsTag: null,
-    h1: [],
-    h2: [],
-    htmlLang: null,
-    internalLinks: [],
-    externalLinks: [],
-    imageCount: 0,
-    missingAltCount: 0,
-    jsonLdTypes: [],
-    wordCount: 10,
-  }),
-}));
-
 import { processCrawlRun } from "./process-run";
 
 const claimedRun = {
-  id: "run-seed",
+  id: "run-gsc",
   website_id: "website-1",
   status: "running",
   seed_url: "https://example.com/",
-  max_pages: 2,
+  max_pages: 10,
   pages_crawled: 0,
   pages_discovered: 1,
   error_message: null,
-  started_at: "2026-09-11T12:00:00.000Z",
+  started_at: "2026-09-24T12:00:00.000Z",
   completed_at: null,
-  created_at: "2026-09-11T11:59:59.000Z",
+  created_at: "2026-09-24T11:59:59.000Z",
   websites: {
     id: "website-1",
     url: "https://example.com/",
@@ -123,7 +103,7 @@ const claimedRun = {
   },
 };
 
-describe("processCrawlRun seed-first and discovery resume", () => {
+describe("processCrawlRun GSC-informed selection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     claimNextQueuedRunMock.mockResolvedValue(claimedRun);
@@ -132,7 +112,7 @@ describe("processCrawlRun seed-first and discovery resume", () => {
     saveParsedPageMock.mockResolvedValue("page-1");
     markCrawlRunCompletedMock.mockResolvedValue(true);
     generateObservationsForCrawlRunMock.mockResolvedValue({
-      crawlRunId: "run-1",
+      crawlRunId: claimedRun.id,
       generatedCount: 0,
       observations: [],
     });
@@ -140,6 +120,8 @@ describe("processCrawlRun seed-first and discovery resume", () => {
     reconcileOrphanedPageProgressMock.mockResolvedValue(false);
     hasSitemapArtifactsMock.mockResolvedValue(false);
     listQueueUrlsMock.mockResolvedValue([]);
+    updateQueueItemPriorityMock.mockResolvedValue(undefined);
+    listQueueItemsMock.mockResolvedValue([]);
     ssrfSafeFetchMock.mockImplementation(async (url: string) => ({
       requestedUrl: url,
       finalUrl: url,
@@ -153,21 +135,21 @@ describe("processCrawlRun seed-first and discovery resume", () => {
             : "text/html",
       },
       body: url.includes("robots.txt")
-        ? "User-agent: *\nDisallow: /blocked\nSitemap: https://example.com/sitemap.xml"
+        ? "User-agent: *\nSitemap: https://example.com/sitemap.xml"
         : url.includes("sitemap")
-          ? "<urlset><url><loc>https://example.com/sitemap-page</loc></url></urlset>"
-          : "<html></html>",
+          ? "<urlset></urlset>"
+          : `<!doctype html><html><body><nav><a href="/about">About</a></nav><main><h1>Home</h1></main></body></html>`,
     }));
   });
 
-  it("persists the seed page before sitemap discovery artifacts are saved", async () => {
+  it("does not rewrite queue priorities when no GSC candidates were injected", async () => {
     let pagesCrawled = 0;
     getCrawlRunSummaryMock.mockImplementation(async () => ({
       id: claimedRun.id,
       status: "running",
       hostname: "example.com",
       seedUrl: claimedRun.seed_url,
-      maxPages: 2,
+      maxPages: 10,
       pagesCrawled,
       pagesDiscovered: 1,
       errorMessage: null,
@@ -175,10 +157,9 @@ describe("processCrawlRun seed-first and discovery resume", () => {
       completedAt: null,
       createdAt: claimedRun.created_at,
     }));
-    incrementCrawlProgressMock.mockImplementation(async () => {
-      pagesCrawled = 1;
+    incrementCrawlProgressMock.mockImplementation(async (_id: string, crawledDelta: number) => {
+      pagesCrawled += crawledDelta;
     });
-
     getNextQueueItemMock
       .mockResolvedValueOnce({
         id: "queue-seed",
@@ -187,81 +168,66 @@ describe("processCrawlRun seed-first and discovery resume", () => {
         priority: 100,
         status: "pending",
       })
-      .mockResolvedValueOnce({
-        id: "queue-sitemap-page",
-        url: "https://example.com/sitemap-page",
-        depth: 0,
-        priority: 50,
-        status: "pending",
-      })
       .mockResolvedValue(null);
 
-    await processCrawlRun("run-seed");
+    await processCrawlRun("run-gsc");
 
-    const seedHtmlFetchIndex = ssrfSafeFetchMock.mock.calls.findIndex(
-      (call) => call[0] === "https://example.com/",
-    );
-    const sitemapFetchIndex = ssrfSafeFetchMock.mock.calls.findIndex(
-      (call) => typeof call[0] === "string" && call[0].includes("sitemap"),
-    );
-
-    expect(seedHtmlFetchIndex).toBeGreaterThan(-1);
-    expect(sitemapFetchIndex).toBeGreaterThan(-1);
-    expect(seedHtmlFetchIndex).toBeLessThan(sitemapFetchIndex);
-    expect(saveParsedPageMock).toHaveBeenCalled();
+    expect(updateQueueItemPriorityMock).not.toHaveBeenCalled();
+    expect(pagesCrawled).toBe(1);
   });
 
-  it("blocks a robots-disallowed seed without persisting it", async () => {
-    claimNextQueuedRunMock.mockResolvedValue({
-      ...claimedRun,
-      seed_url: "https://example.com/blocked",
-    });
-
-    getCrawlRunSummaryMock.mockResolvedValue({
-      id: claimedRun.id,
-      status: "running",
-      hostname: "example.com",
-      seedUrl: "https://example.com/blocked",
-      maxPages: 2,
-      pagesCrawled: 0,
-      pagesDiscovered: 1,
-      errorMessage: null,
-      startedAt: claimedRun.started_at,
-      completedAt: null,
-      createdAt: claimedRun.created_at,
-    });
-
-    getNextQueueItemMock
-      .mockResolvedValueOnce({
-        id: "queue-seed-blocked",
-        url: "https://example.com/blocked",
+  it("reprioritizes the bounded queue around injected GSC URLs", async () => {
+    const queueItems = [
+      {
+        id: "queue-seed",
+        url: "https://example.com/",
         depth: 0,
         priority: 100,
+        status: "done",
+        createdAt: "2026-09-24T12:00:00.000Z",
+      },
+      {
+        id: "queue-gsc",
+        url: "https://example.com/hidden-product",
+        depth: 0,
+        priority: GSC_QUEUE_PRIORITY,
         status: "pending",
-      })
-      .mockResolvedValue(null);
-
-    await processCrawlRun("run-seed");
-
-    expect(updateQueueItemMock).toHaveBeenCalledWith(
-      "queue-seed-blocked",
-      "skipped",
-      "robots_disallow",
-    );
-    expect(saveParsedPageMock).not.toHaveBeenCalled();
-    expect(markCrawlRunFailedMock).toHaveBeenCalledWith(
-      "run-seed",
-      "We couldn't successfully crawl any pages from this website.",
-      { expectedStartedAt: claimedRun.started_at },
-    );
-  });
-
-  it("skips sitemap discovery when artifacts already exist on stale recovery", async () => {
-    hasSitemapArtifactsMock.mockResolvedValue(true);
-    listQueueUrlsMock.mockResolvedValue([
-      "https://example.com/",
-      "https://example.com/sitemap-page",
-    ]);
+        createdAt: "2026-09-24T12:00:01.000Z",
+      },
+      {
+        id: "queue-old",
+        url: "https://example.com/old-post",
+        depth: 0,
+        priority: 53,
+        status: "pending",
+        createdAt: "2026-09-24T12:00:02.000Z",
+      },
+      {
+        id: "queue-about",
+        url: "https://example.com/about",
+        depth: 0,
+        priority: 99,
+        status: "pending",
+        createdAt: "2026-09-24T12:00:03.000Z",
+      },
+      ...Array.from({ length: 12 }, (_, index) => ({
+        id: `queue-blog-${index}`,
+        url: `https://example.com/blog/2020/old-article-${index}`,
+        depth: 0,
+        priority: 48,
+        status: "pending",
+        createdAt: `2026-09-24T12:00:1${index}.000Z`,
+      })),
+      {
+        id: "queue-zzz",
+        url: "https://example.com/blog/2020/zzz-unselected",
+        depth: 0,
+        priority: 48,
+        status: "pending",
+        createdAt: "2026-09-24T12:00:29.000Z",
+      },
+    ];
+    listQueueItemsMock.mockResolvedValue(queueItems);
 
     let pagesCrawled = 1;
     getCrawlRunSummaryMock.mockImplementation(async () => ({
@@ -269,18 +235,17 @@ describe("processCrawlRun seed-first and discovery resume", () => {
       status: "running",
       hostname: "example.com",
       seedUrl: claimedRun.seed_url,
-      maxPages: 2,
+      maxPages: 10,
       pagesCrawled,
-      pagesDiscovered: 2,
+      pagesDiscovered: 4,
       errorMessage: null,
       startedAt: claimedRun.started_at,
       completedAt: null,
       createdAt: claimedRun.created_at,
     }));
-    incrementCrawlProgressMock.mockImplementation(async () => {
-      pagesCrawled = 2;
+    incrementCrawlProgressMock.mockImplementation(async (_id: string, crawledDelta: number) => {
+      pagesCrawled += crawledDelta;
     });
-
     getNextQueueItemMock
       .mockResolvedValueOnce({
         id: "queue-seed",
@@ -289,24 +254,15 @@ describe("processCrawlRun seed-first and discovery resume", () => {
         priority: 100,
         status: "pending",
       })
-      .mockResolvedValueOnce({
-        id: "queue-sitemap-page",
-        url: "https://example.com/sitemap-page",
-        depth: 0,
-        priority: 50,
-        status: "pending",
-      })
       .mockResolvedValue(null);
 
-    await processCrawlRun("run-seed");
+    await processCrawlRun("run-gsc");
 
-    expect(hasSitemapArtifactsMock).toHaveBeenCalledWith("run-seed");
-    expect(listQueueUrlsMock).toHaveBeenCalledWith("run-seed");
-    expect(
-      saveSiteArtifactMock.mock.calls.some(
-        (call) => call[0]?.artifactType === "sitemap_xml",
-      ),
-    ).toBe(false);
-    expect(ssrfSafeFetchMock).not.toHaveBeenCalledWith("https://example.com/sitemap.xml");
+    expect(updateQueueItemPriorityMock).toHaveBeenCalled();
+    const priorityById = new Map(
+      updateQueueItemPriorityMock.mock.calls.map((call) => [call[0], call[1]]),
+    );
+    expect(priorityById.get("queue-zzz")).toBe(UNSELECTED_QUEUE_PRIORITY);
+    expect(priorityById.get("queue-gsc")).not.toBe(UNSELECTED_QUEUE_PRIORITY);
   });
 });

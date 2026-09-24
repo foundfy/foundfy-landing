@@ -14,6 +14,7 @@ import {
   getNextQueueItem,
   hasSitemapArtifacts,
   incrementCrawlProgress,
+  listQueueItems,
   listQueueUrls,
   markCrawlRunCompleted,
   markCrawlRunFailed,
@@ -23,6 +24,7 @@ import {
   saveSiteArtifact,
   toActiveCrawlRun,
   updateQueueItem,
+  updateQueueItemPriority,
   type ActiveCrawlRun,
 } from "../db/repository";
 import { generateObservationsForCrawlRun } from "@/lib/observations/db/repository";
@@ -30,9 +32,19 @@ import { parseHtmlPage } from "../parse/page";
 import { SsrfValidationError, ssrfSafeFetch } from "../security/ssrf-fetch";
 import {
   SEED_QUEUE_PRIORITY,
+  VERIFICATION_QUEUE_PRIORITY,
   scorePageUrl,
   selectSitemapEnqueueUrls,
 } from "../select/page-priority";
+import {
+  GSC_QUEUE_PRIORITY,
+  UNSELECTED_QUEUE_PRIORITY,
+  assignGscInformedQueuePriorities,
+  gscDedupeKey,
+  isGscVisibilityQueuePriority,
+  selectGscInformedCrawlUrls,
+  type CandidateSource,
+} from "../select/gsc-informed-selection";
 import type { RobotsRules } from "../types";
 import { FinalUrlDeduplicator } from "../url/final-url-dedup";
 import { getOriginForHostname, isSameSite, normalizeCrawlUrl } from "../url/normalize";
@@ -51,6 +63,7 @@ type CrawlWorkerContext = {
   robotsRules: RobotsRules;
   discoveredUrls: Set<string>;
   finalUrlDedup: FinalUrlDeduplicator;
+  selectionLocked: boolean;
   trackDiscovery: (url: string, depth: number, priority: number) => Promise<void>;
 };
 
@@ -272,6 +285,80 @@ async function processQueueItem(
   await updateQueueItem(queueItem.id, "done");
 }
 
+function inferCandidateSource(
+  item: { url: string; priority: number },
+  seedUrl: string,
+  origin: string,
+): CandidateSource {
+  if (item.priority === SEED_QUEUE_PRIORITY || isSeedQueueItem(seedUrl, item.url, origin)) {
+    return "seed";
+  }
+
+  if (item.priority === VERIFICATION_QUEUE_PRIORITY) {
+    return "verification";
+  }
+
+  return "internal";
+}
+
+async function applyGscInformedQueueSelection(ctx: CrawlWorkerContext): Promise<void> {
+  const items = await listQueueItems(ctx.run.id);
+  const gscItems = items.filter((item) => isGscVisibilityQueuePriority(item.priority));
+  if (gscItems.length === 0) {
+    return;
+  }
+
+  const selected = selectGscInformedCrawlUrls({
+    seedUrl: ctx.run.seedUrl,
+    hostname: ctx.run.hostname,
+    origin: ctx.origin,
+    limit: ctx.run.maxPages,
+    alreadyCrawledUrls: items.filter((item) => item.status === "done").map((item) => item.url),
+    candidates: items
+      .filter((item) => !isGscVisibilityQueuePriority(item.priority))
+      .map((item) => ({
+        url: item.url,
+        source: inferCandidateSource(item, ctx.run.seedUrl, ctx.origin),
+      })),
+    gscPages: gscItems.map((item, index) => ({
+      url: item.url,
+      impressions: gscItems.length - index,
+      clicks: 0,
+    })),
+  });
+
+  for (const item of selected) {
+    const alreadyQueued = items.some(
+      (queued) => gscDedupeKey(queued.url, ctx.origin) === gscDedupeKey(item.url, ctx.origin),
+    );
+    if (alreadyQueued) {
+      continue;
+    }
+
+    await enqueueUrl({
+      crawlRunId: ctx.run.id,
+      url: item.url,
+      depth: 0,
+      priority: item.reason === "gsc_visibility" ? GSC_QUEUE_PRIORITY : scorePageUrl(item.url, "internal"),
+    });
+    const normalized = normalizeCrawlUrl(item.url, ctx.origin);
+    if (normalized) {
+      ctx.discoveredUrls.add(normalized);
+    }
+  }
+
+  const queued = await listQueueItems(ctx.run.id);
+  for (const update of assignGscInformedQueuePriorities({
+    items: queued,
+    selected,
+    origin: ctx.origin,
+  })) {
+    await updateQueueItemPriority(update.id, update.priority);
+  }
+
+  ctx.selectionLocked = true;
+}
+
 async function processSeedBeforeSitemapDiscovery(ctx: CrawlWorkerContext): Promise<void> {
   const summary = await getCrawlRunSummary(ctx.run.id);
   if (!summary || summary.pagesCrawled >= ctx.run.maxPages) {
@@ -314,6 +401,7 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
   const origin = getOriginForHostname(run.hostname);
   const discoveredUrls = new Set<string>();
   const finalUrlDedup = new FinalUrlDeduplicator();
+  let selectionLocked = false;
 
   const trackDiscovery = async (
     url: string,
@@ -330,11 +418,14 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
     }
 
     discoveredUrls.add(normalized);
+    const enqueuePriority = selectionLocked
+      ? Math.min(priority, UNSELECTED_QUEUE_PRIORITY)
+      : priority;
     await enqueueUrl({
       crawlRunId: run.id,
       url: normalized,
       depth,
-      priority,
+      priority: enqueuePriority,
     });
   };
 
@@ -344,6 +435,7 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
     robotsRules: { sitemaps: [], disallow: [], allow: [] },
     discoveredUrls,
     finalUrlDedup,
+    selectionLocked: false,
     trackDiscovery,
   };
 
@@ -375,6 +467,11 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
         websiteId: run.websiteId,
       });
       await enqueueSitemapDiscoveries(ctx, sitemapUrls);
+    }
+
+    await applyGscInformedQueueSelection(ctx);
+    if (ctx.selectionLocked) {
+      selectionLocked = true;
     }
 
     await syncDiscoveredCount(run.id, discoveredUrls.size);

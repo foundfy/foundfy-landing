@@ -23,6 +23,7 @@ vi.mock("./db/repository", () => ({
 
 import { DailyCrawlLimitReachedError } from "./daily-crawl-limit";
 import { SEED_QUEUE_PRIORITY, VERIFICATION_QUEUE_PRIORITY } from "./select/page-priority";
+import { GSC_QUEUE_PRIORITY } from "./select/gsc-informed-selection";
 import { createAndEnqueueCrawl } from "./start-crawl";
 
 describe("createAndEnqueueCrawl", () => {
@@ -85,6 +86,54 @@ describe("createAndEnqueueCrawl", () => {
     expect(enqueued.slice(1).map((item) => item.url)).toEqual(
       priorityUrls.slice(0, 9),
     );
+  });
+
+  it("enqueues owner GSC visibility URLs without replacing the seed or raising max pages", async () => {
+    assertCanCreateNewCrawlMock.mockResolvedValue(undefined);
+
+    await createAndEnqueueCrawl({
+      websiteId: "website-1",
+      seedUrl: "https://example.com/",
+      priorityUrls: ["https://example.com/hakkimizda"],
+      gscVisibilityUrls: [
+        "https://www.example.com/",
+        "https://www.example.com/hidden-product",
+        "https://www.example.com/hidden-product/",
+        "https://example.com/login",
+        "https://other.com/page",
+      ],
+    });
+
+    const enqueued = enqueueUrlMock.mock.calls.map(
+      (call) => call[0] as { url: string; priority: number },
+    );
+
+    expect(enqueued[0]).toEqual({
+      crawlRunId: "run-1",
+      url: "https://example.com/",
+      depth: 0,
+      priority: SEED_QUEUE_PRIORITY,
+    });
+    expect(enqueued).toContainEqual({
+      crawlRunId: "run-1",
+      url: "https://example.com/hakkimizda",
+      depth: 0,
+      priority: VERIFICATION_QUEUE_PRIORITY,
+    });
+    expect(enqueued).toContainEqual({
+      crawlRunId: "run-1",
+      url: "https://www.example.com/hidden-product",
+      depth: 0,
+      priority: GSC_QUEUE_PRIORITY,
+    });
+    expect(enqueued.filter((item) => item.url.includes("hidden-product"))).toHaveLength(1);
+    expect(enqueued.some((item) => item.url.includes("/login"))).toBe(false);
+    expect(enqueued.some((item) => item.url.includes("other.com"))).toBe(false);
+    expect(createCrawlRunMock).toHaveBeenCalledWith({
+      websiteId: "website-1",
+      seedUrl: "https://example.com/",
+      maxPages: 10,
+    });
   });
 
   it("does not create a crawl when the daily ceiling is reached", async () => {
