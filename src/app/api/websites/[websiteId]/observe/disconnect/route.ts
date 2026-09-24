@@ -4,8 +4,8 @@ import {
   buildClearedSessionCookieOptions,
   readObserveSessionToken,
 } from "@/lib/gsc/cookie";
+import { observeErrorResponse } from "@/lib/gsc/http";
 import { disconnectObserveOwner } from "@/lib/gsc/observe";
-import { ObserveAuthError } from "@/lib/gsc/types";
 import { isValidUuid } from "@/lib/websites/uuid";
 
 export const runtime = "nodejs";
@@ -36,19 +36,6 @@ export async function POST(request: Request, context: RouteContext) {
     );
     return response;
   } catch (error) {
-    if (error instanceof ObserveAuthError) {
-      return NextResponse.json({ error: error.message }, { status: error.status });
-    }
-
-    const message = error instanceof Error ? error.message : "Unable to disconnect.";
-    if (message === "Website not found.") {
-      return NextResponse.json({ error: message }, { status: 404 });
-    }
-
-    console.error("[Observe] Failed to disconnect Google account:", message);
-    return NextResponse.json(
-      { error: "Unable to disconnect right now." },
-      { status: 500 },
-    );
+    return observeErrorResponse(error, "Unable to disconnect right now.");
   }
 }

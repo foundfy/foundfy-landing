@@ -30,6 +30,7 @@ describe("privacy page content", () => {
     expect(googleSection?.body).toContain("encrypted refresh token");
     expect(googleSection?.body).toContain("session cookie");
     expect(googleSection?.body).toContain("disconnect");
+    expect(googleSection?.body).toContain("confirm which Search Console property");
     expect(googleSection?.body).toContain("does not import Search Console performance data yet");
     expect(googleSection?.body).not.toMatch(/impressions|clicks|CTR|average position/i);
   });

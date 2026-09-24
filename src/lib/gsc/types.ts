@@ -37,10 +37,49 @@ export type OAuthStateRecord = {
   consumedAt: string | null;
 };
 
+export type GscPropertyType = "domain" | "url_prefix";
+
+export type GscPropertyMatch =
+  | "exact_domain"
+  | "exact_url_prefix"
+  | "related_host"
+  | "not_a_match";
+
+export type GscPermissionLevel = string | null;
+
+export type GscPropertyConnectionRecord = {
+  id: string;
+  websiteId: string;
+  observeOwnerId: string;
+  googleIdentityId: string;
+  propertyUri: string;
+  propertyType: GscPropertyType;
+  permissionLevel: GscPermissionLevel;
+  confirmationSource: "user";
+  status: "connected" | "revoked";
+};
+
+export type GscPropertySummary = {
+  siteUrl: string;
+  propertyType: GscPropertyType;
+  permissionLevel: GscPermissionLevel;
+};
+
+export type RankedGscProperty = GscPropertySummary & {
+  match: GscPropertyMatch;
+};
+
 export type ObserveOwnerView = {
-  status: "google_connected";
+  status: "google_connected" | "search_console_connected";
   email: string | null;
-  propertySelected: false;
+  propertySelected: boolean;
+  property: GscPropertySummary | null;
+};
+
+export type ObservePropertyList = {
+  recommendedSiteUrl: string | null;
+  likely: RankedGscProperty[];
+  other: RankedGscProperty[];
 };
 
 export class OAuthStateError extends Error {
@@ -67,5 +106,19 @@ export class ObserveOwnerConflictError extends Error {
   constructor() {
     super("This site already has a Google account connected.");
     this.name = "ObserveOwnerConflictError";
+  }
+}
+
+export class GoogleAuthExpiredError extends Error {
+  constructor() {
+    super("Google access expired. Connect Google again.");
+    this.name = "GoogleAuthExpiredError";
+  }
+}
+
+export class UnverifiedPropertyError extends Error {
+  constructor() {
+    super("That Search Console property is not available to this Google account.");
+    this.name = "UnverifiedPropertyError";
   }
 }

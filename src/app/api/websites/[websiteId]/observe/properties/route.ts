@@ -1,7 +1,6 @@
-import { NextResponse } from "next/server";
 import { readObserveSessionToken } from "@/lib/gsc/cookie";
-import { observeErrorResponse } from "@/lib/gsc/http";
-import { resolveObserveOwnerView } from "@/lib/gsc/observe";
+import { observeErrorResponse, observeJson } from "@/lib/gsc/http";
+import { listObserveProperties } from "@/lib/gsc/properties";
 import { isValidUuid } from "@/lib/websites/uuid";
 
 export const runtime = "nodejs";
@@ -16,21 +15,16 @@ export async function GET(request: Request, context: RouteContext) {
   const { websiteId } = await context.params;
 
   if (!isValidUuid(websiteId)) {
-    return NextResponse.json({ error: "Invalid website id." }, { status: 400 });
+    return observeJson({ error: "Invalid website id." }, 400);
   }
 
   try {
-    const view = await resolveObserveOwnerView({
+    const list = await listObserveProperties({
       websiteId,
       sessionToken: readObserveSessionToken(request),
     });
-
-    return NextResponse.json(view, {
-      headers: {
-        "Cache-Control": "private, no-store, no-cache, must-revalidate",
-      },
-    });
+    return observeJson(list);
   } catch (error) {
-    return observeErrorResponse(error, "Unable to load Google connection state right now.");
+    return observeErrorResponse(error, "Unable to list Search Console properties right now.");
   }
 }

@@ -5,6 +5,8 @@ const getWebsiteByIdMock = vi.fn();
 const findOwnerSessionByTokenHashMock = vi.fn();
 const findActiveObserveOwnerMock = vi.fn();
 const findGoogleIdentityByIdMock = vi.fn();
+const findActivePropertyConnectionMock = vi.fn();
+const revokeActivePropertyConnectionsForWebsiteMock = vi.fn();
 const findGoogleOAuthTokenByIdMock = vi.fn();
 const revokeObserveOwnerMock = vi.fn();
 const revokeOwnerSessionsForWebsiteIdentityMock = vi.fn();
@@ -21,6 +23,10 @@ vi.mock("./db", () => ({
   findActiveObserveOwner: (...args: unknown[]) => findActiveObserveOwnerMock(...args),
   findGoogleIdentityById: (...args: unknown[]) => findGoogleIdentityByIdMock(...args),
   findGoogleOAuthTokenById: (...args: unknown[]) => findGoogleOAuthTokenByIdMock(...args),
+  findActivePropertyConnection: (...args: unknown[]) =>
+    findActivePropertyConnectionMock(...args),
+  revokeActivePropertyConnectionsForWebsite: (...args: unknown[]) =>
+    revokeActivePropertyConnectionsForWebsiteMock(...args),
   revokeObserveOwner: (...args: unknown[]) => revokeObserveOwnerMock(...args),
   revokeOwnerSessionsForWebsiteIdentity: (...args: unknown[]) =>
     revokeOwnerSessionsForWebsiteIdentityMock(...args),
@@ -47,7 +53,11 @@ describe("observe owner authorization", () => {
     process.env = { ...ORIGINAL_ENV };
     process.env.GSC_TOKEN_ENCRYPTION_KEY = "a".repeat(64);
     process.env.GSC_SESSION_SECRET = "session-secret";
-    getWebsiteByIdMock.mockResolvedValue({ id: WEBSITE_ID, hostname: "foundfy.me" });
+    getWebsiteByIdMock.mockResolvedValue({
+      id: WEBSITE_ID,
+      hostname: "foundfy.me",
+      displayUrl: "https://www.foundfy.me/",
+    });
     findOwnerSessionByTokenHashMock.mockResolvedValue({
       id: "session-1",
       googleIdentityId: "identity-1",
@@ -75,6 +85,8 @@ describe("observe owner authorization", () => {
       scopes: "openid email https://www.googleapis.com/auth/webmasters.readonly",
       revokedAt: null,
     });
+    findActivePropertyConnectionMock.mockResolvedValue(null);
+    revokeActivePropertyConnectionsForWebsiteMock.mockResolvedValue(undefined);
     countActiveOwnersForIdentityMock.mockResolvedValue(0);
     revokeObserveOwnerMock.mockResolvedValue(undefined);
     revokeOwnerSessionsForWebsiteIdentityMock.mockResolvedValue(undefined);
@@ -112,11 +124,42 @@ describe("observe owner authorization", () => {
       status: "google_connected",
       email: "jose@foundfy.me",
       propertySelected: false,
+      property: null,
     });
     expect(JSON.stringify(view)).not.toMatch(/refresh-token|ciphertext|accessToken/i);
     expect(findOwnerSessionByTokenHashMock).toHaveBeenCalledWith(
       hashSessionToken(SESSION_TOKEN),
     );
+  });
+
+  it("returns Search Console connected only after a persisted property binding", async () => {
+    findActivePropertyConnectionMock.mockResolvedValue({
+      id: "connection-1",
+      websiteId: WEBSITE_ID,
+      observeOwnerId: "owner-1",
+      googleIdentityId: "identity-1",
+      propertyUri: "sc-domain:foundfy.me",
+      propertyType: "domain",
+      permissionLevel: "siteOwner",
+      confirmationSource: "user",
+      status: "connected",
+    });
+
+    const view = await resolveObserveOwnerView({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION_TOKEN,
+    });
+
+    expect(view).toEqual({
+      status: "search_console_connected",
+      email: "jose@foundfy.me",
+      propertySelected: true,
+      property: {
+        siteUrl: "sc-domain:foundfy.me",
+        propertyType: "domain",
+        permissionLevel: "siteOwner",
+      },
+    });
   });
 
   it("disconnects for the owner and wipes the stored refresh token", async () => {
@@ -126,6 +169,7 @@ describe("observe owner authorization", () => {
     });
 
     expect(revokeObserveOwnerMock).toHaveBeenCalledWith("owner-1");
+    expect(revokeActivePropertyConnectionsForWebsiteMock).toHaveBeenCalledWith(WEBSITE_ID);
     expect(revokeOwnerSessionsForWebsiteIdentityMock).toHaveBeenCalledWith({
       websiteId: WEBSITE_ID,
       googleIdentityId: "identity-1",
