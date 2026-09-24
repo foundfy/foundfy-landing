@@ -30,6 +30,7 @@ import styles from "./SitePageView.module.css";
 
 type SiteDecisionsSectionProps = {
   websiteId: string;
+  refreshKey?: number;
 };
 
 function demandCopy(demand: DecisionView["why"]["searchDemand"]): string | null {
@@ -122,7 +123,10 @@ function emptyStateCopy(view: DecisionsOwnerView): string | null {
   return null;
 }
 
-export default function SiteDecisionsSection({ websiteId }: SiteDecisionsSectionProps) {
+export default function SiteDecisionsSection({
+  websiteId,
+  refreshKey = 0,
+}: SiteDecisionsSectionProps) {
   const [view, setView] = useState<DecisionsOwnerView | null>(null);
   const [visible, setVisible] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -157,7 +161,7 @@ export default function SiteDecisionsSection({ websiteId }: SiteDecisionsSection
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   async function generate() {
     setIsGenerating(true);

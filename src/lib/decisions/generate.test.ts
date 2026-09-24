@@ -202,6 +202,43 @@ describe("Decision Engine generation", () => {
     ).rejects.toMatchObject({ reason: "google_not_connected" });
   });
 
+  it("does not return google_not_connected when OBSERVE has a connected property and completed sync", async () => {
+    const loaded = await loadDecisionPrerequisites({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION,
+    });
+
+    expect(loaded.connection.id).toBe("connection-1");
+    expect(loaded.sync.id).toBe("sync-1");
+    expect(loaded.connection.googleIdentityId).toBe("identity-1");
+  });
+
+  it("blocks when the connected property belongs to another Google identity", async () => {
+    findActivePropertyConnectionMock.mockResolvedValue({
+      id: "connection-1",
+      status: "connected",
+      googleIdentityId: "identity-other",
+      propertyUri: "sc-domain:dbhobby.com",
+    });
+
+    await expect(
+      loadDecisionPrerequisites({ websiteId: WEBSITE_ID, sessionToken: SESSION }),
+    ).rejects.toMatchObject({ reason: "google_not_connected" });
+  });
+
+  it("blocks when the property row is revoked", async () => {
+    findActivePropertyConnectionMock.mockResolvedValue({
+      id: "connection-1",
+      status: "revoked",
+      googleIdentityId: "identity-1",
+      propertyUri: "sc-domain:dbhobby.com",
+    });
+
+    await expect(
+      loadDecisionPrerequisites({ websiteId: WEBSITE_ID, sessionToken: SESSION }),
+    ).rejects.toMatchObject({ reason: "google_not_connected" });
+  });
+
   it("requires a completed GSC sync", async () => {
     findLatestCompletedSearchSyncMock.mockResolvedValue(null);
 

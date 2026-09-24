@@ -3,7 +3,7 @@ import {
   findLatestCompletedSearchSync,
   listEvidenceForSync,
 } from "@/lib/gsc/db-search";
-import { findActivePropertyConnection } from "@/lib/gsc/db";
+import { findOwnerSearchConsoleConnection } from "@/lib/gsc/connection";
 import { requireObserveOwner } from "@/lib/gsc/observe";
 import { listObservations } from "@/lib/observations/db/repository";
 import { listPriorities } from "@/lib/priorities/db/repository";
@@ -61,12 +61,11 @@ export async function loadDecisionPrerequisites(input: {
     );
   }
 
-  const connection = await findActivePropertyConnection(input.websiteId);
-  if (
-    !connection ||
-    connection.status !== "connected" ||
-    connection.googleIdentityId !== context.owner.googleIdentityId
-  ) {
+  const connection = await findOwnerSearchConsoleConnection({
+    websiteId: input.websiteId,
+    owner: context.owner,
+  });
+  if (!connection) {
     throw new DecisionPrerequisiteError(
       "google_not_connected",
       "Connect Google Search before Foundfy can combine search demand with website evidence.",
