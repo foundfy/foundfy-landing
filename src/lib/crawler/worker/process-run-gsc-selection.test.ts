@@ -45,6 +45,7 @@ vi.mock("../db/repository", () => ({
   listQueueUrls: (...args: unknown[]) => listQueueUrlsMock(...args),
   listQueueItems: (...args: unknown[]) => listQueueItemsMock(...args),
   updateQueueItemPriority: (...args: unknown[]) => updateQueueItemPriorityMock(...args),
+  listPageHostVariantEvidence: async () => [],
   toActiveCrawlRun: (row: {
     id: string;
     website_id: string;

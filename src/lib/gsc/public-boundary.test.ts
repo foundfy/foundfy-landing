@@ -44,8 +44,10 @@ describe("public vs owner-private OBSERVE boundary", () => {
   it("does not let public first-scan crawl use private GSC evidence", () => {
     const publicCrawl = read("../../app/api/crawl/route.ts");
     const startCrawl = read("../crawler/start-crawl.ts");
+    const hostVariant = read("../crawler/select/host-variant-equivalence.ts");
 
     expect(publicCrawl).not.toMatch(/from \"@\/lib\/gsc|gscVisibility|resolveOwnerGsc/);
     expect(startCrawl).not.toMatch(/impressions|clicks|query_text/);
+    expect(hostVariant).not.toMatch(/impressions|clicks|query_text|from \"@\/lib\/gsc/);
   });
 });
