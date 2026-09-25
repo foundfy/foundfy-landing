@@ -552,6 +552,61 @@ export function isPageRequestedUrlUniqueConflict(
   return Boolean(error.message?.includes(PAGE_REQUESTED_URL_UNIQUE_CONSTRAINT));
 }
 
+export type PageHostVariantEvidenceRow = {
+  requestedUrl: string;
+  finalUrl: string;
+  canonical: string | null;
+  contentHash: string | null;
+  redirectChain: Array<{ url: string }>;
+  statusCode: number;
+};
+
+function asRedirectChain(value: unknown): Array<{ url: string }> {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((hop) => {
+    if (!hop || typeof hop !== "object" || !("url" in hop) || typeof hop.url !== "string") {
+      return [];
+    }
+
+    return [{ url: hop.url }];
+  });
+}
+
+export async function listPageHostVariantEvidence(
+  websiteId: string,
+  options: { excludeCrawlRunId?: string; limit?: number } = {},
+): Promise<PageHostVariantEvidenceRow[]> {
+  const supabase = getSupabaseAdmin();
+  const limit = options.limit ?? 1000;
+  let query = supabase
+    .from("pages")
+    .select("requested_url, final_url, canonical, content_hash, redirect_chain, status_code")
+    .eq("website_id", websiteId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (options.excludeCrawlRunId) {
+    query = query.neq("crawl_run_id", options.excludeCrawlRunId);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(`Failed to load page host-variant evidence: ${error.message}`);
+  }
+
+  return (data ?? []).map((row) => ({
+    requestedUrl: row.requested_url,
+    finalUrl: row.final_url,
+    canonical: row.canonical,
+    contentHash: row.content_hash,
+    redirectChain: asRedirectChain(row.redirect_chain),
+    statusCode: row.status_code,
+  }));
+}
+
 export async function findPageByRequestedUrl(
   crawlRunId: string,
   requestedUrl: string,

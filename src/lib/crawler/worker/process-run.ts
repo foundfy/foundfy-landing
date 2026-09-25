@@ -14,6 +14,7 @@ import {
   getNextQueueItem,
   hasSitemapArtifacts,
   incrementCrawlProgress,
+  listPageHostVariantEvidence,
   listQueueItems,
   listQueueUrls,
   markCrawlRunCompleted,
@@ -45,6 +46,11 @@ import {
   selectGscInformedCrawlUrls,
   type CandidateSource,
 } from "../select/gsc-informed-selection";
+import {
+  collapseLatestPageEvidence,
+  shouldSkipEquivalentHostVariant,
+  type PageHostEvidence,
+} from "../select/host-variant-equivalence";
 import type { RobotsRules } from "../types";
 import { FinalUrlDeduplicator } from "../url/final-url-dedup";
 import { getOriginForHostname, isSameSite, normalizeCrawlUrl } from "../url/normalize";
@@ -62,6 +68,8 @@ type CrawlWorkerContext = {
   origin: string;
   robotsRules: RobotsRules;
   discoveredUrls: Set<string>;
+  crawledRequestedUrls: string[];
+  hostVariantEvidence: PageHostEvidence[];
   finalUrlDedup: FinalUrlDeduplicator;
   selectionLocked: boolean;
   trackDiscovery: (url: string, depth: number, priority: number) => Promise<void>;
@@ -201,6 +209,7 @@ async function processQueueItem(
       finalUrl: existingPage.finalUrl,
       redirectChain: [],
     });
+    ctx.crawledRequestedUrls.push(queueItem.url);
     await reconcileOrphanedPageProgress(run.id);
     await updateQueueItem(queueItem.id, "done");
     return;
@@ -208,6 +217,18 @@ async function processQueueItem(
 
   if (finalUrlDedup.isDuplicateBeforeFetch(queueItem.url)) {
     await updateQueueItem(queueItem.id, "skipped", "duplicate_final_url");
+    return;
+  }
+
+  if (
+    shouldSkipEquivalentHostVariant({
+      requestedUrl: queueItem.url,
+      crawledUrls: ctx.crawledRequestedUrls,
+      evidence: ctx.hostVariantEvidence,
+      origin,
+    })
+  ) {
+    await updateQueueItem(queueItem.id, "skipped", "equivalent_host_variant");
     return;
   }
 
@@ -249,6 +270,18 @@ async function processQueueItem(
     finalUrl: parsed.finalUrl,
     redirectChain: parsed.redirectChain,
   });
+  ctx.crawledRequestedUrls.push(parsed.requestedUrl);
+  ctx.hostVariantEvidence = collapseLatestPageEvidence([
+    {
+      requestedUrl: parsed.requestedUrl,
+      finalUrl: parsed.finalUrl,
+      canonical: parsed.canonical,
+      contentHash: parsed.contentHash,
+      redirectChain: parsed.redirectChain,
+      statusCode: parsed.statusCode,
+    },
+    ...ctx.hostVariantEvidence,
+  ], origin);
 
   const pageId = await saveParsedPage({
     crawlRunId: run.id,
@@ -313,6 +346,7 @@ async function applyGscInformedQueueSelection(ctx: CrawlWorkerContext): Promise<
     hostname: ctx.run.hostname,
     origin: ctx.origin,
     limit: ctx.run.maxPages,
+    evidence: ctx.hostVariantEvidence,
     alreadyCrawledUrls: items.filter((item) => item.status === "done").map((item) => item.url),
     candidates: items
       .filter((item) => !isGscVisibilityQueuePriority(item.priority))
@@ -352,6 +386,7 @@ async function applyGscInformedQueueSelection(ctx: CrawlWorkerContext): Promise<
     items: queued,
     selected,
     origin: ctx.origin,
+    evidence: ctx.hostVariantEvidence,
   })) {
     await updateQueueItemPriority(update.id, update.priority);
   }
@@ -402,6 +437,10 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
   const discoveredUrls = new Set<string>();
   const finalUrlDedup = new FinalUrlDeduplicator();
   let selectionLocked = false;
+  const priorEvidence = collapseLatestPageEvidence(
+    await listPageHostVariantEvidence(run.websiteId, { excludeCrawlRunId: run.id }),
+    origin,
+  );
 
   const trackDiscovery = async (
     url: string,
@@ -434,6 +473,8 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
     origin,
     robotsRules: { sitemaps: [], disallow: [], allow: [] },
     discoveredUrls,
+    crawledRequestedUrls: [],
+    hostVariantEvidence: priorEvidence,
     finalUrlDedup,
     selectionLocked: false,
     trackDiscovery,

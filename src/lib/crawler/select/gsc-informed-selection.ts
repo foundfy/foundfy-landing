@@ -1,5 +1,4 @@
-import { normalizeComparisonUrl } from "@/lib/findings/comparison/normalize-comparison-url";
-import { isSameSite } from "../url/normalize";
+import { isSameSite, normalizeCrawlUrl } from "../url/normalize";
 import { MAX_PAGES_PER_CRAWL } from "../types";
 import {
   classifyPagePath,
@@ -8,6 +7,14 @@ import {
   type DiscoverySource,
   type PathClass,
 } from "./page-priority";
+import {
+  classifyWwwApexRelation,
+  createSampleSelectionKey,
+  hostVariantPairKey,
+  omitRedundantEquivalentHostVariants,
+  preferHostVariant,
+  type PageHostEvidence,
+} from "./host-variant-equivalence";
 
 export const STRUCTURAL_RESERVE_SLOTS = 6;
 export const GSC_RESERVE_SLOTS = 3;
@@ -83,19 +90,10 @@ export function gscDemandScore(
 }
 
 export function gscDedupeKey(url: string, origin?: string): string | null {
-  const compared = normalizeComparisonUrl(url, origin);
-  if (!compared) {
-    return null;
-  }
-
-  try {
-    const parsed = new URL(compared);
-    parsed.protocol = "https:";
-    return parsed.toString();
-  } catch {
-    return null;
-  }
+  return hostVariantPairKey(url, origin);
 }
+
+export type { PageHostEvidence };
 
 export function toDiscoverySource(source: CandidateSource): DiscoverySource {
   return source === "verification" ? "navigation" : source;
@@ -170,11 +168,28 @@ export function rankGscVisibilityPages(
   });
 }
 
+function strongerCandidateSource(left: CandidateSource, right: CandidateSource): CandidateSource {
+  const rank: Record<CandidateSource, number> = {
+    seed: 4,
+    verification: 3,
+    navigation: 2,
+    sitemap: 1,
+    internal: 0,
+  };
+
+  return (rank[left] ?? 0) >= (rank[right] ?? 0) ? left : right;
+}
+
 function addSelected(
   selected: SelectedCrawlUrl[],
   selectedKeys: Set<string>,
   item: SelectedCrawlUrl,
-  input: { limit: number; origin?: string; hostname?: string },
+  input: {
+    limit: number;
+    origin?: string;
+    hostname?: string;
+    keyFor: (url: string) => string | null;
+  },
 ): boolean {
   if (selected.length >= input.limit) {
     return false;
@@ -184,7 +199,7 @@ function addSelected(
     return false;
   }
 
-  const key = gscDedupeKey(item.url, input.origin);
+  const key = input.keyFor(item.url);
   if (!key || selectedKeys.has(key)) {
     return false;
   }
@@ -202,45 +217,82 @@ export function selectGscInformedCrawlUrls(input: {
   limit?: number;
   origin?: string;
   hostname?: string;
+  evidence?: PageHostEvidence[];
 }): SelectedCrawlUrl[] {
   const limit = input.limit ?? MAX_PAGES_PER_CRAWL;
   const origin = input.origin;
   const hostname = input.hostname;
+  const evidence = input.evidence ?? [];
   const gscPages = rankGscVisibilityPages(input.gscPages ?? [], { hostname, origin });
+  const urlsInPlay = [
+    input.seedUrl,
+    ...input.candidates.map((candidate) => candidate.url),
+    ...gscPages.map((page) => page.url),
+    ...(input.alreadyCrawledUrls ?? []),
+  ];
+  const keyFor = createSampleSelectionKey({ urls: urlsInPlay, evidence, origin });
   const selected: SelectedCrawlUrl[] = [];
   const selectedKeys = new Set<string>();
   const add = (item: SelectedCrawlUrl) =>
-    addSelected(selected, selectedKeys, item, { limit, origin, hostname });
+    addSelected(selected, selectedKeys, item, { limit, origin, hostname, keyFor });
 
   const candidateByKey = new Map<string, CrawlCandidate>();
   for (const candidate of input.candidates) {
-    const key = gscDedupeKey(candidate.url, origin);
-    if (!key || candidateByKey.has(key)) {
+    const key = keyFor(candidate.url);
+    if (!key) {
       continue;
     }
-    candidateByKey.set(key, candidate);
+
+    const existing = candidateByKey.get(key);
+    if (!existing) {
+      candidateByKey.set(key, candidate);
+      continue;
+    }
+
+    if (classifyWwwApexRelation(existing.url, candidate.url, evidence, origin) !== "equivalent") {
+      continue;
+    }
+
+    const preferredUrl = preferHostVariant([existing.url, candidate.url], {
+      seedUrl: input.seedUrl,
+      hostname,
+      evidence,
+      origin,
+    });
+    candidateByKey.set(key, {
+      url: preferredUrl,
+      source: strongerCandidateSource(existing.source, candidate.source),
+    });
   }
 
+  const preference = {
+    seedUrl: input.seedUrl,
+    hostname,
+    evidence,
+    origin,
+  };
+
   for (const url of input.alreadyCrawledUrls ?? []) {
-    const candidate = candidateByKey.get(gscDedupeKey(url, origin) ?? "");
+    const candidate = candidateByKey.get(keyFor(url) ?? "");
     add({
       url,
-      source: candidate?.source === "seed" || gscDedupeKey(url, origin) === gscDedupeKey(input.seedUrl, origin)
+      source: candidate?.source === "seed" || keyFor(url) === keyFor(input.seedUrl)
         ? "seed"
         : candidate?.source ?? "internal",
       reason:
-        candidate?.source === "seed" || gscDedupeKey(url, origin) === gscDedupeKey(input.seedUrl, origin)
+        candidate?.source === "seed" || keyFor(url) === keyFor(input.seedUrl)
           ? "seed"
           : reasonForCandidate(url, candidate?.source ?? "internal"),
     });
   }
 
   if (gscPages.length === 0) {
-    const allCandidates = input.candidates.map((candidate) => ({
+    const representativeCandidates = omitRedundantEquivalentHostVariants(input.candidates, preference);
+    const allCandidates = representativeCandidates.map((candidate) => ({
       url: candidate.url,
       source: toDiscoverySource(candidate.source),
     }));
-    const sourceByUrl = new Map(input.candidates.map((candidate) => [candidate.url, candidate.source]));
+    const sourceByUrl = new Map(representativeCandidates.map((candidate) => [candidate.url, candidate.source]));
 
     if (selected.length === 0) {
       return selectRepresentativeUrls(allCandidates, limit).map((url) => {
@@ -253,8 +305,8 @@ export function selectGscInformedCrawlUrls(input: {
       });
     }
 
-    const remainingCandidates = input.candidates.filter((candidate) => {
-      const key = gscDedupeKey(candidate.url, origin);
+    const remainingCandidates = representativeCandidates.filter((candidate) => {
+      const key = keyFor(candidate.url);
       return Boolean(key && !selectedKeys.has(key));
     });
     const remainingUrls = selectRepresentativeUrls(
@@ -277,7 +329,7 @@ export function selectGscInformedCrawlUrls(input: {
     return selected;
   }
 
-  const seedKey = gscDedupeKey(input.seedUrl, origin);
+  const seedKey = keyFor(input.seedUrl);
   if (seedKey && !selectedKeys.has(seedKey)) {
     add({
       url: input.seedUrl,
@@ -287,7 +339,7 @@ export function selectGscInformedCrawlUrls(input: {
   }
 
   const structuralCandidates = [...candidateByKey.values()].filter((candidate) => {
-    const key = gscDedupeKey(candidate.url, origin);
+    const key = keyFor(candidate.url);
     if (!key || selectedKeys.has(key) || classifyPagePath(candidate.url) === "utility") {
       return false;
     }
@@ -316,7 +368,7 @@ export function selectGscInformedCrawlUrls(input: {
       continue;
     }
 
-    const source = candidateByKey.get(gscDedupeKey(item.url, origin) ?? "")?.source ?? "internal";
+    const source = candidateByKey.get(keyFor(item.url) ?? "")?.source ?? "internal";
     if (
       add({
         url: item.url,
@@ -348,8 +400,8 @@ export function selectGscInformedCrawlUrls(input: {
   const leftoverCandidates: Array<{ url: string; source: DiscoverySource }> = [];
   const leftoverSeen = new Set<string>();
 
-  for (const candidate of input.candidates) {
-    const key = gscDedupeKey(candidate.url, origin);
+  for (const candidate of candidateByKey.values()) {
+    const key = keyFor(candidate.url);
     if (!key || selectedKeys.has(key) || leftoverSeen.has(key)) {
       continue;
     }
@@ -361,7 +413,7 @@ export function selectGscInformedCrawlUrls(input: {
   }
 
   for (const page of gscPages) {
-    const key = gscDedupeKey(page.url, origin);
+    const key = keyFor(page.url);
     if (!key || selectedKeys.has(key) || leftoverSeen.has(key)) {
       continue;
     }
@@ -416,10 +468,21 @@ export function assignGscInformedQueuePriorities(input: {
   items: Array<{ id: string; url: string; status: string; priority: number }>;
   selected: SelectedCrawlUrl[];
   origin?: string;
+  evidence?: PageHostEvidence[];
 }): Array<{ id: string; priority: number }> {
+  const evidence = input.evidence ?? [];
+  const urlsInPlay = [
+    ...input.items.map((item) => item.url),
+    ...input.selected.map((item) => item.url),
+  ];
+  const keyFor = createSampleSelectionKey({
+    urls: urlsInPlay,
+    evidence,
+    origin: input.origin,
+  });
   const selectedByKey = new Map<string, SelectedCrawlUrl>();
   for (const item of input.selected) {
-    const key = gscDedupeKey(item.url, input.origin);
+    const key = keyFor(item.url);
     if (key) {
       selectedByKey.set(key, item);
     }
@@ -427,8 +490,8 @@ export function assignGscInformedQueuePriorities(input: {
 
   const gscSelected = input.selected.filter((item) => item.reason === "gsc_visibility");
   const otherSelected = input.selected.filter((item) => item.reason !== "gsc_visibility");
-  const gscIndex = new Map(gscSelected.map((item, index) => [gscDedupeKey(item.url, input.origin), index]));
-  const otherIndex = new Map(otherSelected.map((item, index) => [gscDedupeKey(item.url, input.origin), index]));
+  const gscIndex = new Map(gscSelected.map((item, index) => [keyFor(item.url), index]));
+  const otherIndex = new Map(otherSelected.map((item, index) => [keyFor(item.url), index]));
 
   const updates: Array<{ id: string; priority: number }> = [];
 
@@ -437,9 +500,21 @@ export function assignGscInformedQueuePriorities(input: {
       continue;
     }
 
-    const key = gscDedupeKey(item.url, input.origin);
+    const key = keyFor(item.url);
     const selected = key ? selectedByKey.get(key) : undefined;
     if (!selected || !key) {
+      if (item.priority !== UNSELECTED_QUEUE_PRIORITY) {
+        updates.push({ id: item.id, priority: UNSELECTED_QUEUE_PRIORITY });
+      }
+      continue;
+    }
+
+    const sameSelectedUrl =
+      normalizeCrawlUrl(item.url, input.origin) === normalizeCrawlUrl(selected.url, input.origin);
+    if (
+      !sameSelectedUrl &&
+      classifyWwwApexRelation(item.url, selected.url, evidence, input.origin) === "equivalent"
+    ) {
       if (item.priority !== UNSELECTED_QUEUE_PRIORITY) {
         updates.push({ id: item.id, priority: UNSELECTED_QUEUE_PRIORITY });
       }

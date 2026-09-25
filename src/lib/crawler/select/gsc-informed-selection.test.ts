@@ -347,13 +347,14 @@ describe("GSC-informed bounded crawl selection", () => {
     const visibility = readFileSync(path.join(__dirname, "gsc-visibility.ts"), "utf8");
     const startCrawl = readFileSync(path.join(__dirname, "../start-crawl.ts"), "utf8");
     const processRun = readFileSync(path.join(__dirname, "../worker/process-run.ts"), "utf8");
+    const hostVariant = readFileSync(path.join(__dirname, "host-variant-equivalence.ts"), "utf8");
     const decisionsCandidates = readFileSync(
       path.join(__dirname, "../../decisions/candidates.ts"),
       "utf8",
     );
     const decisionsScore = readFileSync(path.join(__dirname, "../../decisions/score.ts"), "utf8");
 
-    for (const contents of [source, visibility, startCrawl, processRun]) {
+    for (const contents of [source, visibility, startCrawl, processRun, hostVariant]) {
       expect(contents).not.toMatch(/from \"@\/lib\/decisions/);
       expect(contents).not.toMatch(/openai|OpenAI/);
     }
@@ -417,3 +418,469 @@ describe("GSC-informed bounded crawl selection", () => {
     `);
   });
 });
+
+const CA_HASH = "0009023f393ebb8066ee500c26f237662a204fd10d7da26dd7556c8691afa277";
+
+const dbhobbyCaEvidence = [
+  {
+    requestedUrl: "https://www.dbhobby.com/ca",
+    finalUrl: "https://www.dbhobby.com/ca",
+    canonical: "https://www.dbhobby.com/ca/pintura-en-seda",
+    contentHash: CA_HASH,
+    redirectChain: [],
+    statusCode: 200,
+  },
+  {
+    requestedUrl: "https://dbhobby.com/ca",
+    finalUrl: "https://dbhobby.com/ca",
+    canonical: "https://dbhobby.com/ca/pintura-en-seda",
+    contentHash: CA_HASH,
+    redirectChain: [],
+    statusCode: 200,
+  },
+  {
+    requestedUrl: "https://dbhobby.com/",
+    finalUrl: "https://dbhobby.com/",
+    canonical: "https://dbhobby.com/ca/pintura-en-seda",
+    contentHash: CA_HASH,
+    redirectChain: [],
+    statusCode: 200,
+  },
+];
+
+const latestDbhobbyCandidates: CrawlCandidate[] = [
+  { url: "https://dbhobby.com/", source: "seed" },
+  { url: "https://www.dbhobby.com/ca", source: "navigation" },
+  { url: "https://www.dbhobby.com/es", source: "navigation" },
+  { url: "https://www.dbhobby.com/ca/darwi-pintura-textil", source: "navigation" },
+  { url: "https://www.dbhobby.com/en", source: "navigation" },
+  { url: "https://www.dbhobby.com/en/node/64", source: "navigation" },
+  { url: "https://www.dbhobby.com/es/pintura-en-seda", source: "navigation" },
+  { url: "https://dbhobby.com/ca", source: "internal" },
+  { url: "https://dbhobby.com/es/pintura-en-seda", source: "internal" },
+  { url: "https://dbhobby.com/en/node/64", source: "internal" },
+  { url: "https://dbhobby.com/ca/darwi-pintura-textil", source: "internal" },
+];
+
+const latestDbhobbyGsc: GscVisibilityPage[] = [
+  { url: "https://www.dbhobby.com/es/pintura-seda/set-de-cianotipo", impressions: 3, clicks: 0 },
+  { url: "https://dbhobby.com/es/gutta-para-seda", impressions: 2, clicks: 0 },
+  { url: "https://dbhobby.com/es/pintura-seda/fijacion-del-color-con-vapor", impressions: 1, clicks: 0 },
+];
+
+type SimulatedQueueItem = {
+  id: string;
+  url: string;
+  status: string;
+  priority: number;
+  depth: number;
+  createdAt: string;
+};
+
+const latestDbhobbyQueue: SimulatedQueueItem[] = [
+  { id: "seed", url: "https://dbhobby.com/", status: "done", priority: 100, depth: 0, createdAt: "2026-09-24T22:06:30.715Z" },
+  { id: "www-ca", url: "https://www.dbhobby.com/ca", status: "pending", priority: 85, depth: 0, createdAt: "2026-09-24T22:06:31.587Z" },
+  { id: "apex-ca", url: "https://dbhobby.com/ca", status: "pending", priority: 85, depth: 1, createdAt: "2026-09-24T22:06:40.416Z" },
+  { id: "en", url: "https://www.dbhobby.com/en", status: "pending", priority: 85, depth: 0, createdAt: "2026-09-24T22:06:32.077Z" },
+  { id: "es", url: "https://www.dbhobby.com/es", status: "pending", priority: 85, depth: 0, createdAt: "2026-09-24T22:06:31.747Z" },
+  { id: "cianotipo", url: "https://www.dbhobby.com/es/pintura-seda/set-de-cianotipo", status: "pending", priority: GSC_QUEUE_PRIORITY, depth: 0, createdAt: "2026-09-24T22:06:33.131Z" },
+  { id: "gutta", url: "https://dbhobby.com/es/gutta-para-seda", status: "pending", priority: GSC_QUEUE_PRIORITY, depth: 0, createdAt: "2026-09-24T22:06:33.477Z" },
+  { id: "fijacion", url: "https://dbhobby.com/es/pintura-seda/fijacion-del-color-con-vapor", status: "pending", priority: GSC_QUEUE_PRIORITY, depth: 0, createdAt: "2026-09-24T22:06:33.806Z" },
+  { id: "darwi-www", url: "https://www.dbhobby.com/ca/darwi-pintura-textil", status: "pending", priority: 48, depth: 0, createdAt: "2026-09-24T22:06:31.091Z" },
+  { id: "node-www", url: "https://www.dbhobby.com/en/node/64", status: "pending", priority: 48, depth: 0, createdAt: "2026-09-24T22:06:32.218Z" },
+  { id: "pintura-www", url: "https://www.dbhobby.com/es/pintura-en-seda", status: "pending", priority: 48, depth: 0, createdAt: "2026-09-24T22:06:32.969Z" },
+  { id: "pintura-apex", url: "https://dbhobby.com/es/pintura-en-seda", status: "pending", priority: 48, depth: 1, createdAt: "2026-09-24T22:06:39.895Z" },
+  { id: "node-apex", url: "https://dbhobby.com/en/node/64", status: "pending", priority: 48, depth: 1, createdAt: "2026-09-24T22:06:40.020Z" },
+  { id: "darwi-apex", url: "https://dbhobby.com/ca/darwi-pintura-textil", status: "pending", priority: 48, depth: 1, createdAt: "2026-09-24T22:06:41.175Z" },
+];
+
+function simulateFetchedUrls(evidence: typeof dbhobbyCaEvidence | []): string[] {
+  const selected = selectGscInformedCrawlUrls({
+    seedUrl: DBHOBBY_SEED,
+    candidates: latestDbhobbyCandidates,
+    gscPages: latestDbhobbyGsc,
+    alreadyCrawledUrls: ["https://dbhobby.com/"],
+    hostname: "dbhobby.com",
+    origin: "https://dbhobby.com",
+    evidence,
+  });
+  const updates = assignGscInformedQueuePriorities({
+    items: latestDbhobbyQueue,
+    selected,
+    origin: "https://dbhobby.com",
+    evidence,
+  });
+  const priorityById = new Map(latestDbhobbyQueue.map((item) => [item.id, item.priority]));
+  for (const update of updates) {
+    priorityById.set(update.id, update.priority);
+  }
+
+  const fetched = ["https://dbhobby.com/"];
+  const remaining = latestDbhobbyQueue
+    .filter((item) => item.status === "pending")
+    .map((item) => ({ ...item, priority: priorityById.get(item.id) ?? item.priority }));
+
+  remaining.sort((left, right) => {
+    if (right.priority !== left.priority) {
+      return right.priority - left.priority;
+    }
+    if (left.depth !== right.depth) {
+      return left.depth - right.depth;
+    }
+    return left.createdAt.localeCompare(right.createdAt);
+  });
+
+  for (const item of remaining) {
+    if (fetched.length >= MAX_PAGES_PER_CRAWL) {
+      break;
+    }
+    if (item.priority <= UNSELECTED_QUEUE_PRIORITY) {
+      continue;
+    }
+    fetched.push(item.url);
+  }
+
+  return fetched;
+}
+
+describe("evidence-backed www/apex sample dedupe in GSC-informed selection", () => {
+  it("uses one sample slot for www/apex same path with the same prior content hash", () => {
+    const selected = selectGscInformedCrawlUrls({
+      seedUrl: DBHOBBY_SEED,
+      candidates: latestDbhobbyCandidates,
+      gscPages: latestDbhobbyGsc,
+      hostname: "dbhobby.com",
+      evidence: dbhobbyCaEvidence,
+    });
+    const caUrls = urlsOf(selected).filter((url) => url.endsWith("/ca"));
+
+    expect(caUrls).toEqual(["https://dbhobby.com/ca"]);
+    expect(selected).toHaveLength(10);
+  });
+
+  it("uses one sample slot when both variants share a canonical target", () => {
+    const selected = selectGscInformedCrawlUrls({
+      seedUrl: "https://example.com/",
+      candidates: [
+        { url: "https://example.com/", source: "seed" },
+        { url: "https://www.example.com/about", source: "navigation" },
+        { url: "https://example.com/about", source: "navigation" },
+        { url: "https://example.com/es", source: "navigation" },
+      ],
+      gscPages: [{ url: "https://example.com/visible", impressions: 20, clicks: 1 }],
+      hostname: "example.com",
+      evidence: [
+        {
+          requestedUrl: "https://www.example.com/about",
+          finalUrl: "https://www.example.com/about",
+          canonical: "https://example.com/about",
+          contentHash: null,
+          redirectChain: [],
+          statusCode: 200,
+        },
+        {
+          requestedUrl: "https://example.com/about",
+          finalUrl: "https://example.com/about",
+          canonical: "https://example.com/about",
+          contentHash: null,
+          redirectChain: [],
+          statusCode: 200,
+        },
+      ],
+    });
+
+    expect(urlsOf(selected).filter((url) => url.includes("/about"))).toEqual(["https://example.com/about"]);
+  });
+
+  it("uses one sample slot when one variant redirects to the other", () => {
+    const selected = selectGscInformedCrawlUrls({
+      seedUrl: "https://ekoiq.com/",
+      candidates: [
+        { url: "https://ekoiq.com/", source: "seed" },
+        { url: "https://www.ekoiq.com/", source: "navigation" },
+        { url: "https://www.ekoiq.com/dergi", source: "navigation" },
+      ],
+      gscPages: [{ url: "https://www.ekoiq.com/dergi", impressions: 80, clicks: 4 }],
+      hostname: "ekoiq.com",
+      evidence: [
+        {
+          requestedUrl: "https://ekoiq.com/",
+          finalUrl: "https://www.ekoiq.com/",
+          canonical: "https://www.ekoiq.com/",
+          contentHash: null,
+          redirectChain: [{ url: "https://ekoiq.com/" }],
+          statusCode: 200,
+        },
+      ],
+    });
+
+    expect(urlsOf(selected).filter((url) => url === "https://ekoiq.com/" || url === "https://www.ekoiq.com/")).toEqual([
+      "https://ekoiq.com/",
+    ]);
+  });
+
+  it("keeps both www/apex variants eligible when evidence conflicts", () => {
+    const selected = selectGscInformedCrawlUrls({
+      seedUrl: "https://example.com/",
+      candidates: [
+        { url: "https://example.com/", source: "seed" },
+        { url: "https://www.example.com/ca", source: "navigation" },
+        { url: "https://example.com/ca", source: "navigation" },
+        { url: "https://example.com/en", source: "navigation" },
+      ],
+      gscPages: [{ url: "https://example.com/visible", impressions: 40, clicks: 2 }],
+      hostname: "example.com",
+      evidence: [
+        {
+          requestedUrl: "https://www.example.com/ca",
+          finalUrl: "https://www.example.com/ca",
+          canonical: null,
+          contentHash: "hash-www",
+          redirectChain: [],
+          statusCode: 200,
+        },
+        {
+          requestedUrl: "https://example.com/ca",
+          finalUrl: "https://example.com/ca",
+          canonical: null,
+          contentHash: "hash-apex",
+          redirectChain: [],
+          statusCode: 200,
+        },
+      ],
+    });
+
+    expect(urlsOf(selected)).toContain("https://www.example.com/ca");
+    expect(urlsOf(selected)).toContain("https://example.com/ca");
+  });
+
+  it("preserves current www/apex fetch assignment when there is no prior evidence", () => {
+    const selected = selectGscInformedCrawlUrls({
+      seedUrl: DBHOBBY_SEED,
+      candidates: latestDbhobbyCandidates,
+      gscPages: latestDbhobbyGsc,
+      hostname: "dbhobby.com",
+    });
+    const updates = assignGscInformedQueuePriorities({
+      items: latestDbhobbyQueue,
+      selected,
+    });
+    const priorityById = new Map(updates.map((item) => [item.id, item.priority]));
+
+    expect(priorityById.get("www-ca")).toBeGreaterThan(UNSELECTED_QUEUE_PRIORITY);
+    expect(priorityById.get("apex-ca")).toBeGreaterThan(UNSELECTED_QUEUE_PRIORITY);
+    expect(priorityById.get("www-ca")).toBe(priorityById.get("apex-ca"));
+  });
+
+  it("prefers the seed hostname and demotes the equivalent host variant to priority 1", () => {
+    const selected = selectGscInformedCrawlUrls({
+      seedUrl: DBHOBBY_SEED,
+      candidates: latestDbhobbyCandidates,
+      gscPages: latestDbhobbyGsc,
+      hostname: "dbhobby.com",
+      evidence: dbhobbyCaEvidence,
+    });
+    const updates = assignGscInformedQueuePriorities({
+      items: latestDbhobbyQueue,
+      selected,
+      evidence: dbhobbyCaEvidence,
+    });
+    const priorityById = new Map(updates.map((item) => [item.id, item.priority]));
+
+    expect(urlsOf(selected)).toContain("https://dbhobby.com/ca");
+    expect(urlsOf(selected)).not.toContain("https://www.dbhobby.com/ca");
+    expect(priorityById.get("apex-ca")).toBeGreaterThan(UNSELECTED_QUEUE_PRIORITY);
+    expect(priorityById.get("www-ca")).toBe(UNSELECTED_QUEUE_PRIORITY);
+  });
+
+  it("keeps exact GSC URL provenance while collapsing an equivalent host variant", () => {
+    const selected = selectGscInformedCrawlUrls({
+      seedUrl: "https://example.com/",
+      candidates: [
+        { url: "https://example.com/", source: "seed" },
+        { url: "https://example.com/es/gutta-para-seda", source: "navigation" },
+      ],
+      gscPages: [{ url: "https://www.example.com/es/gutta-para-seda", impressions: 96, clicks: 3 }],
+      hostname: "example.com",
+      evidence: [
+        {
+          requestedUrl: "https://www.example.com/es/gutta-para-seda",
+          finalUrl: "https://www.example.com/es/gutta-para-seda",
+          canonical: "https://www.example.com/es/gutta-para-seda",
+          contentHash: "same",
+          redirectChain: [],
+          statusCode: 200,
+        },
+        {
+          requestedUrl: "https://example.com/es/gutta-para-seda",
+          finalUrl: "https://example.com/es/gutta-para-seda",
+          canonical: "https://www.example.com/es/gutta-para-seda",
+          contentHash: "same",
+          redirectChain: [],
+          statusCode: 200,
+        },
+      ],
+    });
+    const gutta = selected.filter((item) => item.url.includes("gutta-para-seda"));
+
+    expect(gutta).toHaveLength(1);
+    expect(gutta[0]?.url).toBe("https://www.example.com/es/gutta-para-seda");
+    expect(gutta[0]?.reason).toBe("gsc_visibility");
+  });
+
+  it("keeps the GSC reserve capped at 3, structural reserve intact, max_pages at 10, and utility penalties unchanged", () => {
+    const selected = selectGscInformedCrawlUrls({
+      seedUrl: DBHOBBY_SEED,
+      candidates: [
+        ...latestDbhobbyCandidates,
+        { url: "https://www.dbhobby.com/es/nosotros", source: "sitemap" },
+        { url: "https://www.dbhobby.com/login", source: "navigation" },
+        { url: "https://www.dbhobby.com/cart", source: "navigation" },
+      ],
+      gscPages: [
+        ...latestDbhobbyGsc,
+        { url: "https://dbhobby.com/es/extra-gsc-1", impressions: 10, clicks: 1 },
+        { url: "https://dbhobby.com/es/extra-gsc-2", impressions: 9, clicks: 1 },
+      ],
+      hostname: "dbhobby.com",
+      evidence: dbhobbyCaEvidence,
+    });
+
+    expect(selected).toHaveLength(MAX_PAGES_PER_CRAWL);
+    expect(MAX_PAGES_PER_CRAWL).toBe(10);
+    expect(selected.filter((item) => item.reason === "gsc_visibility")).toHaveLength(GSC_RESERVE_SLOTS);
+    expect(
+      selected.filter((item) =>
+        ["seed", "homepage", "identity", "locale_home", "category_service"].includes(item.reason),
+      ).length,
+    ).toBeGreaterThanOrEqual(STRUCTURAL_RESERVE_SLOTS - 1);
+    expect(urlsOf(selected)).not.toContain("https://www.dbhobby.com/login");
+    expect(urlsOf(selected)).not.toContain("https://www.dbhobby.com/cart");
+  });
+
+  it("DBHobby before/after: frees the duplicate /ca slot for the next unique candidate", () => {
+    const before = simulateFetchedUrls([]);
+    const after = simulateFetchedUrls(dbhobbyCaEvidence);
+
+    expect(before).toEqual([
+      "https://dbhobby.com/",
+      "https://www.dbhobby.com/ca",
+      "https://dbhobby.com/ca",
+      "https://www.dbhobby.com/en",
+      "https://www.dbhobby.com/es",
+      "https://www.dbhobby.com/es/pintura-seda/set-de-cianotipo",
+      "https://dbhobby.com/es/gutta-para-seda",
+      "https://dbhobby.com/es/pintura-seda/fijacion-del-color-con-vapor",
+      "https://www.dbhobby.com/ca/darwi-pintura-textil",
+      "https://www.dbhobby.com/en/node/64",
+    ]);
+    expect(after).toEqual([
+      "https://dbhobby.com/",
+      "https://dbhobby.com/ca",
+      "https://www.dbhobby.com/en",
+      "https://www.dbhobby.com/es",
+      "https://www.dbhobby.com/es/pintura-seda/set-de-cianotipo",
+      "https://dbhobby.com/es/gutta-para-seda",
+      "https://dbhobby.com/es/pintura-seda/fijacion-del-color-con-vapor",
+      "https://www.dbhobby.com/ca/darwi-pintura-textil",
+      "https://www.dbhobby.com/en/node/64",
+      "https://www.dbhobby.com/es/pintura-en-seda",
+    ]);
+    expect(before).toContain("https://www.dbhobby.com/ca");
+    expect(before).toContain("https://dbhobby.com/ca");
+    expect(after).toContain("https://dbhobby.com/ca");
+    expect(after).not.toContain("https://www.dbhobby.com/ca");
+    expect(after).toContain("https://www.dbhobby.com/es/pintura-en-seda");
+    expect(after).toHaveLength(10);
+  });
+
+  it("foundfy.me stays unchanged when there is no apex/www pair evidence", () => {
+    const withoutEvidence = selectGscInformedCrawlUrls({
+      seedUrl: "https://www.foundfy.me/",
+      candidates: [
+        { url: "https://www.foundfy.me/", source: "seed" },
+        { url: "https://www.foundfy.me/privacy", source: "sitemap" },
+      ],
+      gscPages: [{ url: "https://www.foundfy.me/", impressions: 0, clicks: 0 }],
+      hostname: "foundfy.me",
+    });
+    const withWwwOnlyEvidence = selectGscInformedCrawlUrls({
+      seedUrl: "https://www.foundfy.me/",
+      candidates: [
+        { url: "https://www.foundfy.me/", source: "seed" },
+        { url: "https://www.foundfy.me/privacy", source: "sitemap" },
+      ],
+      gscPages: [{ url: "https://www.foundfy.me/", impressions: 0, clicks: 0 }],
+      hostname: "foundfy.me",
+      evidence: [
+        {
+          requestedUrl: "https://www.foundfy.me/",
+          finalUrl: "https://www.foundfy.me/",
+          canonical: "https://www.foundfy.me/",
+          contentHash: "3c870ad5e246de8a",
+          redirectChain: [],
+          statusCode: 200,
+        },
+        {
+          requestedUrl: "https://www.foundfy.me/privacy",
+          finalUrl: "https://www.foundfy.me/privacy",
+          canonical: "https://www.foundfy.me/privacy",
+          contentHash: "1486e5afe5c495aa",
+          redirectChain: [],
+          statusCode: 200,
+        },
+      ],
+    });
+
+    expect(urlsOf(withoutEvidence)).toEqual(urlsOf(withWwwOnlyEvidence));
+    expect(urlsOf(withWwwOnlyEvidence)).toEqual([
+      "https://www.foundfy.me/",
+      "https://www.foundfy.me/privacy",
+    ]);
+  });
+
+  it("EkoIQ does not collapse distinct paths just because hashes are missing", () => {
+    const ekoiqCandidates: CrawlCandidate[] = [
+      { url: "https://ekoiq.com/", source: "seed" },
+      { url: "https://www.ekoiq.com/dergi", source: "navigation" },
+      { url: "https://www.ekoiq.com/hakkimizda", source: "navigation" },
+    ];
+    const evidence = [
+      {
+        requestedUrl: "https://ekoiq.com/",
+        finalUrl: "https://www.ekoiq.com/",
+        canonical: "https://www.ekoiq.com/",
+        contentHash: null,
+        redirectChain: [{ url: "https://ekoiq.com/" }],
+        statusCode: 200,
+      },
+      {
+        requestedUrl: "https://www.ekoiq.com/dergi",
+        finalUrl: "https://www.ekoiq.com/dergi/",
+        canonical: "https://www.ekoiq.com/dergi",
+        contentHash: null,
+        redirectChain: [{ url: "https://www.ekoiq.com/dergi" }],
+        statusCode: 200,
+      },
+    ];
+    const withoutEvidence = selectGscInformedCrawlUrls({
+      seedUrl: "https://ekoiq.com/",
+      candidates: ekoiqCandidates,
+      hostname: "ekoiq.com",
+    });
+    const withEvidence = selectGscInformedCrawlUrls({
+      seedUrl: "https://ekoiq.com/",
+      candidates: ekoiqCandidates,
+      hostname: "ekoiq.com",
+      evidence,
+    });
+
+    expect(urlsOf(withEvidence)).toEqual(urlsOf(withoutEvidence));
+    expect(urlsOf(withEvidence)).toEqual([
+      "https://ekoiq.com/",
+      "https://www.ekoiq.com/hakkimizda",
+      "https://www.ekoiq.com/dergi",
+    ]);
+  });
+});
+
