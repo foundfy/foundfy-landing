@@ -417,6 +417,29 @@ async function enqueueSitemapDiscoveries(
   }
 }
 
+async function loadHostVariantEvidenceOrEmpty(
+  websiteId: string,
+  crawlRunId: string,
+  origin: string,
+): Promise<PageHostEvidence[]> {
+  try {
+    return collapseLatestPageEvidence(
+      await listPageHostVariantEvidence(websiteId, { excludeCrawlRunId: crawlRunId }),
+      origin,
+    );
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Host-variant evidence lookup failed.";
+    console.error(
+      "[Crawl] Host-variant evidence unavailable; continuing without www/apex sample dedupe:",
+      message,
+    );
+    return [];
+  }
+}
+
 export async function processCrawlRun(preferredRunId?: string): Promise<string | null> {
   const claimed = await claimNextQueuedRun(preferredRunId);
   if (!claimed) {
@@ -437,10 +460,7 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
   const discoveredUrls = new Set<string>();
   const finalUrlDedup = new FinalUrlDeduplicator();
   let selectionLocked = false;
-  const priorEvidence = collapseLatestPageEvidence(
-    await listPageHostVariantEvidence(run.websiteId, { excludeCrawlRunId: run.id }),
-    origin,
-  );
+  const priorEvidence = await loadHostVariantEvidenceOrEmpty(run.websiteId, run.id, origin);
 
   const trackDiscovery = async (
     url: string,

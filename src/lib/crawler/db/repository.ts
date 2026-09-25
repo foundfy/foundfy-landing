@@ -575,6 +575,10 @@ function asRedirectChain(value: unknown): Array<{ url: string }> {
   });
 }
 
+export const PAGE_HOST_VARIANT_EVIDENCE_SELECT =
+  "requested_url, final_url, canonical, content_hash, redirect_chain, status_code";
+export const PAGE_HOST_VARIANT_EVIDENCE_ORDER_COLUMN = "fetched_at";
+
 export async function listPageHostVariantEvidence(
   websiteId: string,
   options: { excludeCrawlRunId?: string; limit?: number } = {},
@@ -583,9 +587,9 @@ export async function listPageHostVariantEvidence(
   const limit = options.limit ?? 1000;
   let query = supabase
     .from("pages")
-    .select("requested_url, final_url, canonical, content_hash, redirect_chain, status_code")
+    .select(PAGE_HOST_VARIANT_EVIDENCE_SELECT)
     .eq("website_id", websiteId)
-    .order("created_at", { ascending: false })
+    .order(PAGE_HOST_VARIANT_EVIDENCE_ORDER_COLUMN, { ascending: false })
     .limit(limit);
 
   if (options.excludeCrawlRunId) {

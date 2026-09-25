@@ -18,6 +18,7 @@ const hasSitemapArtifactsMock = vi.fn();
 const listQueueUrlsMock = vi.fn();
 const listQueueItemsMock = vi.fn();
 const updateQueueItemPriorityMock = vi.fn();
+const listPageHostVariantEvidenceMock = vi.fn();
 const ssrfSafeFetchMock = vi.fn();
 const generateObservationsForCrawlRunMock = vi.fn();
 
@@ -45,7 +46,7 @@ vi.mock("../db/repository", () => ({
   listQueueUrls: (...args: unknown[]) => listQueueUrlsMock(...args),
   listQueueItems: (...args: unknown[]) => listQueueItemsMock(...args),
   updateQueueItemPriority: (...args: unknown[]) => updateQueueItemPriorityMock(...args),
-  listPageHostVariantEvidence: async () => [],
+  listPageHostVariantEvidence: (...args: unknown[]) => listPageHostVariantEvidenceMock(...args),
   toActiveCrawlRun: (row: {
     id: string;
     website_id: string;
@@ -123,6 +124,7 @@ describe("processCrawlRun GSC-informed selection", () => {
     listQueueUrlsMock.mockResolvedValue([]);
     updateQueueItemPriorityMock.mockResolvedValue(undefined);
     listQueueItemsMock.mockResolvedValue([]);
+    listPageHostVariantEvidenceMock.mockResolvedValue([]);
     ssrfSafeFetchMock.mockImplementation(async (url: string) => ({
       requestedUrl: url,
       finalUrl: url,
@@ -265,5 +267,135 @@ describe("processCrawlRun GSC-informed selection", () => {
     );
     expect(priorityById.get("queue-zzz")).toBe(UNSELECTED_QUEUE_PRIORITY);
     expect(priorityById.get("queue-gsc")).not.toBe(UNSELECTED_QUEUE_PRIORITY);
+  });
+
+  it("continues the crawl when host-variant evidence lookup fails", async () => {
+    listPageHostVariantEvidenceMock.mockRejectedValue(
+      new Error("column pages.created_at does not exist"),
+    );
+    let pagesCrawled = 0;
+    getCrawlRunSummaryMock.mockImplementation(async () => ({
+      id: claimedRun.id,
+      status: "running",
+      hostname: "example.com",
+      seedUrl: claimedRun.seed_url,
+      maxPages: 10,
+      pagesCrawled,
+      pagesDiscovered: 1,
+      errorMessage: null,
+      startedAt: claimedRun.started_at,
+      completedAt: null,
+      createdAt: claimedRun.created_at,
+    }));
+    incrementCrawlProgressMock.mockImplementation(async (_id: string, crawledDelta: number) => {
+      pagesCrawled += crawledDelta;
+    });
+    getNextQueueItemMock
+      .mockResolvedValueOnce({
+        id: "queue-seed",
+        url: "https://example.com/",
+        depth: 0,
+        priority: 100,
+        status: "pending",
+      })
+      .mockResolvedValue(null);
+
+    await processCrawlRun("run-gsc");
+
+    expect(markCrawlRunFailedMock).not.toHaveBeenCalled();
+    expect(saveSiteArtifactMock).toHaveBeenCalled();
+    expect(ssrfSafeFetchMock.mock.calls.some((call) => call[0] === "https://example.com/")).toBe(
+      true,
+    );
+    expect(saveParsedPageMock).toHaveBeenCalled();
+    expect(pagesCrawled).toBe(1);
+    expect(claimedRun.max_pages).toBe(10);
+  });
+
+  it("still applies GSC-informed selection after host-variant evidence lookup fails", async () => {
+    listPageHostVariantEvidenceMock.mockRejectedValue(
+      new Error("column pages.created_at does not exist"),
+    );
+    const queueItems = [
+      {
+        id: "queue-seed",
+        url: "https://example.com/",
+        depth: 0,
+        priority: 100,
+        status: "done",
+        createdAt: "2026-09-24T12:00:00.000Z",
+      },
+      {
+        id: "queue-gsc",
+        url: "https://example.com/hidden-product",
+        depth: 0,
+        priority: GSC_QUEUE_PRIORITY,
+        status: "pending",
+        createdAt: "2026-09-24T12:00:01.000Z",
+      },
+      {
+        id: "queue-about",
+        url: "https://example.com/about",
+        depth: 0,
+        priority: 99,
+        status: "pending",
+        createdAt: "2026-09-24T12:00:03.000Z",
+      },
+      ...Array.from({ length: 12 }, (_, index) => ({
+        id: `queue-blog-${index}`,
+        url: `https://example.com/blog/2020/old-article-${index}`,
+        depth: 0,
+        priority: 48,
+        status: "pending",
+        createdAt: `2026-09-24T12:00:1${index}.000Z`,
+      })),
+      {
+        id: "queue-zzz",
+        url: "https://example.com/blog/2020/zzz-unselected",
+        depth: 0,
+        priority: 48,
+        status: "pending",
+        createdAt: "2026-09-24T12:00:29.000Z",
+      },
+    ];
+    listQueueItemsMock.mockResolvedValue(queueItems);
+
+    let pagesCrawled = 1;
+    getCrawlRunSummaryMock.mockImplementation(async () => ({
+      id: claimedRun.id,
+      status: "running",
+      hostname: "example.com",
+      seedUrl: claimedRun.seed_url,
+      maxPages: 10,
+      pagesCrawled,
+      pagesDiscovered: 4,
+      errorMessage: null,
+      startedAt: claimedRun.started_at,
+      completedAt: null,
+      createdAt: claimedRun.created_at,
+    }));
+    incrementCrawlProgressMock.mockImplementation(async (_id: string, crawledDelta: number) => {
+      pagesCrawled += crawledDelta;
+    });
+    getNextQueueItemMock
+      .mockResolvedValueOnce({
+        id: "queue-seed",
+        url: "https://example.com/",
+        depth: 0,
+        priority: 100,
+        status: "pending",
+      })
+      .mockResolvedValue(null);
+
+    await processCrawlRun("run-gsc");
+
+    expect(markCrawlRunFailedMock).not.toHaveBeenCalled();
+    expect(updateQueueItemPriorityMock).toHaveBeenCalled();
+    const priorityById = new Map(
+      updateQueueItemPriorityMock.mock.calls.map((call) => [call[0], call[1]]),
+    );
+    expect(priorityById.get("queue-gsc")).not.toBe(UNSELECTED_QUEUE_PRIORITY);
+    expect(priorityById.get("queue-zzz")).toBe(UNSELECTED_QUEUE_PRIORITY);
+    expect(claimedRun.max_pages).toBe(10);
   });
 });
