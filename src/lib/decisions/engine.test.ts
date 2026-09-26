@@ -288,8 +288,227 @@ describe("Decision Engine v1 candidates", () => {
     expect(decisions).toHaveLength(1);
     expect(decisions[0].decisionType).toBe("multi_page_issue_with_visibility");
     expect(decisions[0].title).toContain("2 Google-visible pages");
+    expect(decisions[0].title).toContain("/a");
+    expect(decisions[0].explanation).toContain("/a");
     expect(decisions[0].evidenceRefs.filter((ref) => ref.kind === "observation")).toHaveLength(2);
     expect(decisions[0].evidenceRefs.filter((ref) => ref.kind === "gsc_evidence")).toHaveLength(2);
+  });
+
+  it("does not inspect unmatched utility pages such as login, account, cart, checkout, or legal URLs", () => {
+    const utilityUrls = [
+      "https://www.dbhobby.com/es/login",
+      "https://www.dbhobby.com/account",
+      "https://www.dbhobby.com/cart",
+      "https://www.dbhobby.com/checkout",
+      "https://www.dbhobby.com/es/aviso-legal",
+      "https://www.dbhobby.com/privacy",
+      "https://www.dbhobby.com/ca/login",
+    ];
+    const decisions = rank(
+      [
+        page({
+          id: "gsc-product",
+          pageUrl: "https://www.dbhobby.com/es/pintura-seda/set-de-cianotipo",
+          pageId: null,
+          impressions: 40,
+          clicks: 4,
+        }),
+        ...utilityUrls.map((pageUrl, index) =>
+          page({
+            id: `gsc-utility-${index}`,
+            pageUrl,
+            pageId: null,
+            impressions: 500 - index,
+            clicks: 40,
+          }),
+        ),
+      ],
+      [],
+    );
+
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0].decisionType).toBe("inspect_unanalyzed_page");
+    expect(decisions[0].pageUrl).toBe("https://www.dbhobby.com/es/pintura-seda/set-de-cianotipo");
+    expect(decisions.map((decision) => decision.pageUrl)).not.toEqual(
+      expect.arrayContaining(utilityUrls),
+    );
+  });
+
+  it("still creates Type A for a crawled utility page with Google demand and an issue", () => {
+    const decisions = rank(
+      [
+        page({
+          id: "gsc-login",
+          pageUrl: "https://www.dbhobby.com/es/login",
+          pageId: "page-login",
+          impressions: 83,
+          clicks: 10,
+        }),
+      ],
+      [
+        observation({
+          id: "obs-login",
+          pageId: "page-login",
+          pageUrl: "https://www.dbhobby.com/es/login",
+          ruleKey: "page_fundamentals.missing_title",
+        }),
+      ],
+    );
+
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0].decisionType).toBe("existing_demand_page_issue");
+    expect(decisions[0].pageUrl).toBe("https://www.dbhobby.com/es/login");
+  });
+
+  it("keeps two genuinely different duplicate-title groups as separate Type C actions", () => {
+    const decisions = rank(
+      [
+        page({
+          id: "gsc-home",
+          pageUrl: "https://dbhobby.com/",
+          pageId: "page-home",
+          impressions: 69,
+          clicks: 16,
+        }),
+        page({
+          id: "gsc-en",
+          pageUrl: "https://www.dbhobby.com/en",
+          pageId: "page-en",
+          impressions: 45,
+          clicks: 5,
+        }),
+        page({
+          id: "gsc-gutta",
+          pageUrl: "https://dbhobby.com/es/gutta-para-seda",
+          pageId: "page-gutta",
+          impressions: 96,
+          clicks: 3,
+        }),
+        page({
+          id: "gsc-ponge",
+          pageUrl: "https://www.dbhobby.com/es/seda-ponge",
+          pageId: "page-ponge",
+          impressions: 49,
+          clicks: 1,
+        }),
+      ],
+      [
+        observation({
+          id: "obs-home-title",
+          pageId: "page-home",
+          pageUrl: "https://dbhobby.com/",
+          ruleKey: "page_fundamentals.duplicate_title",
+          title: "Duplicate page title",
+          severity: "warning",
+          priorityLevel: "medium",
+          evidence: { title: "pintura sobre seda | dbhobby" },
+        }),
+        observation({
+          id: "obs-en-title",
+          pageId: "page-en",
+          pageUrl: "https://www.dbhobby.com/en",
+          ruleKey: "page_fundamentals.duplicate_title",
+          title: "Duplicate page title",
+          severity: "warning",
+          priorityLevel: "medium",
+          evidence: { title: "pintura sobre seda | dbhobby" },
+        }),
+        observation({
+          id: "obs-gutta-title",
+          pageId: "page-gutta",
+          pageUrl: "https://dbhobby.com/es/gutta-para-seda",
+          ruleKey: "page_fundamentals.duplicate_title",
+          title: "Duplicate page title",
+          severity: "warning",
+          priorityLevel: "medium",
+          evidence: { title: "dbhobby | pintura sobre seda" },
+        }),
+        observation({
+          id: "obs-ponge-title",
+          pageId: "page-ponge",
+          pageUrl: "https://www.dbhobby.com/es/seda-ponge",
+          ruleKey: "page_fundamentals.duplicate_title",
+          title: "Duplicate page title",
+          severity: "warning",
+          priorityLevel: "medium",
+          evidence: { title: "dbhobby | pintura sobre seda" },
+        }),
+      ],
+    );
+
+    const typeC = decisions.filter((decision) => decision.decisionType === "multi_page_issue_with_visibility");
+    expect(typeC).toHaveLength(2);
+    expect(typeC.map((decision) => decision.title).sort()).toEqual([
+      "Make duplicate titles unique on 2 Google-visible pages including /",
+      "Make duplicate titles unique on 2 Google-visible pages including /es/gutta-para-seda",
+    ]);
+    expect(new Set(typeC.map((decision) => decision.title)).size).toBe(2);
+  });
+
+  it("does not emit the same duplicate-title group twice", () => {
+    const decisions = rank(
+      [
+        page({
+          id: "gsc-a",
+          pageUrl: "https://www.dbhobby.com/a",
+          pageId: "page-a",
+          impressions: 200,
+          clicks: 10,
+        }),
+        page({
+          id: "gsc-b",
+          pageUrl: "https://www.dbhobby.com/b",
+          pageId: "page-b",
+          impressions: 180,
+          clicks: 8,
+        }),
+        page({
+          id: "gsc-c",
+          pageUrl: "https://www.dbhobby.com/c",
+          pageId: "page-c",
+          impressions: 160,
+          clicks: 6,
+        }),
+      ],
+      [
+        observation({
+          id: "obs-a",
+          pageId: "page-a",
+          pageUrl: "https://www.dbhobby.com/a",
+          ruleKey: "page_fundamentals.duplicate_title",
+          title: "Duplicate page title",
+          severity: "warning",
+          priorityLevel: "medium",
+          evidence: { title: "Shared title" },
+        }),
+        observation({
+          id: "obs-b",
+          pageId: "page-b",
+          pageUrl: "https://www.dbhobby.com/b",
+          ruleKey: "page_fundamentals.duplicate_title",
+          title: "Duplicate page title",
+          severity: "warning",
+          priorityLevel: "medium",
+          evidence: { title: "Shared title" },
+        }),
+        observation({
+          id: "obs-c",
+          pageId: "page-c",
+          pageUrl: "https://www.dbhobby.com/c",
+          ruleKey: "page_fundamentals.duplicate_title",
+          title: "Duplicate page title",
+          severity: "warning",
+          priorityLevel: "medium",
+          evidence: { title: "Shared title" },
+        }),
+      ],
+    );
+
+    const typeC = decisions.filter((decision) => decision.decisionType === "multi_page_issue_with_visibility");
+    expect(typeC).toHaveLength(1);
+    expect(typeC[0].title).toBe(
+      "Make duplicate titles unique on 3 Google-visible pages including /a",
+    );
   });
 
   it("keeps one decision per page when several issues exist on the same URL", () => {
