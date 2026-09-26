@@ -35,6 +35,46 @@ export function isRunningCrawlStale(
   return nowMs - startedMs >= POLL_RUNNING_STALE_MS;
 }
 
+/**
+ * Latest persisted worker activity: `pages.fetched_at` or site-artifact
+ * `fetched_at`. A timeout on one URL is not staleness if a recent page or
+ * robots/sitemap write exists.
+ */
+export function isRecentWorkerActivity(
+  lastActivityAt: string | null | undefined,
+  nowMs: number = Date.now(),
+): boolean {
+  if (!lastActivityAt) {
+    return false;
+  }
+
+  const activityMs = new Date(lastActivityAt).getTime();
+  if (Number.isNaN(activityMs)) {
+    return false;
+  }
+
+  return nowMs - activityMs < POLL_RUNNING_STALE_MS;
+}
+
+/**
+ * Reclaim a `running` crawl only when the claim itself is stale AND there has
+ * been no meaningful persisted progress inside the recovery window. This
+ * prevents a healthy worker whose `started_at` crossed 120s from being
+ * replaced mid-crawl (production run ec315f14).
+ */
+export function shouldRecoverRunningCrawl(input: {
+  startedAt: string | null;
+  lastActivityAt?: string | null;
+  nowMs?: number;
+}): boolean {
+  const nowMs = input.nowMs ?? Date.now();
+  if (!isRunningCrawlStale(input.startedAt, nowMs)) {
+    return false;
+  }
+
+  return !isRecentWorkerActivity(input.lastActivityAt, nowMs);
+}
+
 export function pollRunningStaleCutoffIso(nowMs: number = Date.now()): string {
   return new Date(nowMs - POLL_RUNNING_STALE_MS).toISOString();
 }

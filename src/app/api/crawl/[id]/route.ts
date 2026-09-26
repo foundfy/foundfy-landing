@@ -3,10 +3,11 @@ import {
   isUsableCompletedCrawl,
   normalizeCrawlStatusForApiResponse,
 } from "@/lib/crawler/crawl-usability";
-import { getCrawlRunSummary } from "@/lib/crawler/db/repository";
+import { getCrawlRunSummary, countPagesForCrawlRun } from "@/lib/crawler/db/repository";
 import { maybeRecoverStaleCrawlRun } from "@/lib/crawler/worker/recover-stale-run";
 import { processCrawlRun } from "@/lib/crawler/worker/process-run";
 import { scheduleExplanationEnrichmentIfNeeded } from "@/lib/ai-enrichment/scheduler";
+import { analyzedPageCountForCopy } from "@/lib/analysis/analyzed-page-count";
 import { loadCompletedCrawlResults } from "@/lib/findings/load-completed-results";
 
 export const runtime = "nodejs";
@@ -50,6 +51,31 @@ export async function GET(_request: Request, context: RouteContext) {
           console.error("[Crawl] Queued run recovery failed:", message);
         }
       });
+    }
+
+    if (summary.status === "completed") {
+      try {
+        const persistedPageCount = await countPagesForCrawlRun(id);
+        summary = {
+          ...summary,
+          pagesCrawled: analyzedPageCountForCopy({
+            pagesCrawled: summary.pagesCrawled,
+            maxPages: summary.maxPages,
+            persistedPageCount,
+          }),
+        };
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to count persisted pages.";
+        console.error("[Crawl] Completed page-count overlay failed:", message);
+        summary = {
+          ...summary,
+          pagesCrawled: analyzedPageCountForCopy({
+            pagesCrawled: summary.pagesCrawled,
+            maxPages: summary.maxPages,
+          }),
+        };
+      }
     }
 
     let completedFindings;

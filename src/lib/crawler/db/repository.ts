@@ -653,13 +653,74 @@ export async function countPagesForCrawlRun(crawlRunId: string): Promise<number>
   return count ?? 0;
 }
 
+function laterTimestamp(left: string | null | undefined, right: string | null | undefined): string | null {
+  if (!left) {
+    return right ?? null;
+  }
+  if (!right) {
+    return left;
+  }
+
+  return Date.parse(right) > Date.parse(left) ? right : left;
+}
+
+/**
+ * Latest meaningful worker activity for false-stale recovery: max of
+ * `pages.fetched_at` and `crawl_site_artifacts.fetched_at`.
+ */
+export async function getLatestCrawlActivityAt(crawlRunId: string): Promise<string | null> {
+  const supabase = getSupabaseAdmin();
+
+  const [pagesResult, artifactsResult] = await Promise.all([
+    supabase
+      .from("pages")
+      .select("fetched_at")
+      .eq("crawl_run_id", crawlRunId)
+      .order("fetched_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("crawl_site_artifacts")
+      .select("fetched_at")
+      .eq("crawl_run_id", crawlRunId)
+      .order("fetched_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  if (pagesResult.error) {
+    throw new Error(`Failed to load page activity: ${pagesResult.error.message}`);
+  }
+
+  if (artifactsResult.error) {
+    throw new Error(`Failed to load artifact activity: ${artifactsResult.error.message}`);
+  }
+
+  return laterTimestamp(pagesResult.data?.fetched_at, artifactsResult.data?.fetched_at);
+}
+
 /**
  * Reconcile counter drift when a page was persisted but never counted before
- * worker termination. Increments at most once per call when pages exceed the counter.
+ * worker termination. Increments at most once per call when pages exceed the
+ * counter, never past `max_pages`, and never without the active claim lease.
  */
-export async function reconcileOrphanedPageProgress(crawlRunId: string): Promise<boolean> {
+export async function reconcileOrphanedPageProgress(
+  crawlRunId: string,
+  options?: CrawlRunTerminalUpdateOptions,
+): Promise<boolean> {
   const summary = await getCrawlRunSummary(crawlRunId);
   if (!summary) {
+    return false;
+  }
+
+  if (
+    options?.expectedStartedAt !== undefined &&
+    summary.startedAt !== options.expectedStartedAt
+  ) {
+    return false;
+  }
+
+  if (summary.pagesCrawled >= summary.maxPages) {
     return false;
   }
 
@@ -668,15 +729,15 @@ export async function reconcileOrphanedPageProgress(crawlRunId: string): Promise
     return false;
   }
 
-  await incrementCrawlProgress(crawlRunId, 1, 0);
-  return true;
+  return incrementCrawlProgress(crawlRunId, 1, 0, options);
 }
 
 export async function incrementCrawlProgress(
   crawlRunId: string,
   pagesCrawledDelta: number,
   pagesDiscoveredDelta: number,
-): Promise<void> {
+  options?: CrawlRunTerminalUpdateOptions,
+): Promise<boolean> {
   const supabase = getSupabaseAdmin();
   const summary = await getCrawlRunSummary(crawlRunId);
 
@@ -684,17 +745,49 @@ export async function incrementCrawlProgress(
     throw new Error("Crawl run not found while updating progress.");
   }
 
-  const { error } = await supabase
+  if (
+    options?.expectedStartedAt !== undefined &&
+    summary.startedAt !== options.expectedStartedAt
+  ) {
+    return false;
+  }
+
+  if (summary.status !== "running") {
+    return false;
+  }
+
+  if (pagesCrawledDelta > 0 && summary.pagesCrawled >= summary.maxPages) {
+    return false;
+  }
+
+  const nextPagesCrawled =
+    pagesCrawledDelta > 0
+      ? Math.min(summary.pagesCrawled + pagesCrawledDelta, summary.maxPages)
+      : summary.pagesCrawled;
+
+  if (pagesCrawledDelta > 0 && nextPagesCrawled <= summary.pagesCrawled) {
+    return false;
+  }
+
+  let query = supabase
     .from("crawl_runs")
     .update({
-      pages_crawled: summary.pagesCrawled + pagesCrawledDelta,
-      pages_discovered: summary.pagesDiscovered + pagesDiscoveredDelta,
+      pages_crawled: nextPagesCrawled,
+      pages_discovered: Math.max(0, summary.pagesDiscovered + pagesDiscoveredDelta),
     })
-    .eq("id", crawlRunId);
+    .eq("id", crawlRunId)
+    .eq("status", "running")
+    .eq("pages_crawled", summary.pagesCrawled);
+
+  query = applyStartedAtGuard(query, options?.expectedStartedAt);
+
+  const { data, error } = await query.select("id").maybeSingle();
 
   if (error) {
     throw new Error(`Failed to update crawl progress: ${error.message}`);
   }
+
+  return Boolean(data);
 }
 
 export async function saveParsedPage(input: {

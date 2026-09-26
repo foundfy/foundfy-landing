@@ -28,6 +28,7 @@ import {
   updateQueueItemPriority,
   type ActiveCrawlRun,
 } from "../db/repository";
+import { CrawlLeaseLostError, isCurrentCrawlLease } from "./crawl-lease";
 import { generateObservationsForCrawlRun } from "@/lib/observations/db/repository";
 import { parseHtmlPage } from "../parse/page";
 import { SsrfValidationError, ssrfSafeFetch } from "../security/ssrf-fetch";
@@ -66,6 +67,7 @@ type QueueRow = {
 type CrawlWorkerContext = {
   run: ActiveCrawlRun;
   origin: string;
+  claimedStartedAt: string | null;
   robotsRules: RobotsRules;
   discoveredUrls: Set<string>;
   crawledRequestedUrls: string[];
@@ -74,6 +76,24 @@ type CrawlWorkerContext = {
   selectionLocked: boolean;
   trackDiscovery: (url: string, depth: number, priority: number) => Promise<void>;
 };
+
+async function assertCurrentLease(ctx: CrawlWorkerContext): Promise<void> {
+  const summary = await getCrawlRunSummary(ctx.run.id);
+  if (!isCurrentCrawlLease(summary, ctx.claimedStartedAt)) {
+    throw new CrawlLeaseLostError(ctx.run.id);
+  }
+}
+
+async function applyCappedPageProgress(ctx: CrawlWorkerContext): Promise<void> {
+  const applied = await incrementCrawlProgress(ctx.run.id, 1, 0, {
+    expectedStartedAt: ctx.claimedStartedAt,
+  });
+  if (applied !== false) {
+    return;
+  }
+
+  await assertCurrentLease(ctx);
+}
 
 async function fetchArtifact(url: string) {
   try {
@@ -149,15 +169,26 @@ async function discoverSiteMaps(
   return [...pageUrls];
 }
 
-async function syncDiscoveredCount(crawlRunId: string, discoveredCount: number) {
-  const summary = await getCrawlRunSummary(crawlRunId);
+async function syncDiscoveredCount(ctx: CrawlWorkerContext) {
+  const summary = await getCrawlRunSummary(ctx.run.id);
   if (!summary) {
     return;
   }
 
-  const delta = discoveredCount - summary.pagesDiscovered;
-  if (delta !== 0) {
-    await incrementCrawlProgress(crawlRunId, 0, delta);
+  if (!isCurrentCrawlLease(summary, ctx.claimedStartedAt)) {
+    throw new CrawlLeaseLostError(ctx.run.id);
+  }
+
+  const delta = ctx.discoveredUrls.size - summary.pagesDiscovered;
+  if (delta === 0) {
+    return;
+  }
+
+  const applied = await incrementCrawlProgress(ctx.run.id, 0, delta, {
+    expectedStartedAt: ctx.claimedStartedAt,
+  });
+  if (applied === false) {
+    await assertCurrentLease(ctx);
   }
 }
 
@@ -182,6 +213,7 @@ async function processQueueItem(
 ): Promise<void> {
   const { run, origin, robotsRules, finalUrlDedup, trackDiscovery, discoveredUrls } = ctx;
 
+  await assertCurrentLease(ctx);
   await updateQueueItem(queueItem.id, "processing");
 
   if (!isSameSite(queueItem.url, run.hostname)) {
@@ -210,7 +242,10 @@ async function processQueueItem(
       redirectChain: [],
     });
     ctx.crawledRequestedUrls.push(queueItem.url);
-    await reconcileOrphanedPageProgress(run.id);
+    await reconcileOrphanedPageProgress(run.id, {
+      expectedStartedAt: ctx.claimedStartedAt,
+    });
+    await assertCurrentLease(ctx);
     await updateQueueItem(queueItem.id, "done");
     return;
   }
@@ -313,8 +348,9 @@ async function processQueueItem(
     await trackDiscovery(link.url, queueItem.depth + 1, scorePageUrl(link.url, source));
   }
 
-  await incrementCrawlProgress(run.id, 1, 0);
-  await syncDiscoveredCount(run.id, discoveredUrls.size);
+  await applyCappedPageProgress(ctx);
+  await syncDiscoveredCount(ctx);
+  await assertCurrentLease(ctx);
   await updateQueueItem(queueItem.id, "done");
 }
 
@@ -395,6 +431,7 @@ async function applyGscInformedQueueSelection(ctx: CrawlWorkerContext): Promise<
 }
 
 async function processSeedBeforeSitemapDiscovery(ctx: CrawlWorkerContext): Promise<void> {
+  await assertCurrentLease(ctx);
   const summary = await getCrawlRunSummary(ctx.run.id);
   if (!summary || summary.pagesCrawled >= ctx.run.maxPages) {
     return;
@@ -491,6 +528,7 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
   const ctx: CrawlWorkerContext = {
     run,
     origin,
+    claimedStartedAt,
     robotsRules: { sitemaps: [], disallow: [], allow: [] },
     discoveredUrls,
     crawledRequestedUrls: [],
@@ -530,14 +568,16 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
       await enqueueSitemapDiscoveries(ctx, sitemapUrls);
     }
 
+    await assertCurrentLease(ctx);
     await applyGscInformedQueueSelection(ctx);
     if (ctx.selectionLocked) {
       selectionLocked = true;
     }
 
-    await syncDiscoveredCount(run.id, discoveredUrls.size);
+    await syncDiscoveredCount(ctx);
 
     while (true) {
+      await assertCurrentLease(ctx);
       const summary = await getCrawlRunSummary(run.id);
       if (!summary || summary.pagesCrawled >= run.maxPages) {
         break;
@@ -551,6 +591,7 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
       await processQueueItem(queueItem, ctx);
     }
 
+    await assertCurrentLease(ctx);
     const finalSummary = await getCrawlRunSummary(run.id);
     if (!finalSummary || finalSummary.pagesCrawled === 0) {
       await markCrawlRunFailed(run.id, ZERO_PAGE_CRAWL_FAILURE_MESSAGE, {
@@ -577,6 +618,11 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
 
     return run.id;
   } catch (error) {
+    if (error instanceof CrawlLeaseLostError) {
+      console.warn("[Crawl] Worker lease lost; exiting without further mutation:", run.id);
+      return run.id;
+    }
+
     const message =
       error instanceof Error ? error.message : "Unexpected crawl worker failure.";
     await markCrawlRunFailed(run.id, message, {

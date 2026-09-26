@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const getCrawlRunSummaryMock = vi.fn();
+const countPagesForCrawlRunMock = vi.fn();
 const maybeRecoverStaleCrawlRunMock = vi.fn();
 const processCrawlRunMock = vi.fn();
 const loadCompletedCrawlResultsMock = vi.fn();
@@ -19,6 +20,7 @@ vi.mock("next/server", async () => {
 
 vi.mock("@/lib/crawler/db/repository", () => ({
   getCrawlRunSummary: (...args: unknown[]) => getCrawlRunSummaryMock(...args),
+  countPagesForCrawlRun: (...args: unknown[]) => countPagesForCrawlRunMock(...args),
 }));
 
 vi.mock("@/lib/crawler/worker/recover-stale-run", () => ({
@@ -44,6 +46,7 @@ const RUN_ID = "388c5109-fa75-4ba7-af55-f7c95a69122b";
 
 afterEach(() => {
   getCrawlRunSummaryMock.mockReset();
+  countPagesForCrawlRunMock.mockReset();
   maybeRecoverStaleCrawlRunMock.mockReset();
   processCrawlRunMock.mockReset();
   loadCompletedCrawlResultsMock.mockReset();
@@ -129,6 +132,38 @@ describe("GET /api/crawl/[id] recovery integration", () => {
     expect(scheduleExplanationEnrichmentIfNeededMock).toHaveBeenCalledWith(
       expect.objectContaining({ crawlRunId: RUN_ID }),
     );
+  });
+
+  it("reports persisted page count when the counter drifted above max_pages", async () => {
+    getCrawlRunSummaryMock.mockResolvedValue({
+      id: RUN_ID,
+      websiteId: "website-1",
+      status: "completed",
+      hostname: "arngren.net",
+      seedUrl: "https://www.arngren.net/",
+      maxPages: 10,
+      pagesCrawled: 11,
+      pagesDiscovered: 123,
+      errorMessage: null,
+      startedAt: "2026-09-10T15:00:00.000Z",
+      completedAt: "2026-09-10T15:01:00.000Z",
+      createdAt: "2026-09-10T14:59:59.000Z",
+    });
+    maybeRecoverStaleCrawlRunMock.mockResolvedValue({ recovered: false });
+    countPagesForCrawlRunMock.mockResolvedValue(10);
+    loadCompletedCrawlResultsMock.mockResolvedValue({
+      findings: [],
+      findingsSummary: { totalCount: 0, highlightedFindingIds: [] },
+      explanationEnrichmentStatus: "pending",
+    });
+
+    const response = await GET(new Request("https://example.test"), {
+      params: Promise.resolve({ id: RUN_ID }),
+    });
+    const payload = await response.json();
+
+    expect(payload.pagesCrawled).toBe(10);
+    expect(countPagesForCrawlRunMock).toHaveBeenCalledWith(RUN_ID);
   });
 
   it("does not expose legacy completed zero-page runs as normal results", async () => {
