@@ -60,7 +60,7 @@ export function duplicateIssueTitle(
     return actionTitleForRule(ruleKey, sampleUrl);
   }
 
-  return `Make duplicate ${noun} unique on ${visibleCount} Google-visible pages`;
+  return `Make duplicate ${noun} unique on ${visibleCount} Google-visible pages including ${displayPath(sampleUrl)}`;
 }
 
 export function pageIssueExplanation(issueTitle: string): string {
@@ -71,8 +71,13 @@ export function inspectPageExplanation(): string {
   return "Google is already showing this page, and Foundfy has not yet included it in the current crawl sample.";
 }
 
-export function multiPageExplanation(issueTitle: string, visibleCount: number): string {
-  return `${visibleCount} pages that already appear in Google Search share a ${issueTitle.toLowerCase()}.`;
+export function multiPageExplanation(issueTitle: string, visibleCount: number, sampleUrl?: string): string {
+  const shared = `${visibleCount} pages that already appear in Google Search share a ${issueTitle.toLowerCase()}`;
+  if (!sampleUrl) {
+    return `${shared}.`;
+  }
+
+  return `${shared}, including ${displayPath(sampleUrl)}.`;
 }
 
 export function goalContextCopy(goal: GoalSnapshot): string {

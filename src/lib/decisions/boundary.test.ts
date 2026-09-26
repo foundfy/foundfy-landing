@@ -52,6 +52,7 @@ describe("Decision Engine v1 source boundary", () => {
     expect(candidates).toContain("inspect_unanalyzed_page");
     expect(candidates).toContain("multi_page_issue_with_visibility");
     expect(candidates).toContain("DECISION_MAX_COUNT");
+    expect(candidates).toContain('classifyPagePath(page.pageUrl) !== "utility"');
   });
 
   it("never generates a decision run from GET", () => {

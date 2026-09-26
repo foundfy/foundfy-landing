@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FoundfyPageRef } from "@/lib/gsc/page-map";
+import { classifyPagePath } from "@/lib/crawler/select/page-priority";
 import { buildRankedDecisions } from "./candidates";
 import { mapGscEvidenceToCurrentCrawl } from "./current-crawl-map";
 import { hasMeaningfulVisibility } from "./score";
@@ -457,34 +458,31 @@ describe("DBHobby current-crawl remapping simulation", () => {
     const maxDemand = Math.max(...afterPages.map((page) => page.impressions));
     const typeBUrls = (pages: GscPageEvidenceInput[]) =>
       pages
-        .filter((page) => page.pageId == null && hasMeaningfulVisibility(page, maxDemand))
+        .filter(
+          (page) =>
+            page.pageId == null &&
+            hasMeaningfulVisibility(page, maxDemand) &&
+            classifyPagePath(page.pageUrl) !== "utility",
+        )
         .map((page) => page.pageUrl);
 
     expect(typeBUrls(beforePages)).toEqual([
-      "https://dbhobby.com/es/login",
       "https://www.dbhobby.com/es/seda-ponge-panuelos-fulares-chales-a-metros-complementos",
       "https://www.dbhobby.com/ca/seda/vellut-140",
       "https://www.dbhobby.com/es/pintura-seda/bastidor-encajes-extensible-100",
-      "https://www.dbhobby.com/ca/login",
     ]);
     expect(typeBUrls(afterPages)).toEqual([
       "https://www.dbhobby.com/es/pintura-seda/set-de-cianotipo",
-      "https://dbhobby.com/es/login",
       "https://dbhobby.com/es/pintura-seda/fijacion-del-color-con-vapor",
       "https://www.dbhobby.com/ca/seda/vellut-140",
       "https://www.dbhobby.com/es/pintura-seda/bastidor-encajes-extensible-100",
-      "https://www.dbhobby.com/ca/login",
     ]);
   });
 
-  it("keeps login URLs eligible for Type B without promoting them above restored crawl-backed actions", () => {
-    const loginEligible = afterPages.filter(
-      (page) => page.pageId == null && /\/(?:es|ca)\/login\/?$/.test(new URL(page.pageUrl).pathname),
-    );
-    const topFiveLogins = after.filter((decision) => decision.pageUrl?.includes("/login"));
-
-    expect(loginEligible).toHaveLength(2);
-    expect(topFiveLogins).toEqual([]);
+  it("does not emit Type B for unmapped login URLs after the utility guardrail", () => {
+    const typeB = after.filter((decision) => decision.decisionType === "inspect_unanalyzed_page");
+    expect(typeB.every((decision) => !decision.pageUrl?.includes("/login"))).toBe(true);
+    expect(after.filter((decision) => decision.pageUrl?.includes("/login"))).toEqual([]);
     expect(after[0]?.decisionType).not.toBe("inspect_unanalyzed_page");
   });
 

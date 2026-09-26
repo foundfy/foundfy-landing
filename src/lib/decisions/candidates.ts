@@ -1,3 +1,4 @@
+import { classifyPagePath } from "@/lib/crawler/select/page-priority";
 import { DECISION_ENGINE_VERSION, DECISION_MAX_COUNT } from "./config";
 import {
   bandForRank,
@@ -157,7 +158,7 @@ function buildTypeC(input: CandidateBuildInput, maxDemand: number): RankedDecisi
     candidates.push({
       decisionType: "multi_page_issue_with_visibility",
       title: duplicateIssueTitle(ruleKey, visible.length, demandPage.page.pageUrl),
-      explanation: multiPageExplanation(visible[0].observation.title, visible.length),
+      explanation: multiPageExplanation(visible[0].observation.title, visible.length, demandPage.page.pageUrl),
       pageUrl: demandPage.page.pageUrl,
       pageId: demandPage.page.pageId,
       priorityBand: "next",
@@ -274,7 +275,9 @@ function buildTypeB(input: CandidateBuildInput, maxDemand: number): RankedDecisi
   return input.pages
     .filter(
       (page) =>
-        page.pageId == null && hasMeaningfulVisibility(page, maxDemand),
+        page.pageId == null &&
+        hasMeaningfulVisibility(page, maxDemand) &&
+        classifyPagePath(page.pageUrl) !== "utility",
     )
     .map((page) => {
       const confidence = evidenceConfidenceScore({
