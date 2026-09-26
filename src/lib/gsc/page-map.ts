@@ -70,17 +70,12 @@ export function mapGscPageUrl(
   return comparable?.id ?? null;
 }
 
-export async function listFoundfyPagesForMapping(websiteId: string): Promise<FoundfyPageRef[]> {
-  const crawl = await findLatestUsableCrawlRun(websiteId);
-  if (!crawl) {
-    return [];
-  }
-
+export async function listFoundfyPagesForCrawlRun(crawlRunId: string): Promise<FoundfyPageRef[]> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("pages")
     .select("id, requested_url, final_url, canonical")
-    .eq("crawl_run_id", crawl.id);
+    .eq("crawl_run_id", crawlRunId);
 
   if (error) {
     throw new Error(`Failed to load pages for Search Analytics mapping: ${error.message}`);
@@ -92,4 +87,13 @@ export async function listFoundfyPagesForMapping(websiteId: string): Promise<Fou
     finalUrl: row.final_url as string,
     canonical: typeof row.canonical === "string" ? row.canonical : null,
   }));
+}
+
+export async function listFoundfyPagesForMapping(websiteId: string): Promise<FoundfyPageRef[]> {
+  const crawl = await findLatestUsableCrawlRun(websiteId);
+  if (!crawl) {
+    return [];
+  }
+
+  return listFoundfyPagesForCrawlRun(crawl.id);
 }

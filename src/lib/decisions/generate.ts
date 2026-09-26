@@ -5,12 +5,14 @@ import {
 } from "@/lib/gsc/db-search";
 import { findOwnerSearchConsoleConnection } from "@/lib/gsc/connection";
 import { requireObserveOwner } from "@/lib/gsc/observe";
+import { listFoundfyPagesForCrawlRun } from "@/lib/gsc/page-map";
 import { listObservations } from "@/lib/observations/db/repository";
 import { listPriorities } from "@/lib/priorities/db/repository";
 import { findLatestConfirmedSiteModelForWebsite } from "@/lib/site-model/repository";
 import { findLatestUsableCrawlRun } from "@/lib/websites/repository";
 import { buildRankedDecisions } from "./candidates";
 import { DECISION_ENGINE_VERSION } from "./config";
+import { mapGscEvidenceToCurrentCrawl } from "./current-crawl-map";
 import {
   completeDecisionRun,
   failDecisionRun,
@@ -95,21 +97,24 @@ export async function generateDecisionsForWebsite(input: {
   sessionToken: string | null;
 }): Promise<{ runId: string; decisions: DecisionRecord[] }> {
   const loaded = await loadDecisionPrerequisites(input);
-  const evidence = await listEvidenceForSync(loaded.sync.id);
-  const pages = evidence
-    .filter((row) => row.evidenceType === "page" && row.pageUrl)
-    .map((row) => ({
-      id: row.id,
-      pageUrl: row.pageUrl as string,
-      pageId: row.pageId,
-      clicks: row.clicks,
-      impressions: row.impressions,
-    }));
-
-  const [observations, priorities] = await Promise.all([
+  const [evidence, crawlPages, observations, priorities] = await Promise.all([
+    listEvidenceForSync(loaded.sync.id),
+    listFoundfyPagesForCrawlRun(loaded.crawl.id),
     listObservations(loaded.crawl.id),
     listPriorities(loaded.crawl.id),
   ]);
+  const pages = mapGscEvidenceToCurrentCrawl(
+    evidence
+      .filter((row) => row.evidenceType === "page" && row.pageUrl)
+      .map((row) => ({
+        id: row.id,
+        pageUrl: row.pageUrl as string,
+        storedPageId: row.pageId,
+        clicks: row.clicks,
+        impressions: row.impressions,
+      })),
+    crawlPages,
+  );
   const priorityByObservation = new Map(priorities.map((priority) => [priority.observationId, priority]));
   const observationInputs: ObservationInput[] = observations.map((observation) => {
     const priority = priorityByObservation.get(observation.id);

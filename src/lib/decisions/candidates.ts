@@ -80,6 +80,8 @@ function gscSnapshot(page: GscPageEvidenceInput) {
     pageUrl: page.pageUrl,
     impressions: page.impressions,
     clicks: page.clicks,
+    storedPageId: page.storedPageId ?? null,
+    currentMappedPageId: page.pageId,
   };
 }
 

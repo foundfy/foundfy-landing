@@ -15,6 +15,9 @@ describe("Decision Engine v1 source boundary", () => {
 
     expect(engineFiles).not.toMatch(/openai|OpenAI/i);
     expect(generate).not.toMatch(/generateObservationsForCrawlRun|persistFindings|createJob|from \"@\/lib\/findings|from \"@\/lib\/jobs/);
+    expect(generate).not.toMatch(/insertSearchEvidence|deleteEvidenceForSync|syncSearchAnalytics/);
+    expect(generate).toMatch(/listFoundfyPagesForCrawlRun/);
+    expect(generate).toMatch(/mapGscEvidenceToCurrentCrawl/);
     expect(generate).not.toMatch(/from \"@\/lib\/crawler/);
     expect(generate).not.toMatch(/confirmSiteModel|saveWebsiteGoals/);
     expect(score).not.toMatch(/\bctr\b|\bposition\b|keyword|competitor/i);
