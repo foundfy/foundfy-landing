@@ -11,6 +11,7 @@ const findLatestConfirmedSiteModelForWebsiteMock = vi.fn();
 const findLatestUsableCrawlRunMock = vi.fn();
 const listObservationsMock = vi.fn();
 const listPrioritiesMock = vi.fn();
+const listFoundfyPagesForCrawlRunMock = vi.fn();
 const insertRunningDecisionRunMock = vi.fn();
 const completeDecisionRunMock = vi.fn();
 const failDecisionRunMock = vi.fn();
@@ -50,6 +51,14 @@ vi.mock("@/lib/priorities/db/repository", () => ({
   listPriorities: (...args: unknown[]) => listPrioritiesMock(...args),
 }));
 
+vi.mock("@/lib/gsc/page-map", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/gsc/page-map")>("@/lib/gsc/page-map");
+  return {
+    ...actual,
+    listFoundfyPagesForCrawlRun: (...args: unknown[]) => listFoundfyPagesForCrawlRunMock(...args),
+  };
+});
+
 vi.mock("./db", () => ({
   insertRunningDecisionRun: (...args: unknown[]) => insertRunningDecisionRunMock(...args),
   completeDecisionRun: (...args: unknown[]) => completeDecisionRunMock(...args),
@@ -86,7 +95,7 @@ describe("Decision Engine generation", () => {
       note: null,
       updatedAt: "2026-09-01T00:00:00.000Z",
     });
-    findLatestUsableCrawlRunMock.mockResolvedValue({ id: "crawl-1" });
+    findLatestUsableCrawlRunMock.mockResolvedValue({ id: "crawl-b" });
     findActivePropertyConnectionMock.mockResolvedValue({
       id: "connection-1",
       status: "connected",
@@ -106,7 +115,7 @@ describe("Decision Engine generation", () => {
         id: "gsc-1",
         evidenceType: "page",
         pageUrl: "https://www.dbhobby.com/es/pintura-en-seda",
-        pageId: "page-1",
+        pageId: "page-from-crawl-a",
         clicks: 26,
         impressions: 153,
         ctr: 0.17,
@@ -125,10 +134,18 @@ describe("Decision Engine generation", () => {
         queryText: "pintura en seda",
       },
     ]);
+    listFoundfyPagesForCrawlRunMock.mockResolvedValue([
+      {
+        id: "page-from-crawl-b",
+        requestedUrl: "https://www.dbhobby.com/es/pintura-en-seda",
+        finalUrl: "https://www.dbhobby.com/es/pintura-en-seda",
+        canonical: "https://www.dbhobby.com/es/pintura-en-seda",
+      },
+    ]);
     listObservationsMock.mockResolvedValue([
       {
         id: "obs-1",
-        pageId: "page-1",
+        pageId: "page-from-crawl-b",
         pageUrl: "https://www.dbhobby.com/es/pintura-en-seda",
         ruleKey: "page_fundamentals.missing_title",
         title: "Missing page title",
@@ -301,12 +318,18 @@ describe("Decision Engine generation", () => {
       }),
     );
     const stored = completeDecisionRunMock.mock.calls[0][0] as {
-      decisions: Array<{ decisionType: string; evidenceRefs: Array<{ kind: string; snapshot: Record<string, unknown> }> }>;
+      decisions: Array<{
+        decisionType: string;
+        pageId: string | null;
+        evidenceRefs: Array<{ kind: string; snapshot: Record<string, unknown> }>;
+      }>;
     };
     expect(stored.decisions).toHaveLength(1);
     expect(stored.decisions[0].decisionType).toBe("existing_demand_page_issue");
+    expect(stored.decisions[0].pageId).toBe("page-from-crawl-b");
     expect(stored.decisions[0].evidenceRefs.some((ref) => ref.snapshot.queryText)).toBe(false);
     expect(result.decisions).toHaveLength(1);
+    expect(listFoundfyPagesForCrawlRunMock).toHaveBeenCalledWith("crawl-b");
     expect(markWebsiteDecisionRunsStaleMock).toHaveBeenCalledWith(WEBSITE_ID, "run-1");
   });
 
@@ -345,7 +368,200 @@ describe("Decision Engine generation", () => {
   it("does not create observations, findings, or jobs", async () => {
     await generateDecisionsForWebsite({ websiteId: WEBSITE_ID, sessionToken: SESSION });
 
-    expect(listObservationsMock).toHaveBeenCalledWith("crawl-1");
+    expect(listObservationsMock).toHaveBeenCalledWith("crawl-b");
     expect(JSON.stringify(completeDecisionRunMock.mock.calls)).not.toMatch(/findings|jobs|openai/i);
+  });
+
+  it("treats a never-crawled Google-visible URL as Type B", async () => {
+    listEvidenceForSyncMock.mockResolvedValue([
+      {
+        id: "gsc-unseen",
+        evidenceType: "page",
+        pageUrl: "https://www.dbhobby.com/shop/new-course",
+        pageId: null,
+        clicks: 40,
+        impressions: 500,
+        queryText: null,
+      },
+    ]);
+    listObservationsMock.mockResolvedValue([]);
+    listPrioritiesMock.mockResolvedValue([]);
+
+    await generateDecisionsForWebsite({ websiteId: WEBSITE_ID, sessionToken: SESSION });
+
+    const stored = completeDecisionRunMock.mock.calls[0][0] as {
+      decisions: Array<{ decisionType: string; pageId: string | null; pageUrl: string | null }>;
+    };
+    expect(stored.decisions).toHaveLength(1);
+    expect(stored.decisions[0]).toMatchObject({
+      decisionType: "inspect_unanalyzed_page",
+      pageId: null,
+      pageUrl: "https://www.dbhobby.com/shop/new-course",
+    });
+  });
+
+  it("joins Type A to the current crawl page UUID, not the stored GSC page_id", async () => {
+    await generateDecisionsForWebsite({ websiteId: WEBSITE_ID, sessionToken: SESSION });
+
+    const stored = completeDecisionRunMock.mock.calls[0][0] as {
+      decisions: Array<{
+        decisionType: string;
+        pageId: string | null;
+        evidenceRefs: Array<{ kind: string; recordId: string; snapshot: Record<string, unknown> }>;
+      }>;
+    };
+    const decision = stored.decisions[0];
+    expect(decision.decisionType).toBe("existing_demand_page_issue");
+    expect(decision.pageId).toBe("page-from-crawl-b");
+    expect(decision.evidenceRefs.some((ref) => ref.kind === "page" && ref.recordId === "page-from-crawl-b")).toBe(
+      true,
+    );
+    const gscRef = decision.evidenceRefs.find((ref) => ref.kind === "gsc_evidence");
+    expect(gscRef?.recordId).toBe("gsc-1");
+    expect(gscRef?.snapshot).toMatchObject({
+      pageUrl: "https://www.dbhobby.com/es/pintura-en-seda",
+      storedPageId: "page-from-crawl-a",
+      currentMappedPageId: "page-from-crawl-b",
+    });
+  });
+
+  it("does not call a crawled current-run URL Type B", async () => {
+    listObservationsMock.mockResolvedValue([]);
+    listPrioritiesMock.mockResolvedValue([]);
+
+    await generateDecisionsForWebsite({ websiteId: WEBSITE_ID, sessionToken: SESSION });
+
+    const stored = completeDecisionRunMock.mock.calls[0][0] as {
+      decisions: Array<{ decisionType: string; pageUrl: string | null }>;
+    };
+    expect(stored.decisions.some((decision) => decision.decisionType === "inspect_unanalyzed_page")).toBe(
+      false,
+    );
+  });
+
+  it("can emit Type B when a stored mapping exists but the URL is absent from the current crawl", async () => {
+    listFoundfyPagesForCrawlRunMock.mockResolvedValue([]);
+    listObservationsMock.mockResolvedValue([]);
+    listPrioritiesMock.mockResolvedValue([]);
+
+    await generateDecisionsForWebsite({ websiteId: WEBSITE_ID, sessionToken: SESSION });
+
+    const stored = completeDecisionRunMock.mock.calls[0][0] as {
+      decisions: Array<{
+        decisionType: string;
+        pageId: string | null;
+        evidenceRefs: Array<{ kind: string; snapshot: Record<string, unknown> }>;
+      }>;
+    };
+    expect(stored.decisions).toHaveLength(1);
+    expect(stored.decisions[0].decisionType).toBe("inspect_unanalyzed_page");
+    expect(stored.decisions[0].pageId).toBeNull();
+    const gscRef = stored.decisions[0].evidenceRefs.find((ref) => ref.kind === "gsc_evidence");
+    expect(gscRef?.snapshot).toMatchObject({
+      storedPageId: "page-from-crawl-a",
+      currentMappedPageId: null,
+    });
+  });
+
+  it("maps www/apex and trailing-slash Google URLs with existing Phase 3 rules", async () => {
+    listEvidenceForSyncMock.mockResolvedValue([
+      {
+        id: "gsc-apex",
+        evidenceType: "page",
+        pageUrl: "http://dbhobby.com/es/pintura-en-seda/",
+        pageId: "page-from-crawl-a",
+        clicks: 26,
+        impressions: 153,
+        queryText: null,
+      },
+    ]);
+
+    await generateDecisionsForWebsite({ websiteId: WEBSITE_ID, sessionToken: SESSION });
+
+    const stored = completeDecisionRunMock.mock.calls[0][0] as {
+      decisions: Array<{ decisionType: string; pageId: string | null }>;
+    };
+    expect(stored.decisions[0].decisionType).toBe("existing_demand_page_issue");
+    expect(stored.decisions[0].pageId).toBe("page-from-crawl-b");
+  });
+
+  it("combines duplicate-title observations that affect multiple Google-visible pages after a current-crawl remap", async () => {
+    listFoundfyPagesForCrawlRunMock.mockResolvedValue([
+      {
+        id: "page-b-a",
+        requestedUrl: "https://www.dbhobby.com/a",
+        finalUrl: "https://www.dbhobby.com/a",
+        canonical: null,
+      },
+      {
+        id: "page-b-b",
+        requestedUrl: "https://www.dbhobby.com/b",
+        finalUrl: "https://www.dbhobby.com/b",
+        canonical: null,
+      },
+    ]);
+    listEvidenceForSyncMock.mockResolvedValue([
+      {
+        id: "gsc-a",
+        evidenceType: "page",
+        pageUrl: "https://www.dbhobby.com/a",
+        pageId: "page-a-old",
+        clicks: 10,
+        impressions: 200,
+        queryText: null,
+      },
+      {
+        id: "gsc-b",
+        evidenceType: "page",
+        pageUrl: "https://www.dbhobby.com/b",
+        pageId: "page-b-old",
+        clicks: 8,
+        impressions: 180,
+        queryText: null,
+      },
+    ]);
+    listObservationsMock.mockResolvedValue([
+      {
+        id: "obs-a",
+        pageId: "page-b-a",
+        pageUrl: "https://www.dbhobby.com/a",
+        ruleKey: "page_fundamentals.duplicate_title",
+        title: "Duplicate page title",
+        description: "Duplicate page title",
+        severity: "warning",
+        status: "active",
+        evidence: { title: "Shared title" },
+      },
+      {
+        id: "obs-b",
+        pageId: "page-b-b",
+        pageUrl: "https://www.dbhobby.com/b",
+        ruleKey: "page_fundamentals.duplicate_title",
+        title: "Duplicate page title",
+        description: "Duplicate page title",
+        severity: "warning",
+        status: "active",
+        evidence: { title: "Shared title" },
+      },
+    ]);
+    listPrioritiesMock.mockResolvedValue([]);
+
+    await generateDecisionsForWebsite({ websiteId: WEBSITE_ID, sessionToken: SESSION });
+
+    const stored = completeDecisionRunMock.mock.calls[0][0] as {
+      decisions: Array<{ decisionType: string; title: string }>;
+    };
+    expect(stored.decisions[0].decisionType).toBe("multi_page_issue_with_visibility");
+    expect(stored.decisions[0].title).toContain("2 Google-visible pages");
+  });
+
+  it("does not write Search Analytics evidence while generating decisions", async () => {
+    await generateDecisionsForWebsite({ websiteId: WEBSITE_ID, sessionToken: SESSION });
+
+    expect(listEvidenceForSyncMock).toHaveBeenCalledWith("sync-1");
+    expect(listEvidenceForSyncMock).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify([completeDecisionRunMock.mock.calls, insertRunningDecisionRunMock.mock.calls])).not.toMatch(
+      /insertSearchEvidence|deleteEvidenceForSync|gsc_search_evidence/,
+    );
   });
 });

@@ -62,6 +62,7 @@ export type GscPageEvidenceInput = {
   id: string;
   pageUrl: string;
   pageId: string | null;
+  storedPageId?: string | null;
   clicks: number;
   impressions: number;
 };
