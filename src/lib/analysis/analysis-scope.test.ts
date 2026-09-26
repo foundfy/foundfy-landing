@@ -16,6 +16,7 @@ describe("analysis scope disclosure", () => {
   it("states the completed page count, including counts below the cap", () => {
     expect(formatCompletedScopeCopy(7)).toBe("Based on 7 analyzed pages");
     expect(formatCompletedScopeCopy(10)).toBe("Based on 10 analyzed pages");
+    expect(formatCompletedScopeCopy(11)).toBe("Based on 10 analyzed pages");
     expect(formatCompletedScopeCopy(1)).toBe("Based on 1 analyzed page");
   });
 

@@ -3,11 +3,13 @@ import { maybeRecoverStaleCrawlRun } from "./recover-stale-run";
 import type { CrawlRunSummary } from "../types";
 
 const getCrawlRunSummaryMock = vi.fn();
+const getLatestCrawlActivityAtMock = vi.fn();
 const requeueStaleRunningCrawlRunMock = vi.fn();
 const resetAbandonedProcessingQueueItemsMock = vi.fn();
 
 vi.mock("../db/repository", () => ({
   getCrawlRunSummary: (...args: unknown[]) => getCrawlRunSummaryMock(...args),
+  getLatestCrawlActivityAt: (...args: unknown[]) => getLatestCrawlActivityAtMock(...args),
   requeueStaleRunningCrawlRun: (...args: unknown[]) =>
     requeueStaleRunningCrawlRunMock(...args),
   resetAbandonedProcessingQueueItems: (...args: unknown[]) =>
@@ -34,6 +36,7 @@ function runningSummary(overrides: Partial<CrawlRunSummary> = {}): CrawlRunSumma
 
 afterEach(() => {
   getCrawlRunSummaryMock.mockReset();
+  getLatestCrawlActivityAtMock.mockReset();
   requeueStaleRunningCrawlRunMock.mockReset();
   resetAbandonedProcessingQueueItemsMock.mockReset();
   vi.useRealTimers();
@@ -83,6 +86,7 @@ describe("maybeRecoverStaleCrawlRun", () => {
       runningSummary({ startedAt: "2026-09-10T15:00:00.000Z" }),
     );
     requeueStaleRunningCrawlRunMock.mockResolvedValue(false);
+    getLatestCrawlActivityAtMock.mockResolvedValue(null);
 
     const result = await maybeRecoverStaleCrawlRun("run-1");
 
@@ -180,5 +184,70 @@ describe("maybeRecoverStaleCrawlRun", () => {
     expect(first.recovered || second.recovered).toBe(true);
     expect(first.recovered && second.recovered).toBe(false);
     expect(resetAbandonedProcessingQueueItemsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reclaim a long-running worker with recent page progress", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-25T10:34:08.000Z"));
+
+    getCrawlRunSummaryMock.mockResolvedValue(
+      runningSummary({ startedAt: "2026-09-25T10:32:08.000Z" }),
+    );
+    getLatestCrawlActivityAtMock.mockResolvedValue("2026-09-25T10:33:56.000Z");
+
+    const result = await maybeRecoverStaleCrawlRun("run-1");
+
+    expect(result).toEqual({ recovered: false });
+    expect(requeueStaleRunningCrawlRunMock).not.toHaveBeenCalled();
+  });
+
+  it("does not reclaim a progressing worker after one URL timeout", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-25T10:33:40.000Z"));
+
+    getCrawlRunSummaryMock.mockResolvedValue(
+      runningSummary({ startedAt: "2026-09-25T10:32:08.000Z" }),
+    );
+    getLatestCrawlActivityAtMock.mockResolvedValue("2026-09-25T10:33:21.000Z");
+
+    const result = await maybeRecoverStaleCrawlRun("run-1");
+
+    expect(result).toEqual({ recovered: false });
+    expect(requeueStaleRunningCrawlRunMock).not.toHaveBeenCalled();
+  });
+
+  it("reclaims a genuinely stale running worker with no recent page or artifact activity", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-25T10:34:08.000Z"));
+
+    getCrawlRunSummaryMock.mockResolvedValue(
+      runningSummary({ startedAt: "2026-09-25T10:31:00.000Z" }),
+    );
+    getLatestCrawlActivityAtMock.mockResolvedValue("2026-09-25T10:31:05.000Z");
+    requeueStaleRunningCrawlRunMock.mockResolvedValue(true);
+    resetAbandonedProcessingQueueItemsMock.mockResolvedValue(0);
+
+    const result = await maybeRecoverStaleCrawlRun("run-1");
+
+    expect(result).toEqual({ recovered: true });
+    expect(requeueStaleRunningCrawlRunMock).toHaveBeenCalledWith(
+      "run-1",
+      "2026-09-25T10:32:08.000Z",
+    );
+  });
+
+  it("does not reclaim when worker activity cannot be loaded", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-25T10:34:08.000Z"));
+
+    getCrawlRunSummaryMock.mockResolvedValue(
+      runningSummary({ startedAt: "2026-09-25T10:31:00.000Z" }),
+    );
+    getLatestCrawlActivityAtMock.mockRejectedValue(new Error("db unavailable"));
+
+    const result = await maybeRecoverStaleCrawlRun("run-1");
+
+    expect(result).toEqual({ recovered: false });
+    expect(requeueStaleRunningCrawlRunMock).not.toHaveBeenCalled();
   });
 });

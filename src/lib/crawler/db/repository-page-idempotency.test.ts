@@ -40,7 +40,13 @@ const pageLookupMaybeSingleMock = vi.fn();
 const pageCountHeadMock = vi.fn();
 const crawlRunSummaryMaybeSingleMock = vi.fn();
 const crawlRunProgressUpdateMock = vi.fn();
-const crawlRunProgressEqMock = vi.fn();
+const crawlRunProgressMaybeSingleMock = vi.fn();
+const progressChain = {
+  eq: vi.fn(),
+  is: vi.fn(),
+  select: vi.fn(),
+  maybeSingle: crawlRunProgressMaybeSingleMock,
+};
 
 vi.mock("@/lib/db/supabase-admin", () => ({
   getSupabaseAdmin: () => ({
@@ -93,9 +99,18 @@ describe("page persistence idempotency", () => {
     pageCountHeadMock.mockReset();
     crawlRunSummaryMaybeSingleMock.mockReset();
     crawlRunProgressUpdateMock.mockReset();
-    crawlRunProgressEqMock.mockReset();
-    crawlRunProgressUpdateMock.mockReturnValue({ eq: crawlRunProgressEqMock });
-    crawlRunProgressEqMock.mockResolvedValue({ error: null });
+    crawlRunProgressMaybeSingleMock.mockReset();
+    progressChain.eq.mockReset();
+    progressChain.is.mockReset();
+    progressChain.select.mockReset();
+    progressChain.eq.mockReturnValue(progressChain);
+    progressChain.is.mockReturnValue(progressChain);
+    progressChain.select.mockReturnValue(progressChain);
+    crawlRunProgressUpdateMock.mockReturnValue(progressChain);
+    crawlRunProgressMaybeSingleMock.mockResolvedValue({
+      data: { id: "run-1" },
+      error: null,
+    });
   });
 
   it("detects only the known requested-url unique constraint conflict", () => {
@@ -224,7 +239,9 @@ describe("page persistence idempotency", () => {
       pages_crawled: 10,
       pages_discovered: 2,
     });
-    expect(crawlRunProgressEqMock).toHaveBeenCalledWith("id", "run-1");
+    expect(progressChain.eq).toHaveBeenCalledWith("id", "run-1");
+    expect(progressChain.eq).toHaveBeenCalledWith("status", "running");
+    expect(progressChain.eq).toHaveBeenCalledWith("pages_crawled", 9);
   });
 
   it("does not increment when the counter already matches persisted pages", async () => {
@@ -247,6 +264,33 @@ describe("page persistence idempotency", () => {
     pageCountHeadMock.mockResolvedValueOnce({ count: 10, error: null });
 
     const reconciled = await reconcileOrphanedPageProgress("run-1");
+
+    expect(reconciled).toBe(false);
+    expect(crawlRunProgressUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("does not double-count an existing page once the counter has caught up", async () => {
+    crawlRunSummaryMaybeSingleMock.mockResolvedValueOnce({
+      data: {
+        id: "run-1",
+        status: "running",
+        seed_url: "https://example.com/",
+        max_pages: 10,
+        pages_crawled: 10,
+        pages_discovered: 2,
+        error_message: null,
+        started_at: "2026-09-10T21:49:09.162+00:00",
+        completed_at: null,
+        created_at: "2026-09-10T21:47:05.507085+00:00",
+        websites: { hostname: "example.com" },
+      },
+      error: null,
+    });
+    pageCountHeadMock.mockResolvedValueOnce({ count: 10, error: null });
+
+    const reconciled = await reconcileOrphanedPageProgress("run-1", {
+      expectedStartedAt: "2026-09-10T21:49:09.162+00:00",
+    });
 
     expect(reconciled).toBe(false);
     expect(crawlRunProgressUpdateMock).not.toHaveBeenCalled();
