@@ -261,6 +261,29 @@ describe("loadDecisionsForWebsite", () => {
     expect(view.emptyReason).toBeNull();
     expect(view.decisions).toHaveLength(1);
     expect(view.decisions[0].why.searchDemand).toEqual({ appearances: 153, visits: 26 });
+    expect(view.decisions[0].supportedActionType).toBeNull();
+  });
+
+  it("marks a current missing-meta Type A Decision as preparable", async () => {
+    loadDecisionPrerequisitesMock.mockResolvedValue(readyPrerequisites());
+    findLatestCompletedDecisionRunMock.mockResolvedValue(completedRun());
+    listDecisionsForRunMock.mockResolvedValue([
+      {
+        ...rankedDecision(),
+        title: "Add a meta description on /es/gutta",
+        evidenceRefs: [
+          {
+            kind: "observation",
+            recordId: "obs-1",
+            snapshot: { ruleKey: "page_fundamentals.missing_meta_description", title: "Missing meta description" },
+          },
+        ],
+      },
+    ]);
+
+    const view = await loadDecisionsForWebsite({ websiteId: WEBSITE_ID, sessionToken: "token" });
+
+    expect(view.decisions[0].supportedActionType).toBe("update_meta_description");
   });
 
   it("marks a completed run stale when a new crawl is current", async () => {

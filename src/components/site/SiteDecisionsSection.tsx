@@ -24,8 +24,10 @@ import {
   DECISION_WHY_HEADING,
   DECISION_WHY_LABEL,
 } from "@/lib/decisions/display";
+import type { ActionPreviewView } from "@/lib/actions/types";
 import type { DecisionPrerequisiteReason, DecisionView, DecisionsOwnerView } from "@/lib/decisions/types";
 import { formatEvidenceDate } from "@/lib/gsc/window";
+import SiteActionPanel from "./SiteActionPanel";
 import styles from "./SitePageView.module.css";
 
 type SiteDecisionsSectionProps = {
@@ -128,6 +130,7 @@ export default function SiteDecisionsSection({
   refreshKey = 0,
 }: SiteDecisionsSectionProps) {
   const [view, setView] = useState<DecisionsOwnerView | null>(null);
+  const [actionsByDecision, setActionsByDecision] = useState<Record<string, ActionPreviewView>>({});
   const [visible, setVisible] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -154,6 +157,20 @@ export default function SiteDecisionsSection({
       setVisible(true);
       setView(payload);
       setActionError(null);
+
+      const actionsResponse = await fetch(`/api/websites/${websiteId}/actions`, {
+        cache: "no-store",
+      });
+      if (actionsResponse.ok) {
+        const actionsPayload = (await actionsResponse.json()) as {
+          actions?: ActionPreviewView[];
+        };
+        const next: Record<string, ActionPreviewView> = {};
+        for (const action of actionsPayload.actions ?? []) {
+          next[action.decision.id] = action;
+        }
+        setActionsByDecision(next);
+      }
     } catch {
       setVisible(false);
     }
@@ -185,7 +202,7 @@ export default function SiteDecisionsSection({
         return;
       }
 
-      setView(payload);
+      await load();
     } catch {
       setActionError(DECISION_ERROR_COPY);
     } finally {
@@ -243,6 +260,23 @@ export default function SiteDecisionsSection({
               </p>
               <p className={styles.understandingCopy}>{decision.explanation}</p>
               <DecisionWhy decision={decision} />
+              <SiteActionPanel
+                websiteId={websiteId}
+                decision={decision}
+                action={actionsByDecision[decision.id] ?? null}
+                current={view.current}
+                onActionChange={(next) => {
+                  setActionsByDecision((current) => {
+                    const copy = { ...current };
+                    if (!next) {
+                      delete copy[decision.id];
+                    } else {
+                      copy[decision.id] = next;
+                    }
+                    return copy;
+                  });
+                }}
+              />
             </li>
           ))}
         </ol>

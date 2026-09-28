@@ -219,6 +219,25 @@ export async function markWebsiteDecisionRunsStale(
   }
 }
 
+export async function findDecisionRunById(
+  websiteId: string,
+  runId: string,
+): Promise<DecisionRunRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("decision_runs")
+    .select(RUN_COLUMNS)
+    .eq("id", runId)
+    .eq("website_id", websiteId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load Decision Engine run: ${error.message}`);
+  }
+
+  return data ? mapRun(data as RunRow) : null;
+}
+
 export async function findLatestCompletedDecisionRun(
   websiteId: string,
 ): Promise<DecisionRunRecord | null> {
@@ -281,6 +300,46 @@ export async function listDecisionsForRun(runId: string): Promise<DecisionRecord
   }
 
   return rows.map((row) => mapDecision(row, refsByDecision.get(row.id) ?? []));
+}
+
+export async function findDecisionById(
+  websiteId: string,
+  decisionId: string,
+): Promise<DecisionRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("decisions")
+    .select(DECISION_COLUMNS)
+    .eq("id", decisionId)
+    .eq("website_id", websiteId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load decision: ${error.message}`);
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const row = data as DecisionRow;
+  const { data: refs, error: refsError } = await supabase
+    .from("decision_evidence_refs")
+    .select("kind, record_id, snapshot")
+    .eq("decision_id", row.id);
+
+  if (refsError) {
+    throw new Error(`Failed to load decision evidence: ${refsError.message}`);
+  }
+
+  return mapDecision(
+    row,
+    (refs ?? []).map((ref) => ({
+      kind: ref.kind,
+      recordId: ref.record_id,
+      snapshot: (ref.snapshot ?? {}) as Record<string, unknown>,
+    })),
+  );
 }
 
 export async function deleteDecisionEngineForWebsite(websiteId: string): Promise<void> {
