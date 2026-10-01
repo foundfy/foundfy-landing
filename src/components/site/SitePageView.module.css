@@ -678,6 +678,31 @@
   text-transform: uppercase;
 }
 
+.actionPanel {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+  max-width: 46rem;
+}
+
+.actionMutation {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(245, 243, 238, 0.04);
+  color: rgba(245, 243, 238, 0.82);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-x: auto;
+}
+
+.actionDisabledNote {
+  margin: 0;
+  color: rgba(245, 243, 238, 0.52);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
 @media (max-width: 390px) {
   .title {
     font-size: 1.75rem;

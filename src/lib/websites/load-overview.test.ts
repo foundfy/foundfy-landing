@@ -208,8 +208,9 @@ describe("loadWebsiteOverview", () => {
     expect(overview?.goals?.primaryType).toBe("grow_signups");
     expect(findWebsiteGoalsMock).toHaveBeenCalledWith(website.id);
     expect(overview).not.toHaveProperty("observe");
+    expect(overview).not.toHaveProperty("actions");
     expect(JSON.stringify(overview)).not.toMatch(
-      /refresh_token|google_sub|gsc_|ciphertext|oauth/i,
+      /refresh_token|google_sub|gsc_|ciphertext|oauth|proposedValue|mutation_spec/i,
     );
   });
 
