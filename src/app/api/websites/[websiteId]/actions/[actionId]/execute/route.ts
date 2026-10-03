@@ -20,12 +20,12 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   try {
-    await executeAction({
+    const preview = await executeAction({
       websiteId,
       sessionToken: readObserveSessionToken(request),
       actionId,
     });
-    return observeJson({ error: "Foundfy cannot apply this change until a site connection exists." }, 409);
+    return observeJson(preview);
   } catch (error) {
     return actionErrorResponse(error, "Foundfy couldn't apply this change right now.");
   }

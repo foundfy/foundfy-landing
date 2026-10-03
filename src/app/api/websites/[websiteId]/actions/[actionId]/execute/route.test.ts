@@ -38,4 +38,23 @@ describe("POST /api/websites/[websiteId]/actions/[actionId]/execute", () => {
     expect(payload.reason).toBe("adapter_not_connected");
     expect(response.headers.get("cache-control")).toMatch(/no-store/);
   });
+
+  it("returns the executed preview on success", async () => {
+    executeActionMock.mockResolvedValue({
+      id: ACTION_ID,
+      status: "executed",
+      executeAvailable: false,
+    });
+
+    const response = await POST(
+      new Request("https://www.foundfy.me/execute", {
+        method: "POST",
+        headers: { cookie: "foundfy_gsc_session=owner-token" },
+      }),
+      { params: Promise.resolve({ websiteId: WEBSITE_ID, actionId: ACTION_ID }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ status: "executed" });
+  });
 });

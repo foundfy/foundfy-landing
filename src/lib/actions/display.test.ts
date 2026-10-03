@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ACTION_EXECUTE_DISABLED, ACTION_PREPARE_LABEL } from "./display";
+import { ACTION_EXECUTE_DISABLED, ACTION_PREPARE_LABEL, ACTION_UNSAFE_STALE_COPY } from "./display";
 import { ACTION_VERIFICATION_PLAN } from "./config";
 
 describe("ACT display copy", () => {
@@ -9,6 +9,7 @@ describe("ACT display copy", () => {
     );
     expect(ACTION_VERIFICATION_PLAN).not.toMatch(/rank|traffic|clicks|impressions/i);
     expect(ACTION_EXECUTE_DISABLED).toContain("site connection");
+    expect(ACTION_UNSAFE_STALE_COPY).toContain("no longer current");
     expect(ACTION_PREPARE_LABEL).toBe("Prepare this change");
   });
 });

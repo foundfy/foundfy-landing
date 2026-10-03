@@ -11,7 +11,16 @@ describe("ACT v0 source boundary", () => {
     const lifecycle = read("./lifecycle.ts");
     const db = read("./db.ts");
     const mutation = read("./mutation.ts");
-    const source = [lifecycle, db, mutation].join("\n");
+    const liveMeta = read("./live-meta.ts");
+    const github = [
+      read("./github/commit.ts"),
+      read("./github/api.ts"),
+      read("./github/auth.ts"),
+      read("./github/config.ts"),
+      read("./github/homepage-source.ts"),
+      read("./github/target.ts"),
+    ].join("\n");
+    const source = [lifecycle, db, mutation, liveMeta, github].join("\n");
 
     expect(source).not.toMatch(/openai|OpenAI/i);
     expect(source).not.toMatch(/generateObservationsForCrawlRun|persistFindings|createJob|from \"@\/lib\/findings|from \"@\/lib\/jobs/);
@@ -20,8 +29,12 @@ describe("ACT v0 source boundary", () => {
     expect(lifecycle).not.toMatch(/generateDecisionsForWebsite/);
     expect(lifecycle).toMatch(/staleReasonForRun/);
     expect(lifecycle).toMatch(/adapter_not_connected/);
+    expect(lifecycle).toMatch(/blockIfUnsafe/);
     expect(mutation).toMatch(/mutation_spec|buildMutationSpec/);
     expect(mutation).not.toMatch(/write_payload/);
+    expect(github).toMatch(/foundfy-act:/);
+    expect(github).toMatch(/force: false/);
+    expect(github).not.toMatch(/\bPAT\b|personal access token/i);
   });
 
   it("keeps ACT off the public website overview", () => {

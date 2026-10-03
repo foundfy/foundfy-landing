@@ -5,6 +5,7 @@ export const ACTION_STATUSES = [
   "prepared",
   "awaiting_approval",
   "approved",
+  "executed",
   "cancelled",
   "blocked",
 ] as const;
@@ -29,9 +30,16 @@ export const ACTION_ERROR_CODES = [
   "not_approved",
   "adapter_not_connected",
   "provenance_changed",
+  "before_state_changed",
+  "remote_state_changed",
+  "git_concurrency_conflict",
+  "unexpected_source_shape",
+  "github_auth_failed",
 ] as const;
 
 export type ActionErrorCode = (typeof ACTION_ERROR_CODES)[number];
+
+export type ExecuteBlockedReason = "adapter_not_connected" | "unsafe_stale" | null;
 
 export type MetaDescriptionMutationSpec = {
   targetUrl: string;
@@ -46,6 +54,24 @@ export type ActionEvidenceRef = {
   kind: DecisionEvidenceKind;
   recordId: string;
   snapshot: Record<string, unknown>;
+};
+
+export type ActionExecutionArtifact = {
+  provider?: string;
+  repo?: string;
+  branch?: string;
+  filePath?: string;
+  headShaBefore?: string;
+  commitShaAfter?: string;
+  blobShaBefore?: string;
+  blobShaAfter?: string;
+  treeShaAfter?: string;
+  beforeValue?: string | null;
+  afterValue?: string | null;
+  installationId?: string;
+  recovered?: boolean;
+  deploymentObserved?: boolean;
+  deploymentObservedAt?: string | null;
 };
 
 export type ActionRecord = {
@@ -82,6 +108,7 @@ export type ActionAttemptRecord = {
   provider: string | null;
   result: ActionAttemptResult;
   errorCode: string | null;
+  artifact: ActionExecutionArtifact;
   createdAt: string;
   finishedAt: string | null;
 };
@@ -114,8 +141,8 @@ export type ActionPreviewView = {
   verificationPlan: string;
   evidenceRefs: ActionEvidenceRef[];
   approvedAt: string | null;
-  executeAvailable: false;
-  executeBlockedReason: "adapter_not_connected" | null;
+  executeAvailable: boolean;
+  executeBlockedReason: ExecuteBlockedReason;
 };
 
 export class ActionError extends Error {

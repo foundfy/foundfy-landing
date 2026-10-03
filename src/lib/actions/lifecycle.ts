@@ -8,6 +8,7 @@ import { loadDecisionPrerequisites } from "@/lib/decisions/generate";
 import { supportedActionTypeForDecision, SUPPORTED_ACTION_RULE_KEY } from "@/lib/decisions/supported-action";
 import type { DecisionRecord, DecisionRunRecord, GoalSnapshot } from "@/lib/decisions/types";
 import { requireObserveOwner } from "@/lib/gsc/observe";
+import { getWebsiteById } from "@/lib/websites/repository";
 import {
   ADAPTER_NOT_CONNECTED,
   CANCELLABLE_ACTION_STATUSES,
@@ -15,10 +16,12 @@ import {
 } from "./config";
 import {
   countActionAttempts,
+  findActionAttemptByIdempotencyKey,
   findActionById,
   findObservationSnapshot,
   findOpenActionForDecision,
   findPageSnapshot,
+  findSuccessfulGithubExecuteAttempt,
   insertAction,
   insertActionAttempt,
   listVisibleActionsForWebsite,
@@ -26,7 +29,12 @@ import {
   type ActionObservationSnapshot,
   type ActionPageSnapshot,
 } from "./db";
-import { toActionPreview } from "./preview";
+import { commitHomepageDescription } from "./github/commit";
+import { FOUNDFY_GITHUB_PROVIDER, githubExecuteIdempotencyKey, readGitHubAppConfig } from "./github/config";
+import { isFoundfyHomepageMetaTarget } from "./github/target";
+import { fetchLiveHomepageMeta, observeHomepageDeployment } from "./live-meta";
+import { metaValuesEqual } from "./meta";
+import { executeAvailability, toActionPreview } from "./preview";
 import { buildMutationSpec, normalizeProposedMetaDescription, statusAfterProposedValue } from "./mutation";
 import { ActionError, type ActionPreviewView, type ActionRecord } from "./types";
 
@@ -128,6 +136,47 @@ async function blockIfUnsafe(action: ActionRecord, run: DecisionRunRecord | null
   return false;
 }
 
+function provenanceStillMatches(action: ActionRecord, run: DecisionRunRecord): boolean {
+  return (
+    action.decisionRunId === run.id &&
+    action.crawlRunId === run.crawlRunId &&
+    action.gscSyncId === run.gscSearchSyncId &&
+    action.siteModelId === run.siteModelId &&
+    action.goalId === run.goalId
+  );
+}
+
+async function frozenBeforeStillHolds(action: ActionRecord): Promise<boolean> {
+  const page = await findPageSnapshot(action.targetPageId);
+  if (!page || page.crawlRunId !== action.crawlRunId) {
+    return false;
+  }
+
+  return (
+    metaValuesEqual(page.metaDescription, action.mutationSpec.before) &&
+    metaValuesEqual(action.observedBefore, action.mutationSpec.before)
+  );
+}
+
+function actionIsUnsafe(action: ActionRecord, run: DecisionRunRecord | null, staleReason: string | null): boolean {
+  if (!run || staleReason || !provenanceStillMatches(action, run)) {
+    return true;
+  }
+
+  return false;
+}
+
+async function blockAction(action: ActionRecord): Promise<ActionRecord> {
+  const updated = await updateAction({
+    id: action.id,
+    websiteId: action.websiteId,
+    expectedStatuses: [action.status],
+    patch: { status: "blocked" },
+  });
+
+  return updated ?? { ...action, status: "blocked" };
+}
+
 async function loadSupportedDecision(input: {
   websiteId: string;
   decisionId: string;
@@ -196,57 +245,24 @@ async function requireSupportingObservation(decision: DecisionRecord, pageId: st
   }
 }
 
-function provenanceStillMatches(action: ActionRecord, run: DecisionRunRecord): boolean {
-  return (
-    action.decisionRunId === run.id &&
-    action.crawlRunId === run.crawlRunId &&
-    action.gscSyncId === run.gscSearchSyncId &&
-    action.siteModelId === run.siteModelId &&
-    action.goalId === run.goalId
-  );
-}
-
-async function frozenBeforeStillHolds(action: ActionRecord): Promise<boolean> {
-  const page = await findPageSnapshot(action.targetPageId);
-  if (!page || page.crawlRunId !== action.crawlRunId) {
+async function adapterReadyFor(action: ActionRecord, hostname: string | null): Promise<boolean> {
+  if (!hostname || !action.proposedValue || !readGitHubAppConfig()) {
     return false;
   }
 
-  if ((page.contentHash ?? null) !== (action.pageContentHashAtPrepare ?? null)) {
-    return false;
-  }
-
-  return isEmptyMeta(page.metaDescription) && action.observedBefore == null;
-}
-
-async function blockAction(action: ActionRecord): Promise<ActionRecord> {
-  const updated = await updateAction({
-    id: action.id,
-    websiteId: action.websiteId,
-    expectedStatuses: [action.status],
-    patch: {
-      status: "blocked",
-      approvedByOwnerId: null,
-      approvedAt: null,
-    },
+  return isFoundfyHomepageMetaTarget({
+    hostname,
+    pageUrl: action.targetPageUrl,
+    field: action.field,
+    actionType: action.actionType,
   });
-
-  return updated ?? { ...action, status: "blocked" };
-}
-
-async function previewFor(action: ActionRecord): Promise<ActionPreviewView> {
-  const run = await findDecisionRunById(action.websiteId, action.decisionRunId);
-  if (!run) {
-    throw new ActionError("decision_stale", "This Decision is no longer current.");
-  }
-
-  return previewForWithGoal(action, run.goalSnapshot, run.gscTruncated);
 }
 
 async function previewForWithGoal(
   action: ActionRecord,
   goal: GoalSnapshot,
   truncated: boolean,
+  safety: { run: DecisionRunRecord | null; staleReason: string | null; hostname: string | null },
 ): Promise<ActionPreviewView> {
   const decision = await findDecisionById(action.websiteId, action.decisionId);
   if (!decision) {
@@ -254,6 +270,14 @@ async function previewForWithGoal(
   }
 
   const view = toDecisionView(decision, goal, truncated);
+  const frozenUnsafe = safety.run ? !(await frozenBeforeStillHolds(action)) : true;
+  const unsafe = actionIsUnsafe(action, safety.run, safety.staleReason) || frozenUnsafe;
+  const availability = executeAvailability({
+    status: action.status,
+    unsafe,
+    adapterReady: await adapterReadyFor(action, safety.hostname),
+  });
+
   return toActionPreview({
     action,
     decision: {
@@ -262,6 +286,25 @@ async function previewForWithGoal(
       explanation: decision.explanation,
       why: view.why,
     },
+    ...availability,
+  });
+}
+
+async function previewFor(
+  action: ActionRecord,
+  sessionToken: string | null,
+): Promise<ActionPreviewView> {
+  const loaded = await loadCurrentRun({ websiteId: action.websiteId, sessionToken });
+  const website = await getWebsiteById(action.websiteId);
+  const run = await findDecisionRunById(action.websiteId, action.decisionRunId);
+  if (!run) {
+    throw new ActionError("decision_stale", "This Decision is no longer current.");
+  }
+
+  return previewForWithGoal(action, run.goalSnapshot, run.gscTruncated, {
+    run: loaded.staleReason ? null : loaded.run,
+    staleReason: loaded.staleReason,
+    hostname: website?.hostname ?? null,
   });
 }
 
@@ -275,8 +318,14 @@ export async function prepareAction(input: {
     websiteId: input.websiteId,
     decisionId: input.decisionId,
   });
+  const website = await getWebsiteById(input.websiteId);
+  const safety = {
+    run: context.run,
+    staleReason: null,
+    hostname: website?.hostname ?? null,
+  };
   if (existing) {
-    return previewForWithGoal(existing, context.goal, context.run.gscTruncated);
+    return previewForWithGoal(existing, context.goal, context.run.gscTruncated, safety);
   }
 
   const decision = await loadSupportedDecision({
@@ -311,14 +360,14 @@ export async function prepareAction(input: {
       goalId: context.run.goalId,
       evidenceRefs: decision.evidenceRefs,
     });
-    return previewForWithGoal(action, context.goal, context.run.gscTruncated);
+    return previewForWithGoal(action, context.goal, context.run.gscTruncated, safety);
   } catch (error) {
     const raced = await findOpenActionForDecision({
       websiteId: input.websiteId,
       decisionId: input.decisionId,
     });
     if (raced) {
-      return previewForWithGoal(raced, context.goal, context.run.gscTruncated);
+      return previewForWithGoal(raced, context.goal, context.run.gscTruncated, safety);
     }
     throw error;
   }
@@ -328,11 +377,22 @@ export async function listActionsForWebsite(input: {
   websiteId: string;
   sessionToken: string | null;
 }): Promise<{ actions: ActionPreviewView[] }> {
-  await requireObserveOwner(input);
+  const loaded = await loadCurrentRun(input);
+  const website = await getWebsiteById(input.websiteId);
   const actions = await listVisibleActionsForWebsite(input.websiteId);
   const previews: ActionPreviewView[] = [];
   for (const action of actions) {
-    previews.push(await previewFor(action));
+    const storedRun = await findDecisionRunById(action.websiteId, action.decisionRunId);
+    if (!storedRun) {
+      continue;
+    }
+    previews.push(
+      await previewForWithGoal(action, storedRun.goalSnapshot, storedRun.gscTruncated, {
+        run: loaded.staleReason ? null : loaded.run,
+        staleReason: loaded.staleReason,
+        hostname: website?.hostname ?? null,
+      }),
+    );
   }
   return { actions: previews };
 }
@@ -351,7 +411,7 @@ export async function getActionPreview(input: {
     throw new ActionError("action_not_found", "Action not found.", 404);
   }
 
-  return previewFor(action);
+  return previewFor(action, input.sessionToken);
 }
 
 export async function updateActionProposal(input: {
@@ -399,7 +459,12 @@ export async function updateActionProposal(input: {
     throw new ActionError("not_editable", "Approved changes cannot be edited.");
   }
 
-  return previewForWithGoal(updated, loaded.goal, loaded.run?.gscTruncated ?? false);
+  const website = await getWebsiteById(input.websiteId);
+  return previewForWithGoal(updated, loaded.goal, loaded.run?.gscTruncated ?? false, {
+    run: loaded.staleReason ? null : loaded.run,
+    staleReason: loaded.staleReason,
+    hostname: website?.hostname ?? null,
+  });
 }
 
 export async function approveAction(input: {
@@ -465,7 +530,12 @@ export async function approveAction(input: {
     throw new ActionError("not_editable", "This change can no longer be approved.");
   }
 
-  return previewForWithGoal(approved, loaded.goal, currentRun.gscTruncated);
+  const website = await getWebsiteById(input.websiteId);
+  return previewForWithGoal(approved, loaded.goal, currentRun.gscTruncated, {
+    run: currentRun,
+    staleReason: null,
+    hostname: website?.hostname ?? null,
+  });
 }
 
 export async function cancelAction(input: {
@@ -497,14 +567,14 @@ export async function cancelAction(input: {
     throw new ActionError("not_cancellable", "This change can no longer be cancelled.");
   }
 
-  return previewFor(cancelled);
+  return previewFor(cancelled, input.sessionToken);
 }
 
 export async function executeAction(input: {
   websiteId: string;
   sessionToken: string | null;
   actionId: string;
-}): Promise<never> {
+}): Promise<ActionPreviewView> {
   const loaded = await loadCurrentRun(input);
   const action = await findActionById({
     websiteId: input.websiteId,
@@ -512,6 +582,10 @@ export async function executeAction(input: {
   });
   if (!action) {
     throw new ActionError("action_not_found", "Action not found.", 404);
+  }
+
+  if (action.status === "executed") {
+    return previewFor(action, input.sessionToken);
   }
 
   if (action.status !== "approved") {
@@ -525,18 +599,135 @@ export async function executeAction(input: {
     );
   }
 
-  const attemptNumber = (await countActionAttempts(action.id)) + 1;
-  await insertActionAttempt({
-    actionId: action.id,
-    attemptNumber,
-    idempotencyKey: `${action.id}:execute:${attemptNumber}`,
-    provider: null,
-    result: "failure",
-    errorCode: ADAPTER_NOT_CONNECTED,
-  });
-
-  throw new ActionError(
-    "adapter_not_connected",
-    "Foundfy cannot apply this change until a site connection exists.",
+  const website = await getWebsiteById(input.websiteId);
+  const supported = Boolean(
+    website &&
+      isFoundfyHomepageMetaTarget({
+        hostname: website.hostname,
+        pageUrl: action.targetPageUrl,
+        field: action.field,
+        actionType: action.actionType,
+      }),
   );
+  const githubConfig = readGitHubAppConfig();
+  if (!supported || !githubConfig) {
+    const attemptNumber = (await countActionAttempts(action.id)) + 1;
+    await insertActionAttempt({
+      actionId: action.id,
+      attemptNumber,
+      idempotencyKey: `${action.id}:execute:${attemptNumber}`,
+      provider: null,
+      result: "failure",
+      errorCode: ADAPTER_NOT_CONNECTED,
+    });
+    throw new ActionError(
+      "adapter_not_connected",
+      "Foundfy cannot apply this change until a site connection exists.",
+    );
+  }
+
+  if (!action.proposedValue) {
+    throw new ActionError("empty_proposed_value", "Enter a meta description before approving this change.", 400);
+  }
+
+  const successKey = githubExecuteIdempotencyKey(action.id);
+  const existingSuccess =
+    (await findActionAttemptByIdempotencyKey(successKey)) ??
+    (await findSuccessfulGithubExecuteAttempt(action.id));
+  if (existingSuccess?.result === "success") {
+    const executed =
+      (await updateAction({
+        id: action.id,
+        websiteId: action.websiteId,
+        expectedStatuses: ["approved", "executed"],
+        patch: { status: "executed" },
+      })) ?? { ...action, status: "executed" as const };
+    return previewFor(executed, input.sessionToken);
+  }
+
+  try {
+    const liveMeta = await fetchLiveHomepageMeta();
+    const liveMatchesBefore = metaValuesEqual(liveMeta, action.mutationSpec.before);
+    const liveMatchesAfter = metaValuesEqual(liveMeta, action.proposedValue);
+
+    if (!liveMatchesBefore && !liveMatchesAfter) {
+      throw new ActionError(
+        "before_state_changed",
+        "The live homepage meta description no longer matches the approved before-state.",
+      );
+    }
+
+    const artifact = await commitHomepageDescription({
+      config: githubConfig,
+      actionId: action.id,
+      expectedBefore: action.mutationSpec.before,
+      afterValue: action.proposedValue,
+      recoverOnly: liveMatchesAfter && !liveMatchesBefore,
+    });
+
+    const observation = await observeHomepageDeployment({
+      expected: action.proposedValue,
+    });
+
+    await insertActionAttempt({
+      actionId: action.id,
+      attemptNumber: (await countActionAttempts(action.id)) + 1,
+      idempotencyKey: successKey,
+      provider: FOUNDFY_GITHUB_PROVIDER,
+      result: "success",
+      errorCode: null,
+      artifact: {
+        ...artifact,
+        deploymentObserved: observation.observed,
+        deploymentObservedAt: observation.observedAt,
+      },
+    });
+
+    const executed = await updateAction({
+      id: action.id,
+      websiteId: action.websiteId,
+      expectedStatuses: ["approved"],
+      patch: { status: "executed" },
+    });
+    return previewFor(executed ?? { ...action, status: "executed" }, input.sessionToken);
+  } catch (error) {
+    if (error instanceof ActionError && error.code === "before_state_changed") {
+      await blockAction(action);
+      throw error;
+    }
+
+    if (error instanceof ActionError && error.code === "decision_stale") {
+      throw error;
+    }
+
+    if (
+      error instanceof ActionError &&
+      (error.code === "git_concurrency_conflict" ||
+        error.code === "unexpected_source_shape" ||
+        error.code === "remote_state_changed" ||
+        error.code === "github_auth_failed")
+    ) {
+      await insertActionAttempt({
+        actionId: action.id,
+        attemptNumber: (await countActionAttempts(action.id)) + 1,
+        idempotencyKey: `${action.id}:github:execute:fail:${Date.now()}`,
+        provider: FOUNDFY_GITHUB_PROVIDER,
+        result: "failure",
+        errorCode: error.code,
+      });
+      throw error;
+    }
+
+    await insertActionAttempt({
+      actionId: action.id,
+      attemptNumber: (await countActionAttempts(action.id)) + 1,
+      idempotencyKey: `${action.id}:github:execute:fail:${Date.now()}`,
+      provider: FOUNDFY_GITHUB_PROVIDER,
+      result: "failure",
+      errorCode: error instanceof ActionError ? error.code : "github_auth_failed",
+    });
+    throw error instanceof ActionError
+      ? error
+      : new ActionError("github_auth_failed", "Foundfy could not apply this change to GitHub.");
+  }
 }

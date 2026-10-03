@@ -42,6 +42,7 @@ type AttemptRow = {
   provider: string | null;
   result: ActionAttemptRecord["result"];
   error_code: string | null;
+  artifact: ActionAttemptRecord["artifact"];
   created_at: string;
   finished_at: string | null;
 };
@@ -103,6 +104,7 @@ function mapAttempt(row: AttemptRow): ActionAttemptRecord {
     provider: row.provider,
     result: row.result,
     errorCode: row.error_code,
+    artifact: (row.artifact ?? {}) as ActionAttemptRecord["artifact"],
     createdAt: row.created_at,
     finishedAt: row.finished_at,
   };
@@ -316,7 +318,7 @@ export async function listVisibleActionsForWebsite(websiteId: string): Promise<A
     .from("actions")
     .select(ACTION_COLUMNS)
     .eq("website_id", websiteId)
-    .in("status", ["prepared", "awaiting_approval", "approved", "blocked"])
+    .in("status", ["prepared", "awaiting_approval", "approved", "executed", "blocked"])
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -386,6 +388,47 @@ export async function countActionAttempts(actionId: string): Promise<number> {
   return count ?? 0;
 }
 
+const ATTEMPT_COLUMNS =
+  "id, action_id, attempt_number, idempotency_key, provider, result, error_code, artifact, created_at, finished_at";
+
+export async function findActionAttemptByIdempotencyKey(
+  idempotencyKey: string,
+): Promise<ActionAttemptRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("action_attempts")
+    .select(ATTEMPT_COLUMNS)
+    .eq("idempotency_key", idempotencyKey)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load action attempt: ${error.message}`);
+  }
+
+  return data ? mapAttempt(data as AttemptRow) : null;
+}
+
+export async function findSuccessfulGithubExecuteAttempt(
+  actionId: string,
+): Promise<ActionAttemptRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("action_attempts")
+    .select(ATTEMPT_COLUMNS)
+    .eq("action_id", actionId)
+    .eq("provider", "github")
+    .eq("result", "success")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load successful execute attempt: ${error.message}`);
+  }
+
+  return data ? mapAttempt(data as AttemptRow) : null;
+}
+
 export async function insertActionAttempt(input: {
   actionId: string;
   attemptNumber: number;
@@ -393,6 +436,7 @@ export async function insertActionAttempt(input: {
   provider: string | null;
   result: ActionAttemptRecord["result"];
   errorCode: string | null;
+  artifact?: ActionAttemptRecord["artifact"];
 }): Promise<ActionAttemptRecord> {
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
@@ -405,13 +449,19 @@ export async function insertActionAttempt(input: {
       provider: input.provider,
       result: input.result,
       error_code: input.errorCode,
+      artifact: input.artifact ?? {},
       created_at: now,
       finished_at: now,
     })
-    .select(
-      "id, action_id, attempt_number, idempotency_key, provider, result, error_code, created_at, finished_at",
-    )
+    .select(ATTEMPT_COLUMNS)
     .maybeSingle();
+
+  if (error?.code === "23505") {
+    const existing = await findActionAttemptByIdempotencyKey(input.idempotencyKey);
+    if (existing) {
+      return existing;
+    }
+  }
 
   if (error || !data) {
     throw new Error(`Failed to record action attempt: ${error?.message ?? "unknown error"}`);
