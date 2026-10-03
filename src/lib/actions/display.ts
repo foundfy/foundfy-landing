@@ -9,10 +9,15 @@ export const ACTION_CURRENT_LABEL = "Current meta description";
 export const ACTION_MUTATION_HEADING = "Exact change";
 export const ACTION_VERIFY_HEADING = "How Foundfy will verify this later";
 export const ACTION_WHY_HEADING = "Why Foundfy recommends this";
+export const ACTION_EXECUTE_LABEL = "Apply this change";
 export const ACTION_EXECUTE_DISABLED =
   "A site connection is required before Foundfy can apply this change.";
+export const ACTION_UNSAFE_STALE_COPY =
+  "This change is no longer current. Foundfy will not apply it.";
 export const ACTION_ERROR_COPY = "Foundfy couldn't prepare this change right now.";
-export const ACTION_APPROVED_COPY = "Approved. Foundfy will not change the live page until a site connection exists.";
+export const ACTION_APPROVED_COPY = "Approved. Foundfy can apply this change.";
+export const ACTION_EXECUTED_COPY =
+  "Foundfy created the approved change on the site repository. Deployment and crawl verification are separate.";
 export const ACTION_BLOCKED_COPY =
   "This change is blocked because the Decision or page evidence is no longer current.";
 export const ACTION_PAGE_HEADING = "Page";
