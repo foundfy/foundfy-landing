@@ -5,9 +5,6 @@ import WhyNow from "@/components/WhyNow";
 import EarlyAccess from "@/components/EarlyAccess";
 import Closing from "@/components/Closing";
 import Footer from "@/components/Footer";
-import { homepageMetadata } from "@/lib/seo/homepage-metadata";
-
-export const metadata = homepageMetadata;
 
 export default function Home() {
   return (
