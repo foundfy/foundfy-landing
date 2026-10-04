@@ -44,4 +44,30 @@ describe("GET /api/websites/[websiteId]/actions", () => {
     expect(response.headers.get("cache-control")).toMatch(/no-store/);
     expect(await response.json()).toEqual({ actions: [{ id: "action-1", status: "prepared" }] });
   });
+
+  it("does not mutate actions while listing", async () => {
+    listActionsForWebsiteMock.mockResolvedValue({
+      actions: [
+        {
+          id: "action-1",
+          status: "approved",
+          executeBlockedReason: "unsafe_stale",
+        },
+      ],
+    });
+
+    const response = await GET(
+      new Request("https://www.foundfy.me/actions", {
+        method: "GET",
+        headers: { cookie: "foundfy_gsc_session=owner-token" },
+      }),
+      { params: Promise.resolve({ websiteId: WEBSITE_ID }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(listActionsForWebsiteMock).toHaveBeenCalledTimes(1);
+    expect(await response.json()).toMatchObject({
+      actions: [{ status: "approved", executeBlockedReason: "unsafe_stale" }],
+    });
+  });
 });

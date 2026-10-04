@@ -9,7 +9,7 @@ describe("ACT display copy", () => {
     );
     expect(ACTION_VERIFICATION_PLAN).not.toMatch(/rank|traffic|clicks|impressions/i);
     expect(ACTION_EXECUTE_DISABLED).toContain("site connection");
-    expect(ACTION_UNSAFE_STALE_COPY).toContain("no longer current");
+    expect(ACTION_UNSAFE_STALE_COPY).toContain("underlying evidence has changed");
     expect(ACTION_PREPARE_LABEL).toBe("Prepare this change");
   });
 });

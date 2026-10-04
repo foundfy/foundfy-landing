@@ -78,6 +78,7 @@ import {
   cancelAction,
   executeAction,
   getActionPreview,
+  listActionsForWebsite,
   prepareAction,
   updateActionProposal,
 } from "./lifecycle";
@@ -322,6 +323,7 @@ describe("ACT v0 lifecycle", () => {
     findActionAttemptByIdempotencyKeyMock.mockResolvedValue(null);
     findSuccessfulGithubExecuteAttemptMock.mockResolvedValue(null);
     getWebsiteByIdMock.mockResolvedValue({ id: WEBSITE_ID, hostname: "www.dbhobby.com" });
+    listVisibleActionsForWebsiteMock.mockResolvedValue([]);
     readGitHubAppConfigMock.mockReturnValue(null);
     commitHomepageDescriptionMock.mockResolvedValue(githubArtifact());
     fetchLiveHomepageMetaMock.mockResolvedValue(null);
@@ -851,6 +853,44 @@ describe("ACT v0 lifecycle", () => {
         artifact: expect.objectContaining({ deploymentObserved: false }),
       }),
     );
+  });
+
+  it("keeps an approved action visible after its source Decision leaves the current run", async () => {
+    findLatestCompletedDecisionRunMock.mockResolvedValue({ ...run(), id: "run-2" });
+    listVisibleActionsForWebsiteMock.mockResolvedValue([foundfyApprovedAction()]);
+
+    const { actions } = await listActionsForWebsite({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION,
+    });
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0]?.id).toBe("action-1");
+    expect(actions[0]?.status).toBe("approved");
+    expect(actions[0]?.approvedAt).toBe("2026-09-26T01:00:00.000Z");
+    expect(actions[0]?.executeAvailable).toBe(false);
+    expect(actions[0]?.executeBlockedReason).toBe("unsafe_stale");
+    expect(updateActionMock).not.toHaveBeenCalled();
+    expect(insertActionAttemptMock).not.toHaveBeenCalled();
+    expect(fetchLiveHomepageMetaMock).not.toHaveBeenCalled();
+    expect(commitHomepageDescriptionMock).not.toHaveBeenCalled();
+  });
+
+  it("still lists a persisted action when the original Decision row is gone", async () => {
+    findLatestCompletedDecisionRunMock.mockResolvedValue({ ...run(), id: "run-2" });
+    listVisibleActionsForWebsiteMock.mockResolvedValue([foundfyApprovedAction()]);
+    findDecisionByIdMock.mockResolvedValue(null);
+
+    const { actions } = await listActionsForWebsite({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION,
+    });
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0]?.targetPage.url).toBe("https://www.foundfy.me/");
+    expect(actions[0]?.status).toBe("approved");
+    expect(actions[0]?.executeBlockedReason).toBe("unsafe_stale");
+    expect(updateActionMock).not.toHaveBeenCalled();
   });
 });
 
