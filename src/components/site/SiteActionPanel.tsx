@@ -10,12 +10,15 @@ import {
   ACTION_CURRENT_NONE_LABEL,
   ACTION_ERROR_COPY,
   ACTION_EXECUTE_DISABLED,
+  ACTION_EXECUTE_LABEL,
+  ACTION_EXECUTED_COPY,
   ACTION_FIELD_LABEL,
   ACTION_MUTATION_HEADING,
   ACTION_PAGE_HEADING,
   ACTION_PREPARE_LABEL,
   ACTION_PROPOSED_LABEL,
   ACTION_SAVE_DRAFT_LABEL,
+  ACTION_UNSAFE_STALE_COPY,
   ACTION_VERIFY_HEADING,
   ACTION_WHY_HEADING,
 } from "@/lib/actions/display";
@@ -152,6 +155,26 @@ export default function SiteActionPanel({
     }
   }
 
+  async function execute() {
+    if (!action) {
+      return;
+    }
+
+    setIsWorking(true);
+    setErrorMessage(null);
+    try {
+      const next = await request(`/api/websites/${websiteId}/actions/${action.id}/execute`, {
+        method: "POST",
+      });
+      setDraft(next.proposedValue ?? "");
+      onActionChange(next);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : ACTION_ERROR_COPY);
+    } finally {
+      setIsWorking(false);
+    }
+  }
+
   if (!action) {
     if (!current || decision.supportedActionType !== "update_meta_description") {
       return null;
@@ -185,7 +208,16 @@ export default function SiteActionPanel({
       {action.status === "blocked" ? (
         <p className={styles.sectionMeta}>{ACTION_BLOCKED_COPY}</p>
       ) : null}
-      {action.status === "approved" ? (
+      {action.status === "executed" ? (
+        <p className={styles.sectionMeta}>{ACTION_EXECUTED_COPY}</p>
+      ) : null}
+      {action.status === "approved" && action.executeBlockedReason === "unsafe_stale" ? (
+        <p className={styles.sectionMeta}>{ACTION_UNSAFE_STALE_COPY}</p>
+      ) : null}
+      {action.status === "approved" && action.executeBlockedReason === "adapter_not_connected" ? (
+        <p className={styles.sectionMeta}>{ACTION_EXECUTE_DISABLED}</p>
+      ) : null}
+      {action.status === "approved" && action.executeAvailable ? (
         <p className={styles.sectionMeta}>{ACTION_APPROVED_COPY}</p>
       ) : null}
 
@@ -240,10 +272,6 @@ export default function SiteActionPanel({
         <p className={styles.understandingCopy}>{action.verificationPlan}</p>
       </div>
 
-      {action.status === "approved" ? (
-        <p className={styles.actionDisabledNote}>{ACTION_EXECUTE_DISABLED}</p>
-      ) : null}
-
       <div className={styles.interpretationActions}>
         {editable ? (
           <>
@@ -265,7 +293,17 @@ export default function SiteActionPanel({
             </button>
           </>
         ) : null}
-        {action.status !== "blocked" ? (
+        {action.executeAvailable ? (
+          <button
+            type="button"
+            className={styles.scanButton}
+            disabled={isWorking}
+            onClick={() => void execute()}
+          >
+            {isWorking ? "Applying…" : ACTION_EXECUTE_LABEL}
+          </button>
+        ) : null}
+        {action.status !== "blocked" && action.status !== "executed" ? (
           <button
             type="button"
             className={styles.textButton}

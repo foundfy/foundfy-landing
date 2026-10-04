@@ -1,10 +1,16 @@
 import { ACTION_VERIFICATION_PLAN, ADAPTER_NOT_CONNECTED } from "./config";
-import type { ActionPreviewView, ActionRecord } from "./types";
+import type {
+  ActionPreviewView,
+  ActionRecord,
+  ExecuteBlockedReason,
+} from "./types";
 import type { DecisionView } from "@/lib/decisions/types";
 
 export function toActionPreview(input: {
   action: ActionRecord;
   decision: Pick<DecisionView, "id" | "title" | "explanation" | "why">;
+  executeAvailable: boolean;
+  executeBlockedReason: ExecuteBlockedReason;
 }): ActionPreviewView {
   return {
     id: input.action.id,
@@ -34,8 +40,31 @@ export function toActionPreview(input: {
     verificationPlan: ACTION_VERIFICATION_PLAN,
     evidenceRefs: input.action.evidenceRefs,
     approvedAt: input.action.approvedAt,
-    executeAvailable: false,
-    executeBlockedReason:
-      input.action.status === "approved" ? ADAPTER_NOT_CONNECTED : null,
+    executeAvailable: input.executeAvailable,
+    executeBlockedReason: input.executeBlockedReason,
   };
+}
+
+export function executeAvailability(input: {
+  status: ActionRecord["status"];
+  unsafe: boolean;
+  adapterReady: boolean;
+}): { executeAvailable: boolean; executeBlockedReason: ExecuteBlockedReason } {
+  if (input.status === "blocked" || input.status === "executed") {
+    return { executeAvailable: false, executeBlockedReason: null };
+  }
+
+  if (input.status !== "approved") {
+    return { executeAvailable: false, executeBlockedReason: null };
+  }
+
+  if (input.unsafe) {
+    return { executeAvailable: false, executeBlockedReason: "unsafe_stale" };
+  }
+
+  if (!input.adapterReady) {
+    return { executeAvailable: false, executeBlockedReason: ADAPTER_NOT_CONNECTED };
+  }
+
+  return { executeAvailable: true, executeBlockedReason: null };
 }
