@@ -16,5 +16,12 @@ describe("actionErrorResponse", () => {
     expect(adapter.status).toBe(409);
     expect(await adapter.json()).toMatchObject({ reason: "adapter_not_connected" });
     expect(adapter.headers.get("cache-control")).toMatch(/no-store/);
+
+    const freshCrawl = actionErrorResponse(
+      new ActionError("fresh_crawl_required", "Run a new scan."),
+      "fallback",
+    );
+    expect(freshCrawl.status).toBe(409);
+    expect(await freshCrawl.json()).toMatchObject({ reason: "fresh_crawl_required" });
   });
 });

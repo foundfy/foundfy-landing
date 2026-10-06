@@ -2,6 +2,7 @@ import { ACTION_VERIFICATION_PLAN, ADAPTER_NOT_CONNECTED } from "./config";
 import type {
   ActionPreviewView,
   ActionRecord,
+  ActionVerificationView,
   ExecuteBlockedReason,
 } from "./types";
 import type { DecisionView } from "@/lib/decisions/types";
@@ -11,6 +12,7 @@ export function toActionPreview(input: {
   decision: Pick<DecisionView, "id" | "title" | "explanation" | "why">;
   executeAvailable: boolean;
   executeBlockedReason: ExecuteBlockedReason;
+  verification?: ActionVerificationView | null;
 }): ActionPreviewView {
   return {
     id: input.action.id,
@@ -42,6 +44,7 @@ export function toActionPreview(input: {
     approvedAt: input.action.approvedAt,
     executeAvailable: input.executeAvailable,
     executeBlockedReason: input.executeBlockedReason,
+    verification: input.verification ?? null,
   };
 }
 

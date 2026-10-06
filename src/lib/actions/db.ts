@@ -7,6 +7,8 @@ import type {
   ActionMutationSpec,
   ActionRecord,
   ActionStatus,
+  ActionVerificationEvidenceSnapshot,
+  ActionVerificationRecord,
 } from "./types";
 
 type ActionRow = {
@@ -468,4 +470,257 @@ export async function insertActionAttempt(input: {
   }
 
   return mapAttempt(data as AttemptRow);
+}
+
+export async function findSuccessfulExecuteAttempt(
+  actionId: string,
+): Promise<ActionAttemptRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("action_attempts")
+    .select(ATTEMPT_COLUMNS)
+    .eq("action_id", actionId)
+    .eq("result", "success")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load successful execute attempt: ${error.message}`);
+  }
+
+  return data ? mapAttempt(data as AttemptRow) : null;
+}
+
+export type VerificationCrawlSnapshot = {
+  id: string;
+  websiteId: string;
+  status: string;
+  pagesCrawled: number;
+  completedAt: string | null;
+  createdAt: string;
+};
+
+export async function findLatestCompletedCrawlAfter(input: {
+  websiteId: string;
+  afterIso: string;
+}): Promise<VerificationCrawlSnapshot | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("crawl_runs")
+    .select("id, website_id, status, pages_crawled, completed_at, created_at")
+    .eq("website_id", input.websiteId)
+    .eq("status", "completed")
+    .gt("pages_crawled", 0)
+    .gt("completed_at", input.afterIso)
+    .order("completed_at", { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load post-execution crawl: ${error.message}`);
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return {
+    id: data.id,
+    websiteId: data.website_id,
+    status: data.status,
+    pagesCrawled: data.pages_crawled,
+    completedAt: data.completed_at,
+    createdAt: data.created_at,
+  };
+}
+
+export type VerificationPageRow = {
+  id: string;
+  crawlRunId: string;
+  requestedUrl: string;
+  finalUrl: string;
+  statusCode: number | null;
+  metaDescription: string | null;
+  contentHash: string | null;
+};
+
+export async function listPagesForCrawlRun(crawlRunId: string): Promise<VerificationPageRow[]> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("pages")
+    .select("id, crawl_run_id, requested_url, final_url, status_code, meta_description, content_hash")
+    .eq("crawl_run_id", crawlRunId);
+
+  if (error) {
+    throw new Error(`Failed to load crawl pages for verification: ${error.message}`);
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    crawlRunId: row.crawl_run_id,
+    requestedUrl: row.requested_url,
+    finalUrl: row.final_url,
+    statusCode: row.status_code,
+    metaDescription: row.meta_description,
+    contentHash: row.content_hash,
+  }));
+}
+
+export async function findActiveMissingMetaObservation(input: {
+  crawlRunId: string;
+  pageId: string;
+}): Promise<ActionObservationSnapshot | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("observations")
+    .select("id, page_id, rule_key, status, evidence")
+    .eq("crawl_run_id", input.crawlRunId)
+    .eq("page_id", input.pageId)
+    .eq("rule_key", "page_fundamentals.missing_meta_description")
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load missing-meta observation for verification: ${error.message}`);
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return {
+    id: data.id,
+    pageId: data.page_id,
+    ruleKey: data.rule_key,
+    status: data.status,
+    evidence: (data.evidence ?? {}) as Record<string, unknown>,
+  };
+}
+
+type VerificationRow = {
+  id: string;
+  action_id: string;
+  website_id: string;
+  execution_attempt_id: string;
+  crawl_run_id: string;
+  target_page_id: string | null;
+  verification_type: ActionVerificationRecord["verificationType"];
+  status: ActionVerificationRecord["status"];
+  expected_value: string | null;
+  observed_value: string | null;
+  evidence_snapshot: ActionVerificationEvidenceSnapshot;
+  verified_at: string | null;
+  created_at: string;
+};
+
+const VERIFICATION_COLUMNS =
+  "id, action_id, website_id, execution_attempt_id, crawl_run_id, target_page_id, verification_type, status, expected_value, observed_value, evidence_snapshot, verified_at, created_at";
+
+function mapVerification(row: VerificationRow): ActionVerificationRecord {
+  return {
+    id: row.id,
+    actionId: row.action_id,
+    websiteId: row.website_id,
+    executionAttemptId: row.execution_attempt_id,
+    crawlRunId: row.crawl_run_id,
+    targetPageId: row.target_page_id,
+    verificationType: row.verification_type,
+    status: row.status,
+    expectedValue: row.expected_value,
+    observedValue: row.observed_value,
+    evidenceSnapshot: row.evidence_snapshot ?? {},
+    verifiedAt: row.verified_at,
+    createdAt: row.created_at,
+  };
+}
+
+export async function findVerificationByIdempotency(input: {
+  actionId: string;
+  executionAttemptId: string;
+  crawlRunId: string;
+}): Promise<ActionVerificationRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("action_verifications")
+    .select(VERIFICATION_COLUMNS)
+    .eq("action_id", input.actionId)
+    .eq("execution_attempt_id", input.executionAttemptId)
+    .eq("crawl_run_id", input.crawlRunId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load action verification: ${error.message}`);
+  }
+
+  return data ? mapVerification(data as VerificationRow) : null;
+}
+
+export async function findLatestVerificationForAction(
+  actionId: string,
+): Promise<ActionVerificationRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("action_verifications")
+    .select(VERIFICATION_COLUMNS)
+    .eq("action_id", actionId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load latest action verification: ${error.message}`);
+  }
+
+  return data ? mapVerification(data as VerificationRow) : null;
+}
+
+export async function insertActionVerification(input: {
+  actionId: string;
+  websiteId: string;
+  executionAttemptId: string;
+  crawlRunId: string;
+  targetPageId: string | null;
+  status: ActionVerificationRecord["status"];
+  expectedValue: string | null;
+  observedValue: string | null;
+  evidenceSnapshot: ActionVerificationEvidenceSnapshot;
+}): Promise<ActionVerificationRecord> {
+  const supabase = getSupabaseAdmin();
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("action_verifications")
+    .insert({
+      action_id: input.actionId,
+      website_id: input.websiteId,
+      execution_attempt_id: input.executionAttemptId,
+      crawl_run_id: input.crawlRunId,
+      target_page_id: input.targetPageId,
+      verification_type: "update_meta_description",
+      status: input.status,
+      expected_value: input.expectedValue,
+      observed_value: input.observedValue,
+      evidence_snapshot: input.evidenceSnapshot,
+      verified_at: input.status === "verified" ? now : null,
+      created_at: now,
+    })
+    .select(VERIFICATION_COLUMNS)
+    .maybeSingle();
+
+  if (error?.code === "23505") {
+    const existing = await findVerificationByIdempotency({
+      actionId: input.actionId,
+      executionAttemptId: input.executionAttemptId,
+      crawlRunId: input.crawlRunId,
+    });
+    if (existing) {
+      return existing;
+    }
+  }
+
+  if (error || !data) {
+    throw new Error(`Failed to record action verification: ${error?.message ?? "unknown error"}`);
+  }
+
+  return mapVerification(data as VerificationRow);
 }
