@@ -20,6 +20,7 @@ export const ACTION_APPROVED_AT_HEADING = "Approved";
 export const ACTION_SAFETY_HEADING = "Safety";
 export const ACTION_TYPE_HEADING = "Change";
 export const ACTION_TYPE_LABEL = "Update meta description";
+export const ACTION_PAGE_HEADING = "Page";
 
 export const ACTION_STATUS_LABELS: Record<
   "prepared" | "awaiting_approval" | "approved" | "executed" | "cancelled" | "blocked",
@@ -46,4 +47,17 @@ export const ACTION_EXECUTED_COPY =
   "Foundfy created the approved change on the site repository. Deployment and crawl verification are separate.";
 export const ACTION_BLOCKED_COPY =
   "This change is blocked because the Decision or page evidence is no longer current.";
-export const ACTION_PAGE_HEADING = "Page";
+export const ACTION_VERIFY_LABEL = "Check verification";
+export const ACTION_VERIFICATION_STATE_HEADING = "Verification";
+export const ACTION_VERIFY_FRESH_CRAWL_COPY =
+  "Run a new scan to verify that this change is live.";
+export const ACTION_VERIFIED_COPY =
+  "Verified — Foundfy re-checked the page and confirmed the meta description matches the approved change.";
+export const ACTION_NOT_VERIFIED_COPY =
+  "Not verified — Foundfy re-checked the page and the meta description does not match the approved change.";
+export const ACTION_INCONCLUSIVE_COPY =
+  "Inconclusive — Foundfy could not determine the page state from this crawl.";
+export const ACTION_EXPECTED_HEADING = "Expected meta description";
+export const ACTION_OBSERVED_HEADING = "Observed meta description";
+export const ACTION_VERIFIED_AT_HEADING = "Verified";
+export const ACTION_CRAWL_HEADING = "Crawl";

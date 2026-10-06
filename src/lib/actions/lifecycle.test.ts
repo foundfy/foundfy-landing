@@ -73,6 +73,11 @@ vi.mock("./live-meta", () => ({
   observeHomepageDeployment: (...args: unknown[]) => observeHomepageDeploymentMock(...args),
 }));
 
+vi.mock("./verify", () => ({
+  verificationViewFor: async () => null,
+  verifyAction: vi.fn(),
+}));
+
 import {
   approveAction,
   cancelAction,

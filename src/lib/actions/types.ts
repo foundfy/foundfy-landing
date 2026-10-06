@@ -35,6 +35,8 @@ export const ACTION_ERROR_CODES = [
   "git_concurrency_conflict",
   "unexpected_source_shape",
   "github_auth_failed",
+  "not_executed",
+  "fresh_crawl_required",
 ] as const;
 
 export type ActionErrorCode = (typeof ACTION_ERROR_CODES)[number];
@@ -143,6 +145,51 @@ export type ActionPreviewView = {
   approvedAt: string | null;
   executeAvailable: boolean;
   executeBlockedReason: ExecuteBlockedReason;
+  verification: ActionVerificationView | null;
+};
+
+export const ACTION_VERIFICATION_STATUSES = ["verified", "not_verified", "inconclusive"] as const;
+
+export type ActionVerificationStatus = (typeof ACTION_VERIFICATION_STATUSES)[number];
+
+export type ActionVerificationEvidenceSnapshot = {
+  crawlRunId?: string;
+  crawlCompletedAt?: string | null;
+  pageId?: string | null;
+  requestedUrl?: string | null;
+  finalUrl?: string | null;
+  statusCode?: number | null;
+  metaDescription?: string | null;
+  contentHash?: string | null;
+  missingMetaObservationId?: string | null;
+  missingMetaPresent?: boolean;
+  fetchedSuccessfully?: boolean;
+};
+
+export type ActionVerificationRecord = {
+  id: string;
+  actionId: string;
+  websiteId: string;
+  executionAttemptId: string;
+  crawlRunId: string;
+  targetPageId: string | null;
+  verificationType: "update_meta_description";
+  status: ActionVerificationStatus;
+  expectedValue: string | null;
+  observedValue: string | null;
+  evidenceSnapshot: ActionVerificationEvidenceSnapshot;
+  verifiedAt: string | null;
+  createdAt: string;
+};
+
+export type ActionVerificationView = {
+  state: "fresh_crawl_required" | "ready" | ActionVerificationStatus;
+  canCheck: boolean;
+  expectedValue: string | null;
+  observedValue: string | null;
+  verifiedAt: string | null;
+  crawlRunId: string | null;
+  crawlCompletedAt: string | null;
 };
 
 export class ActionError extends Error {

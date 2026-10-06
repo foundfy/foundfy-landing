@@ -12,6 +12,8 @@ describe("ACT v0 source boundary", () => {
     const db = read("./db.ts");
     const mutation = read("./mutation.ts");
     const liveMeta = read("./live-meta.ts");
+    const verify = read("./verify.ts");
+    const verification = read("./verification.ts");
     const github = [
       read("./github/commit.ts"),
       read("./github/api.ts"),
@@ -20,7 +22,7 @@ describe("ACT v0 source boundary", () => {
       read("./github/homepage-source.ts"),
       read("./github/target.ts"),
     ].join("\n");
-    const source = [lifecycle, db, mutation, liveMeta, github].join("\n");
+    const source = [lifecycle, db, mutation, liveMeta, verify, verification, github].join("\n");
 
     expect(source).not.toMatch(/openai|OpenAI/i);
     expect(source).not.toMatch(/generateObservationsForCrawlRun|persistFindings|createJob|from \"@\/lib\/findings|from \"@\/lib\/jobs/);
@@ -35,6 +37,11 @@ describe("ACT v0 source boundary", () => {
     expect(github).toMatch(/foundfy-act:/);
     expect(github).toMatch(/force: false/);
     expect(github).not.toMatch(/\bPAT\b|personal access token/i);
+    expect(verify).not.toMatch(/from \"\.\/github|from \"\.\/lifecycle|from \"\.\/live-meta/);
+    expect(verify).not.toMatch(/createAndEnqueueCrawl|start-crawl|generateObservationsForCrawlRun/);
+    expect(verify).not.toMatch(/deploymentObserved|generateDecisionsForWebsite/);
+    expect(verification).not.toMatch(/contentHash|content_hash|decision_runs/);
+    expect(db).toMatch(/\.gt\("completed_at", input.afterIso\)/);
   });
 
   it("keeps ACT off the public website overview", () => {
@@ -42,7 +49,7 @@ describe("ACT v0 source boundary", () => {
     const publicRoute = read("../../app/api/websites/[websiteId]/route.ts");
     const pageView = read("../../components/site/SitePageView.tsx");
 
-    expect(overviewLoader).not.toMatch(/from \"@\/lib\/actions|action_runs/);
+    expect(overviewLoader).not.toMatch(/from \"@\/lib\/actions|action_runs|action_verifications/);
     expect(publicRoute).not.toMatch(/from \"@\/lib\/actions|actions\/prepare/);
     expect(pageView).toContain("SiteDecisionsSection");
     expect(pageView).toContain("SiteActionsSection");

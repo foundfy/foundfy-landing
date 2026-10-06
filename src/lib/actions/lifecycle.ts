@@ -37,6 +37,7 @@ import { metaValuesEqual } from "./meta";
 import { executeAvailability, toActionPreview } from "./preview";
 import { buildMutationSpec, normalizeProposedMetaDescription, statusAfterProposedValue } from "./mutation";
 import { ActionError, type ActionPreviewView, type ActionRecord } from "./types";
+import { verificationViewFor } from "./verify";
 
 function isEmptyMeta(value: string | null | undefined): boolean {
   return !value?.trim();
@@ -297,6 +298,7 @@ async function previewForWithGoal(
           },
         },
     ...availability,
+    verification: await verificationViewFor(action),
   });
 }
 
