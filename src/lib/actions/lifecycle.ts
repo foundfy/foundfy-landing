@@ -38,6 +38,7 @@ import { executeAvailability, toActionPreview } from "./preview";
 import { buildMutationSpec, normalizeProposedMetaDescription, statusAfterProposedValue } from "./mutation";
 import { ActionError, type ActionPreviewView, type ActionRecord } from "./types";
 import { verificationViewFor } from "./verify";
+import { learningViewFor } from "./learn";
 
 function isEmptyMeta(value: string | null | undefined): boolean {
   return !value?.trim();
@@ -265,7 +266,9 @@ async function previewForWithGoal(
   truncated: boolean,
   safety: { run: DecisionRunRecord | null; staleReason: string | null; hostname: string | null },
 ): Promise<ActionPreviewView> {
-  const decision = await findDecisionById(action.websiteId, action.decisionId);
+  const decision = action.decisionId
+    ? await findDecisionById(action.websiteId, action.decisionId)
+    : null;
   const view = decision ? toDecisionView(decision, goal, truncated) : null;
   const frozenUnsafe = safety.run ? !(await frozenBeforeStillHolds(action)) : true;
   const unsafe = actionIsUnsafe(action, safety.run, safety.staleReason) || frozenUnsafe;
@@ -285,7 +288,7 @@ async function previewForWithGoal(
           why: view.why,
         }
       : {
-          id: action.decisionId,
+          id: action.decisionId ?? action.id,
           title: action.targetPageUrl,
           explanation: "",
           why: {
@@ -299,6 +302,7 @@ async function previewForWithGoal(
         },
     ...availability,
     verification: await verificationViewFor(action),
+    learning: await learningViewFor(action),
   });
 }
 
@@ -308,16 +312,31 @@ async function previewFor(
 ): Promise<ActionPreviewView> {
   const loaded = await loadCurrentRun({ websiteId: action.websiteId, sessionToken });
   const website = await getWebsiteById(action.websiteId);
-  const run = await findDecisionRunById(action.websiteId, action.decisionRunId);
-  if (!run) {
+  const historical =
+    action.status === "executed" || action.status === "blocked" || action.status === "cancelled";
+  const run = action.decisionRunId
+    ? await findDecisionRunById(action.websiteId, action.decisionRunId)
+    : null;
+  if (!run && !historical) {
     throw new ActionError("decision_stale", "This Decision is no longer current.");
   }
 
-  return previewForWithGoal(action, run.goalSnapshot, run.gscTruncated, {
-    run: loaded.staleReason ? null : loaded.run,
-    staleReason: loaded.staleReason,
-    hostname: website?.hostname ?? null,
-  });
+  return previewForWithGoal(
+    action,
+    run?.goalSnapshot ?? {
+      id: action.goalId,
+      primaryType: "grow_signups",
+      secondaryType: null,
+      note: null,
+      updatedAt: action.createdAt,
+    },
+    run?.gscTruncated ?? false,
+    {
+      run: loaded.staleReason ? null : loaded.run,
+      staleReason: loaded.staleReason,
+      hostname: website?.hostname ?? null,
+    },
+  );
 }
 
 export async function prepareAction(input: {
@@ -394,16 +413,31 @@ export async function listActionsForWebsite(input: {
   const actions = await listVisibleActionsForWebsite(input.websiteId);
   const previews: ActionPreviewView[] = [];
   for (const action of actions) {
-    const storedRun = await findDecisionRunById(action.websiteId, action.decisionRunId);
-    if (!storedRun) {
+    const storedRun = action.decisionRunId
+      ? await findDecisionRunById(action.websiteId, action.decisionRunId)
+      : null;
+    const historical =
+      action.status === "executed" || action.status === "blocked" || action.status === "cancelled";
+    if (!storedRun && !historical) {
       continue;
     }
     previews.push(
-      await previewForWithGoal(action, storedRun.goalSnapshot, storedRun.gscTruncated, {
-        run: loaded.staleReason ? null : loaded.run,
-        staleReason: loaded.staleReason,
-        hostname: website?.hostname ?? null,
-      }),
+      await previewForWithGoal(
+        action,
+        storedRun?.goalSnapshot ?? {
+          id: action.goalId,
+          primaryType: "grow_signups",
+          secondaryType: null,
+          note: null,
+          updatedAt: action.createdAt,
+        },
+        storedRun?.gscTruncated ?? false,
+        {
+          run: loaded.staleReason ? null : loaded.run,
+          staleReason: loaded.staleReason,
+          hostname: website?.hostname ?? null,
+        },
+      ),
     );
   }
   return { actions: previews };
@@ -515,6 +549,9 @@ export async function approveAction(input: {
   const currentRun = loaded.run;
   if (!currentRun) {
     throw new ActionError("decision_stale", "This Decision is no longer current.");
+  }
+  if (!action.decisionId) {
+    throw new ActionError("decision_not_found", "Decision not found.", 404);
   }
 
   await loadSupportedDecision({

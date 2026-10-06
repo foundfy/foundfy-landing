@@ -9,13 +9,14 @@ import type {
   ActionStatus,
   ActionVerificationEvidenceSnapshot,
   ActionVerificationRecord,
+  ActionLearningRecord,
 } from "./types";
 
 type ActionRow = {
   id: string;
   website_id: string;
-  decision_id: string;
-  decision_run_id: string;
+  decision_id: string | null;
+  decision_run_id: string | null;
   owner_id: string;
   action_type: ActionRecord["actionType"];
   target_page_id: string;
@@ -26,7 +27,7 @@ type ActionRow = {
   mutation_spec: ActionMutationSpec;
   page_content_hash_at_prepare: string | null;
   crawl_run_id: string;
-  gsc_sync_id: string;
+  gsc_sync_id: string | null;
   site_model_id: string;
   goal_id: string;
   status: ActionStatus;
@@ -723,4 +724,189 @@ export async function insertActionVerification(input: {
   }
 
   return mapVerification(data as VerificationRow);
+}
+
+type LearningRow = {
+  id: string;
+  action_id: string;
+  verification_id: string;
+  website_id: string;
+  page_url: string;
+  page_comparison_key: string;
+  baseline_sync_id: string | null;
+  comparison_sync_id: string;
+  baseline_period_start: string;
+  baseline_period_end: string;
+  comparison_period_start: string;
+  comparison_period_end: string;
+  baseline_appearances: number;
+  baseline_visits: number;
+  baseline_ctr: number | null;
+  baseline_position: number | null;
+  comparison_appearances: number;
+  comparison_visits: number;
+  comparison_ctr: number | null;
+  comparison_position: number | null;
+  baseline_pages_truncated: boolean;
+  comparison_pages_truncated: boolean;
+  outcome_state: ActionLearningRecord["outcomeState"];
+  insufficient_reason: string | null;
+  calculation_version: "learn_v0";
+  created_at: string;
+};
+
+const LEARNING_COLUMNS =
+  "id, action_id, verification_id, website_id, page_url, page_comparison_key, baseline_sync_id, comparison_sync_id, baseline_period_start, baseline_period_end, comparison_period_start, comparison_period_end, baseline_appearances, baseline_visits, baseline_ctr, baseline_position, comparison_appearances, comparison_visits, comparison_ctr, comparison_position, baseline_pages_truncated, comparison_pages_truncated, outcome_state, insufficient_reason, calculation_version, created_at";
+
+function mapLearning(row: LearningRow): ActionLearningRecord {
+  return {
+    id: row.id,
+    actionId: row.action_id,
+    verificationId: row.verification_id,
+    websiteId: row.website_id,
+    pageUrl: row.page_url,
+    pageComparisonKey: row.page_comparison_key,
+    baselineSyncId: row.baseline_sync_id,
+    comparisonSyncId: row.comparison_sync_id,
+    baselinePeriodStart: row.baseline_period_start,
+    baselinePeriodEnd: row.baseline_period_end,
+    comparisonPeriodStart: row.comparison_period_start,
+    comparisonPeriodEnd: row.comparison_period_end,
+    baselineAppearances: Number(row.baseline_appearances),
+    baselineVisits: Number(row.baseline_visits),
+    baselineCtr: row.baseline_ctr == null ? null : Number(row.baseline_ctr),
+    baselinePosition: row.baseline_position == null ? null : Number(row.baseline_position),
+    comparisonAppearances: Number(row.comparison_appearances),
+    comparisonVisits: Number(row.comparison_visits),
+    comparisonCtr: row.comparison_ctr == null ? null : Number(row.comparison_ctr),
+    comparisonPosition: row.comparison_position == null ? null : Number(row.comparison_position),
+    baselinePagesTruncated: row.baseline_pages_truncated,
+    comparisonPagesTruncated: row.comparison_pages_truncated,
+    outcomeState: row.outcome_state,
+    insufficientReason: row.insufficient_reason,
+    calculationVersion: row.calculation_version,
+    createdAt: row.created_at,
+  };
+}
+
+export async function findLearningByIdempotency(input: {
+  actionId: string;
+  verificationId: string;
+  comparisonSyncId: string;
+}): Promise<ActionLearningRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("action_learning_snapshots")
+    .select(LEARNING_COLUMNS)
+    .eq("action_id", input.actionId)
+    .eq("verification_id", input.verificationId)
+    .eq("comparison_sync_id", input.comparisonSyncId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load action learning snapshot: ${error.message}`);
+  }
+
+  return data ? mapLearning(data as LearningRow) : null;
+}
+
+export async function insertActionLearningSnapshot(
+  input: Omit<ActionLearningRecord, "id" | "createdAt">,
+): Promise<ActionLearningRecord> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("action_learning_snapshots")
+    .insert({
+      action_id: input.actionId,
+      verification_id: input.verificationId,
+      website_id: input.websiteId,
+      page_url: input.pageUrl,
+      page_comparison_key: input.pageComparisonKey,
+      baseline_sync_id: input.baselineSyncId,
+      comparison_sync_id: input.comparisonSyncId,
+      baseline_period_start: input.baselinePeriodStart,
+      baseline_period_end: input.baselinePeriodEnd,
+      comparison_period_start: input.comparisonPeriodStart,
+      comparison_period_end: input.comparisonPeriodEnd,
+      baseline_appearances: input.baselineAppearances,
+      baseline_visits: input.baselineVisits,
+      baseline_ctr: input.baselineCtr,
+      baseline_position: input.baselinePosition,
+      comparison_appearances: input.comparisonAppearances,
+      comparison_visits: input.comparisonVisits,
+      comparison_ctr: input.comparisonCtr,
+      comparison_position: input.comparisonPosition,
+      baseline_pages_truncated: input.baselinePagesTruncated,
+      comparison_pages_truncated: input.comparisonPagesTruncated,
+      outcome_state: input.outcomeState,
+      insufficient_reason: input.insufficientReason,
+      calculation_version: input.calculationVersion,
+    })
+    .select(LEARNING_COLUMNS)
+    .maybeSingle();
+
+  if (error?.code === "23505") {
+    const existing = await findLearningByIdempotency({
+      actionId: input.actionId,
+      verificationId: input.verificationId,
+      comparisonSyncId: input.comparisonSyncId,
+    });
+    if (existing) {
+      return existing;
+    }
+  }
+
+  if (error || !data) {
+    throw new Error(`Failed to record action learning snapshot: ${error?.message ?? "unknown error"}`);
+  }
+
+  return mapLearning(data as LearningRow);
+}
+
+export async function deleteOpenActionsForWebsite(websiteId: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from("actions")
+    .delete()
+    .eq("website_id", websiteId)
+    .in("status", [...OPEN_ACTION_STATUSES]);
+
+  if (error) {
+    throw new Error(`Failed to delete open actions: ${error.message}`);
+  }
+}
+
+export async function deleteActionLearningSnapshotsForWebsite(websiteId: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase.from("action_learning_snapshots").delete().eq("website_id", websiteId);
+  if (error) {
+    throw new Error(`Failed to delete action learning snapshots: ${error.message}`);
+  }
+}
+
+export async function scrubGoogleMetricsFromActionEvidence(websiteId: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("actions")
+    .select("id")
+    .eq("website_id", websiteId);
+
+  if (error) {
+    throw new Error(`Failed to load actions for Google-metric cleanup: ${error.message}`);
+  }
+
+  const actionIds = (data ?? []).map((row) => row.id as string);
+  if (actionIds.length === 0) {
+    return;
+  }
+
+  const { error: refError } = await supabase
+    .from("action_evidence_refs")
+    .update({ snapshot: {} })
+    .in("action_id", actionIds)
+    .in("kind", ["gsc_evidence", "gsc_sync"]);
+
+  if (refError) {
+    throw new Error(`Failed to remove Google metrics from action evidence: ${refError.message}`);
+  }
 }

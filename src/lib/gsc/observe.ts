@@ -14,8 +14,7 @@ import {
   revokeObserveOwner,
   revokeOwnerSessionsForWebsiteIdentity,
 } from "./db";
-import { deleteDecisionEngineForWebsite } from "@/lib/decisions/db";
-import { deleteSearchAnalyticsForWebsite } from "./db-search";
+import { removeGoogleDerivedOwnerDataForWebsite } from "@/lib/actions/google-privacy";
 import { revokeGoogleToken } from "./google";
 import {
   ObserveAuthError,
@@ -127,8 +126,7 @@ export async function disconnectObserveOwner(input: {
     }
   }
 
-  await deleteDecisionEngineForWebsite(input.websiteId);
-  await deleteSearchAnalyticsForWebsite(input.websiteId);
+  await removeGoogleDerivedOwnerDataForWebsite(input.websiteId);
   await revokeActivePropertyConnectionsForWebsite(input.websiteId);
   await revokeObserveOwner(context.owner.id);
   await revokeOwnerSessionsForWebsiteIdentity({

@@ -51,6 +51,12 @@ vi.mock("./google", () => ({
   revokeGoogleToken: (...args: unknown[]) => revokeGoogleTokenMock(...args),
 }));
 
+const removeGoogleDerivedOwnerDataForWebsiteMock = vi.fn();
+vi.mock("@/lib/actions/google-privacy", () => ({
+  removeGoogleDerivedOwnerDataForWebsite: (...args: unknown[]) =>
+    removeGoogleDerivedOwnerDataForWebsiteMock(...args),
+}));
+
 import { encryptSecret } from "./crypto";
 import { hashSessionToken } from "./cookie";
 import { disconnectObserveOwner, requireSearchConsoleConnection, resolveObserveOwnerView } from "./observe";
@@ -101,6 +107,7 @@ describe("observe owner authorization", () => {
     revokeActivePropertyConnectionsForWebsiteMock.mockResolvedValue(undefined);
     deleteSearchAnalyticsForWebsiteMock.mockResolvedValue(undefined);
     deleteDecisionEngineForWebsiteMock.mockResolvedValue(undefined);
+    removeGoogleDerivedOwnerDataForWebsiteMock.mockResolvedValue(undefined);
     countActiveOwnersForIdentityMock.mockResolvedValue(0);
     revokeObserveOwnerMock.mockResolvedValue(undefined);
     revokeOwnerSessionsForWebsiteIdentityMock.mockResolvedValue(undefined);
@@ -236,8 +243,9 @@ describe("observe owner authorization", () => {
     });
 
     expect(revokeObserveOwnerMock).toHaveBeenCalledWith("owner-1");
-    expect(deleteDecisionEngineForWebsiteMock).toHaveBeenCalledWith(WEBSITE_ID);
-    expect(deleteSearchAnalyticsForWebsiteMock).toHaveBeenCalledWith(WEBSITE_ID);
+    expect(removeGoogleDerivedOwnerDataForWebsiteMock).toHaveBeenCalledWith(WEBSITE_ID);
+    expect(deleteDecisionEngineForWebsiteMock).not.toHaveBeenCalled();
+    expect(deleteSearchAnalyticsForWebsiteMock).not.toHaveBeenCalled();
     expect(revokeActivePropertyConnectionsForWebsiteMock).toHaveBeenCalledWith(WEBSITE_ID);
     expect(revokeOwnerSessionsForWebsiteIdentityMock).toHaveBeenCalledWith({
       websiteId: WEBSITE_ID,

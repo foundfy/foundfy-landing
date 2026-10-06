@@ -1,7 +1,6 @@
-import { deleteDecisionEngineForWebsite } from "@/lib/decisions/db";
+import { removeGoogleDerivedOwnerDataForWebsite } from "@/lib/actions/google-privacy";
 import { decryptSecret } from "./crypto";
 import { findActivePropertyConnection, upsertActivePropertyConnection } from "./db";
-import { deleteSearchAnalyticsForWebsite } from "./db-search";
 import { listSearchConsoleSites, refreshGoogleAccessToken } from "./google";
 import { partitionRankedProperties, propertyTypeFromSiteUrl, rankGscProperties } from "./match";
 import { requireObserveOwner } from "./observe";
@@ -70,8 +69,7 @@ export async function bindObserveProperty(input: {
 
   const existing = await findActivePropertyConnection(input.websiteId);
   if (existing && existing.propertyUri !== verified.siteUrl) {
-    await deleteDecisionEngineForWebsite(input.websiteId);
-    await deleteSearchAnalyticsForWebsite(input.websiteId);
+    await removeGoogleDerivedOwnerDataForWebsite(input.websiteId);
   }
 
   const stored = await upsertActivePropertyConnection({

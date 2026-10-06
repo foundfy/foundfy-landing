@@ -79,8 +79,8 @@ export type ActionExecutionArtifact = {
 export type ActionRecord = {
   id: string;
   websiteId: string;
-  decisionId: string;
-  decisionRunId: string;
+  decisionId: string | null;
+  decisionRunId: string | null;
   ownerId: string;
   actionType: SupportedActionType;
   targetPageId: string;
@@ -91,7 +91,7 @@ export type ActionRecord = {
   mutationSpec: ActionMutationSpec;
   pageContentHashAtPrepare: string | null;
   crawlRunId: string;
-  gscSyncId: string;
+  gscSyncId: string | null;
   siteModelId: string;
   goalId: string;
   status: ActionStatus;
@@ -133,9 +133,9 @@ export type ActionPreviewView = {
     why: DecisionView["why"];
   };
   provenance: {
-    decisionRunId: string;
+    decisionRunId: string | null;
     crawlRunId: string;
-    gscSyncId: string;
+    gscSyncId: string | null;
     siteModelId: string;
     goalId: string;
   };
@@ -146,6 +146,7 @@ export type ActionPreviewView = {
   executeAvailable: boolean;
   executeBlockedReason: ExecuteBlockedReason;
   verification: ActionVerificationView | null;
+  learning: ActionLearningView | null;
 };
 
 export const ACTION_VERIFICATION_STATUSES = ["verified", "not_verified", "inconclusive"] as const;
@@ -190,6 +191,70 @@ export type ActionVerificationView = {
   verifiedAt: string | null;
   crawlRunId: string | null;
   crawlCompletedAt: string | null;
+};
+
+export const ACTION_LEARNING_OUTCOMES = [
+  "waiting_for_data",
+  "insufficient_data",
+  "observed_improvement",
+  "observed_decline",
+  "mixed",
+  "no_meaningful_change",
+] as const;
+
+export type ActionLearningOutcome = (typeof ACTION_LEARNING_OUTCOMES)[number];
+
+export type ActionLearningMetrics = {
+  appearances: number;
+  visits: number;
+  ctr: number | null;
+  position: number | null;
+};
+
+export type ActionLearningPeriod = {
+  start: string;
+  end: string;
+};
+
+export type ActionLearningRecord = {
+  id: string;
+  actionId: string;
+  verificationId: string;
+  websiteId: string;
+  pageUrl: string;
+  pageComparisonKey: string;
+  baselineSyncId: string | null;
+  comparisonSyncId: string;
+  baselinePeriodStart: string;
+  baselinePeriodEnd: string;
+  comparisonPeriodStart: string;
+  comparisonPeriodEnd: string;
+  baselineAppearances: number;
+  baselineVisits: number;
+  baselineCtr: number | null;
+  baselinePosition: number | null;
+  comparisonAppearances: number;
+  comparisonVisits: number;
+  comparisonCtr: number | null;
+  comparisonPosition: number | null;
+  baselinePagesTruncated: boolean;
+  comparisonPagesTruncated: boolean;
+  outcomeState: Exclude<ActionLearningOutcome, "waiting_for_data">;
+  insufficientReason: string | null;
+  calculationVersion: "learn_v0";
+  createdAt: string;
+};
+
+export type ActionLearningView = {
+  state: ActionLearningOutcome;
+  reason: string | null;
+  pageUrl: string | null;
+  baseline: ActionLearningMetrics | null;
+  comparison: ActionLearningMetrics | null;
+  baselinePeriod: ActionLearningPeriod | null;
+  comparisonPeriod: ActionLearningPeriod | null;
+  baselinePagesTruncated: boolean;
+  comparisonPagesTruncated: boolean;
 };
 
 export class ActionError extends Error {

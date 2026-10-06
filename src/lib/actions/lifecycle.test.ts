@@ -78,6 +78,10 @@ vi.mock("./verify", () => ({
   verifyAction: vi.fn(),
 }));
 
+vi.mock("./learn", () => ({
+  learningViewFor: async () => null,
+}));
+
 import {
   approveAction,
   cancelAction,
@@ -896,6 +900,29 @@ describe("ACT v0 lifecycle", () => {
     expect(actions[0]?.status).toBe("approved");
     expect(actions[0]?.executeBlockedReason).toBe("unsafe_stale");
     expect(updateActionMock).not.toHaveBeenCalled();
+  });
+
+  it("still lists executed history after Google evidence IDs are cleared", async () => {
+    findLatestCompletedDecisionRunMock.mockResolvedValue({ ...run(), id: "run-2" });
+    listVisibleActionsForWebsiteMock.mockResolvedValue([
+      {
+        ...foundfyApprovedAction(),
+        status: "executed" as const,
+        decisionId: null,
+        decisionRunId: null,
+        gscSyncId: null,
+      },
+    ]);
+
+    const { actions } = await listActionsForWebsite({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION,
+    });
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0]?.status).toBe("executed");
+    expect(actions[0]?.provenance.gscSyncId).toBeNull();
+    expect(findDecisionRunByIdMock).not.toHaveBeenCalled();
   });
 });
 

@@ -4,6 +4,12 @@ import {
   ACTION_EXECUTE_DISABLED,
   ACTION_EXECUTED_COPY,
   ACTION_INCONCLUSIVE_COPY,
+  ACTION_LEARN_DECLINE_CAVEAT_COPY,
+  ACTION_LEARN_HEADING,
+  ACTION_LEARN_MIXED_COPY,
+  ACTION_LEARN_NO_CHANGE_COPY,
+  ACTION_LEARN_OTHER_FACTORS_COPY,
+  ACTION_LEARN_WAITING_COPY,
   ACTION_NOT_VERIFIED_COPY,
   ACTION_PREPARE_LABEL,
   ACTION_STATUS_LABELS,
@@ -12,6 +18,7 @@ import {
   ACTION_VERIFIED_COPY,
   ACTION_VERIFY_FRESH_CRAWL_COPY,
   ACTION_VERIFY_LABEL,
+  learningObservedCopy,
 } from "./display";
 import { ACTION_VERIFICATION_PLAN } from "./config";
 
@@ -47,5 +54,32 @@ describe("ACT display copy", () => {
     );
     expect(ACTION_EXECUTED_COPY).toContain("Deployment and crawl verification are separate");
     expect(ACTION_VERIFIED_COPY).toContain("confirmed the meta description matches");
+  });
+
+  it("describes observed search change without causal claims", () => {
+    expect(ACTION_LEARN_WAITING_COPY).toBe(
+      "Foundfy will compare Google Search evidence after enough time has passed for Google's reporting to settle.",
+    );
+    const observed = learningObservedCopy({
+      appearancesBefore: 120,
+      appearancesAfter: 152,
+      visitsBefore: 4,
+      visitsAfter: 7,
+    });
+    const learnCopy = [
+      ACTION_LEARN_HEADING,
+      ACTION_LEARN_WAITING_COPY,
+      ACTION_LEARN_OTHER_FACTORS_COPY,
+      ACTION_LEARN_DECLINE_CAVEAT_COPY,
+      ACTION_LEARN_MIXED_COPY,
+      ACTION_LEARN_NO_CHANGE_COPY,
+      observed,
+    ].join("\n");
+
+    expect(ACTION_LEARN_HEADING).toBe("After this change");
+    expect(observed).toContain("32 more search appearances");
+    expect(observed).toContain("3 more visits from Google");
+    expect(learnCopy).not.toMatch(/caused|this meta description increased|improved rankings|traffic/i);
+    expect(ACTION_LEARN_OTHER_FACTORS_COPY).toContain("Other factors may also have contributed");
   });
 });
