@@ -45,6 +45,7 @@ describe("ACT v0 source boundary", () => {
     expect(overviewLoader).not.toMatch(/from \"@\/lib\/actions|action_runs/);
     expect(publicRoute).not.toMatch(/from \"@\/lib\/actions|actions\/prepare/);
     expect(pageView).toContain("SiteDecisionsSection");
+    expect(pageView).toContain("SiteActionsSection");
   });
 
   it("does not reuse GSC tokens for CMS writes", () => {

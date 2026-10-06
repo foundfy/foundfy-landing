@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   ACTION_APPROVE_LABEL,
+  ACTION_APPROVED_AT_HEADING,
   ACTION_APPROVED_COPY,
   ACTION_BLOCKED_COPY,
   ACTION_CANCEL_LABEL,
@@ -17,19 +18,30 @@ import {
   ACTION_PAGE_HEADING,
   ACTION_PREPARE_LABEL,
   ACTION_PROPOSED_LABEL,
+  ACTION_SAFETY_HEADING,
+  ACTION_SAFETY_LABELS,
   ACTION_SAVE_DRAFT_LABEL,
+  ACTION_STATUS_HEADING,
+  ACTION_STATUS_LABELS,
+  ACTION_TYPE_HEADING,
+  ACTION_TYPE_LABEL,
   ACTION_UNSAFE_STALE_COPY,
   ACTION_VERIFY_HEADING,
   ACTION_WHY_HEADING,
 } from "@/lib/actions/display";
 import { META_DESCRIPTION_MAX_LENGTH } from "@/lib/actions/config";
+import { actionSafetyState, canSubmitExecute } from "@/lib/actions/history";
 import type { ActionPreviewView } from "@/lib/actions/types";
 import type { DecisionView } from "@/lib/decisions/types";
 import styles from "./SitePageView.module.css";
 
+type ActionPanelDecision = Pick<DecisionView, "id" | "title" | "explanation" | "why"> & {
+  supportedActionType?: DecisionView["supportedActionType"];
+};
+
 type SiteActionPanelProps = {
   websiteId: string;
-  decision: DecisionView;
+  decision: ActionPanelDecision;
   action: ActionPreviewView | null;
   current: boolean;
   onActionChange: (action: ActionPreviewView | null) => void;
@@ -202,23 +214,48 @@ export default function SiteActionPanel({
   }
 
   const editable = action.status === "prepared" || action.status === "awaiting_approval";
+  const safety = actionSafetyState(action);
+  const safetyCopy =
+    action.status === "blocked"
+      ? ACTION_BLOCKED_COPY
+      : action.status === "executed"
+        ? ACTION_EXECUTED_COPY
+        : action.executeBlockedReason === "unsafe_stale"
+          ? ACTION_UNSAFE_STALE_COPY
+          : action.executeBlockedReason === "adapter_not_connected"
+            ? ACTION_EXECUTE_DISABLED
+            : action.executeAvailable
+              ? ACTION_APPROVED_COPY
+              : null;
 
   return (
     <div className={styles.actionPanel}>
-      {action.status === "blocked" ? (
-        <p className={styles.sectionMeta}>{ACTION_BLOCKED_COPY}</p>
+      {safetyCopy ? <p className={styles.sectionMeta}>{safetyCopy}</p> : null}
+
+      <div className={styles.decisionWhyBlock}>
+        <p className={styles.decisionWhyLabel}>{ACTION_STATUS_HEADING}</p>
+        <p className={styles.understandingCopy}>{ACTION_STATUS_LABELS[action.status]}</p>
+      </div>
+
+      <div className={styles.decisionWhyBlock}>
+        <p className={styles.decisionWhyLabel}>{ACTION_TYPE_HEADING}</p>
+        <p className={styles.understandingCopy}>{ACTION_TYPE_LABEL}</p>
+      </div>
+
+      {safety ? (
+        <div className={styles.decisionWhyBlock}>
+          <p className={styles.decisionWhyLabel}>{ACTION_SAFETY_HEADING}</p>
+          <p className={styles.understandingCopy}>{ACTION_SAFETY_LABELS[safety]}</p>
+        </div>
       ) : null}
-      {action.status === "executed" ? (
-        <p className={styles.sectionMeta}>{ACTION_EXECUTED_COPY}</p>
-      ) : null}
-      {action.status === "approved" && action.executeBlockedReason === "unsafe_stale" ? (
-        <p className={styles.sectionMeta}>{ACTION_UNSAFE_STALE_COPY}</p>
-      ) : null}
-      {action.status === "approved" && action.executeBlockedReason === "adapter_not_connected" ? (
-        <p className={styles.sectionMeta}>{ACTION_EXECUTE_DISABLED}</p>
-      ) : null}
-      {action.status === "approved" && action.executeAvailable ? (
-        <p className={styles.sectionMeta}>{ACTION_APPROVED_COPY}</p>
+
+      {action.approvedAt ? (
+        <div className={styles.decisionWhyBlock}>
+          <p className={styles.decisionWhyLabel}>{ACTION_APPROVED_AT_HEADING}</p>
+          <p className={styles.understandingCopy}>
+            {new Date(action.approvedAt).toLocaleString("en-US")}
+          </p>
+        </div>
       ) : null}
 
       <div className={styles.decisionWhyBlock}>
@@ -293,7 +330,7 @@ export default function SiteActionPanel({
             </button>
           </>
         ) : null}
-        {action.executeAvailable ? (
+        {canSubmitExecute(action.status) ? (
           <button
             type="button"
             className={styles.scanButton}

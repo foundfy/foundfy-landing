@@ -265,11 +265,7 @@ async function previewForWithGoal(
   safety: { run: DecisionRunRecord | null; staleReason: string | null; hostname: string | null },
 ): Promise<ActionPreviewView> {
   const decision = await findDecisionById(action.websiteId, action.decisionId);
-  if (!decision) {
-    throw new ActionError("decision_not_found", "Decision not found.", 404);
-  }
-
-  const view = toDecisionView(decision, goal, truncated);
+  const view = decision ? toDecisionView(decision, goal, truncated) : null;
   const frozenUnsafe = safety.run ? !(await frozenBeforeStillHolds(action)) : true;
   const unsafe = actionIsUnsafe(action, safety.run, safety.staleReason) || frozenUnsafe;
   const availability = executeAvailability({
@@ -280,12 +276,26 @@ async function previewForWithGoal(
 
   return toActionPreview({
     action,
-    decision: {
-      id: decision.id,
-      title: decision.title,
-      explanation: decision.explanation,
-      why: view.why,
-    },
+    decision: view
+      ? {
+          id: view.id,
+          title: view.title,
+          explanation: view.explanation,
+          why: view.why,
+        }
+      : {
+          id: action.decisionId,
+          title: action.targetPageUrl,
+          explanation: "",
+          why: {
+            searchDemand: null,
+            websiteEvidence: "",
+            goalContext: "",
+            evidencePeriod: null,
+            matchingConfidence: "",
+            truncated: false,
+          },
+        },
     ...availability,
   });
 }

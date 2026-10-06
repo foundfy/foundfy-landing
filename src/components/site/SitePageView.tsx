@@ -19,6 +19,7 @@ import SiteUnderstandingSection from "./SiteUnderstandingSection";
 import SiteWhatMattersSection from "./SiteWhatMattersSection";
 import SiteObserveSection from "./SiteObserveSection";
 import SiteDecisionsSection from "./SiteDecisionsSection";
+import SiteActionsSection from "./SiteActionsSection";
 import type { ObserveNotice } from "@/lib/gsc/config";
 import styles from "./SitePageView.module.css";
 
@@ -99,6 +100,8 @@ export default function SitePageView({
       <SiteObserveSection websiteId={websiteId} notice={observeNotice} onUpdated={refreshDecide} />
 
       <SiteDecisionsSection websiteId={websiteId} refreshKey={decideRefreshKey} />
+
+      <SiteActionsSection websiteId={websiteId} refreshKey={decideRefreshKey} />
 
       <SiteWhatMattersSection overview={overview} latestScanHref={links.latestScanHref} />
 
