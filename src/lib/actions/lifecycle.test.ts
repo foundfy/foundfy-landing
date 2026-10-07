@@ -187,19 +187,84 @@ function typeBDecision() {
   };
 }
 
-function typeCDecision() {
+const SHARED_TITLE = "Pintura sobre seda | DBHOBBY";
+const HOME_URL = "https://www.dbhobby.com/";
+const CA_URL = "https://www.dbhobby.com/ca/pintura-en-seda";
+
+function typeCDuplicateTitleRefs() {
+  return [
+    { kind: "crawl_run" as const, recordId: "crawl-1", snapshot: {} },
+    {
+      kind: "gsc_sync" as const,
+      recordId: "sync-1",
+      snapshot: { periodStart: "2026-08-27", periodEnd: "2026-09-23" },
+    },
+    { kind: "site_model" as const, recordId: "site-model-1", snapshot: {} },
+    { kind: "goal" as const, recordId: "goal-1", snapshot: { primaryType: "grow_signups" } },
+    {
+      kind: "observation" as const,
+      recordId: "obs-ca",
+      snapshot: { ruleKey: "page_fundamentals.duplicate_title", title: "Duplicate page title" },
+    },
+    {
+      kind: "gsc_evidence" as const,
+      recordId: "gsc-ca",
+      snapshot: { pageUrl: CA_URL, impressions: 10, clicks: 1 },
+    },
+    { kind: "page" as const, recordId: "page-ca", snapshot: { pageUrl: CA_URL } },
+    {
+      kind: "observation" as const,
+      recordId: "obs-home",
+      snapshot: { ruleKey: "page_fundamentals.duplicate_title", title: "Duplicate page title" },
+    },
+    {
+      kind: "gsc_evidence" as const,
+      recordId: "gsc-home",
+      snapshot: { pageUrl: HOME_URL, impressions: 80, clicks: 6 },
+    },
+    { kind: "page" as const, recordId: "page-home", snapshot: { pageUrl: HOME_URL } },
+  ];
+}
+
+function typeCDuplicateTitleDecision() {
   return {
     ...missingMetaDecision(),
     id: "decision-c",
     decisionType: "multi_page_issue_with_visibility" as const,
-    evidenceRefs: missingMetaRefs().map((ref) =>
-      ref.kind === "observation"
-        ? {
-            ...ref,
-            snapshot: { ruleKey: "page_fundamentals.duplicate_title", title: "Duplicate page title" },
-          }
-        : ref,
-    ),
+    title: "Make duplicate titles unique on 2 Google-visible pages including /",
+    pageUrl: HOME_URL,
+    pageId: "page-home",
+    evidenceRefs: typeCDuplicateTitleRefs(),
+  };
+}
+
+function titleObservation(id: string, pageId: string) {
+  return {
+    id,
+    pageId,
+    ruleKey: "page_fundamentals.duplicate_title",
+    status: "active",
+    evidence: { title: SHARED_TITLE, duplicatePages: [CA_URL, HOME_URL] },
+  };
+}
+
+function preparedTitleAction() {
+  return {
+    ...preparedAction(),
+    id: "action-title",
+    decisionId: "decision-c",
+    actionType: "update_page_title" as const,
+    targetPageId: "page-home",
+    targetPageUrl: HOME_URL,
+    field: "title" as const,
+    observedBefore: SHARED_TITLE,
+    proposedValue: null,
+    mutationSpec: {
+      targetUrl: HOME_URL,
+      field: "title" as const,
+      before: SHARED_TITLE,
+      after: null,
+    },
   };
 }
 
@@ -305,6 +370,7 @@ describe("ACT v0 lifecycle", () => {
       crawlRunId: "crawl-1",
       requestedUrl: "https://www.dbhobby.com/es/gutta",
       finalUrl: "https://www.dbhobby.com/es/gutta",
+      title: null,
       metaDescription: null,
       contentHash: "hash-1",
     });
@@ -315,18 +381,42 @@ describe("ACT v0 lifecycle", () => {
       status: "active",
       evidence: { metaDescription: null },
     });
-    insertActionMock.mockImplementation(async (input: { evidenceRefs: unknown[] }) => ({
-      ...preparedAction(),
-      evidenceRefs: input.evidenceRefs,
-    }));
-    updateActionMock.mockImplementation(async (input: { patch: Record<string, unknown> }) => ({
-      ...preparedAction(),
-      ...input.patch,
-      mutationSpec: input.patch.mutationSpec ?? preparedAction().mutationSpec,
-      status: input.patch.status ?? "prepared",
-      proposedValue:
-        input.patch.proposedValue !== undefined ? input.patch.proposedValue : preparedAction().proposedValue,
-    }));
+    insertActionMock.mockImplementation(
+      async (input: {
+        evidenceRefs: unknown[];
+        actionType?: "update_meta_description" | "update_page_title";
+        field?: "meta_description" | "title";
+        targetPageId?: string;
+        targetPageUrl?: string;
+        observedBefore?: string | null;
+        proposedValue?: string | null;
+        mutationSpec?: Record<string, unknown>;
+      }) => ({
+        ...preparedAction(),
+        actionType: input.actionType ?? "update_meta_description",
+        field: input.field ?? "meta_description",
+        targetPageId: input.targetPageId ?? "page-1",
+        targetPageUrl: input.targetPageUrl ?? preparedAction().targetPageUrl,
+        observedBefore: input.observedBefore ?? null,
+        proposedValue: input.proposedValue ?? null,
+        mutationSpec: input.mutationSpec ?? preparedAction().mutationSpec,
+        evidenceRefs: input.evidenceRefs,
+      }),
+    );
+    updateActionMock.mockImplementation(
+      async (input: { id: string; websiteId: string; patch: Record<string, unknown> }) => {
+        const current =
+          (await findActionByIdMock({ websiteId: input.websiteId, actionId: input.id })) ?? preparedAction();
+        return {
+          ...current,
+          ...input.patch,
+          mutationSpec: input.patch.mutationSpec ?? current.mutationSpec,
+          status: input.patch.status ?? current.status,
+          proposedValue:
+            input.patch.proposedValue !== undefined ? input.patch.proposedValue : current.proposedValue,
+        };
+      },
+    );
     countActionAttemptsMock.mockResolvedValue(0);
     insertActionAttemptMock.mockResolvedValue({ id: "attempt-1" });
     findActionAttemptByIdempotencyKeyMock.mockResolvedValue(null);
@@ -374,20 +464,46 @@ describe("ACT v0 lifecycle", () => {
     );
   });
 
-  it("rejects unsupported Type A, Type B, and Type C", async () => {
-    findDecisionByIdMock.mockResolvedValueOnce(titleDecision());
+  it("rejects title-length, canonical, H1, and Type B", async () => {
+    findDecisionByIdMock.mockResolvedValueOnce({
+      ...titleDecision(),
+      evidenceRefs: missingMetaRefs().map((ref) =>
+        ref.kind === "observation"
+          ? { ...ref, snapshot: { ruleKey: "page_fundamentals.title_length_out_of_range" } }
+          : ref,
+      ),
+    });
     await expect(
       prepareAction({ websiteId: WEBSITE_ID, sessionToken: SESSION, decisionId: "decision-title" }),
+    ).rejects.toMatchObject({ code: "unsupported_decision" });
+
+    findDecisionByIdMock.mockResolvedValueOnce({
+      ...missingMetaDecision(),
+      evidenceRefs: missingMetaRefs().map((ref) =>
+        ref.kind === "observation"
+          ? { ...ref, snapshot: { ruleKey: "indexability.canonical_points_elsewhere" } }
+          : ref,
+      ),
+    });
+    await expect(
+      prepareAction({ websiteId: WEBSITE_ID, sessionToken: SESSION, decisionId: "decision-canonical" }),
+    ).rejects.toMatchObject({ code: "unsupported_decision" });
+
+    findDecisionByIdMock.mockResolvedValueOnce({
+      ...missingMetaDecision(),
+      evidenceRefs: missingMetaRefs().map((ref) =>
+        ref.kind === "observation"
+          ? { ...ref, snapshot: { ruleKey: "page_fundamentals.missing_h1" } }
+          : ref,
+      ),
+    });
+    await expect(
+      prepareAction({ websiteId: WEBSITE_ID, sessionToken: SESSION, decisionId: "decision-h1" }),
     ).rejects.toMatchObject({ code: "unsupported_decision" });
 
     findDecisionByIdMock.mockResolvedValueOnce(typeBDecision());
     await expect(
       prepareAction({ websiteId: WEBSITE_ID, sessionToken: SESSION, decisionId: "decision-b" }),
-    ).rejects.toMatchObject({ code: "unsupported_decision" });
-
-    findDecisionByIdMock.mockResolvedValueOnce(typeCDecision());
-    await expect(
-      prepareAction({ websiteId: WEBSITE_ID, sessionToken: SESSION, decisionId: "decision-c" }),
     ).rejects.toMatchObject({ code: "unsupported_decision" });
 
     expect(insertActionMock).not.toHaveBeenCalled();
@@ -709,6 +825,7 @@ describe("ACT v0 lifecycle", () => {
       crawlRunId: "crawl-1",
       requestedUrl: "https://www.foundfy.me/",
       finalUrl: "https://www.foundfy.me/",
+      title: null,
       metaDescription: null,
       contentHash: "hash-changed",
     });
@@ -923,6 +1040,293 @@ describe("ACT v0 lifecycle", () => {
     expect(actions[0]?.status).toBe("executed");
     expect(actions[0]?.provenance.gscSyncId).toBeNull();
     expect(findDecisionRunByIdMock).not.toHaveBeenCalled();
+  });
+
+  describe("ACT v1 title prepare", () => {
+  it("prepares a Type A missing-title Decision with before = null", async () => {
+    findDecisionByIdMock.mockResolvedValue(titleDecision());
+    findObservationSnapshotMock.mockResolvedValue({
+      id: "obs-1",
+      pageId: "page-1",
+      ruleKey: "page_fundamentals.missing_title",
+      status: "active",
+      evidence: { title: null },
+    });
+
+    const preview = await prepareAction({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION,
+      decisionId: "decision-title",
+    });
+
+    expect(preview.actionType).toBe("update_page_title");
+    expect(preview.proposedValue).toBeNull();
+    expect(preview.currentValue).toBeNull();
+    expect(preview.mutationSpec).toEqual({
+      targetUrl: "https://www.dbhobby.com/es/gutta",
+      field: "title",
+      before: null,
+      after: null,
+    });
+    expect(insertActionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionType: "update_page_title",
+        field: "title",
+        observedBefore: null,
+        proposedValue: null,
+      }),
+    );
+  });
+
+  it("prepares Type A duplicate-title with the exact current title", async () => {
+    findDecisionByIdMock.mockResolvedValue({
+      ...titleDecision(),
+      evidenceRefs: missingMetaRefs().map((ref) =>
+        ref.kind === "observation"
+          ? { ...ref, snapshot: { ruleKey: "page_fundamentals.duplicate_title" } }
+          : ref,
+      ),
+    });
+    findPageSnapshotMock.mockResolvedValue({
+      id: "page-1",
+      crawlRunId: "crawl-1",
+      requestedUrl: "https://www.dbhobby.com/es/gutta",
+      finalUrl: "https://www.dbhobby.com/es/gutta",
+      title: SHARED_TITLE,
+      metaDescription: null,
+      contentHash: "hash-1",
+    });
+    findObservationSnapshotMock.mockResolvedValue({
+      id: "obs-1",
+      pageId: "page-1",
+      ruleKey: "page_fundamentals.duplicate_title",
+      status: "active",
+      evidence: { title: SHARED_TITLE, duplicatePages: ["https://www.dbhobby.com/es/gutta", CA_URL] },
+    });
+
+    const preview = await prepareAction({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION,
+      decisionId: "decision-title",
+    });
+
+    expect(preview.mutationSpec).toEqual({
+      targetUrl: "https://www.dbhobby.com/es/gutta",
+      field: "title",
+      before: SHARED_TITLE,
+      after: null,
+    });
+    expect(preview.currentValue).toBe(SHARED_TITLE);
+  });
+
+  it("prepares Type C duplicate-title for the DECIDE primary page only", async () => {
+    findDecisionByIdMock.mockResolvedValue(typeCDuplicateTitleDecision());
+    findPageSnapshotMock.mockResolvedValue({
+      id: "page-home",
+      crawlRunId: "crawl-1",
+      requestedUrl: HOME_URL,
+      finalUrl: HOME_URL,
+      title: SHARED_TITLE,
+      metaDescription: null,
+      contentHash: "hash-1",
+    });
+    findObservationSnapshotMock.mockImplementation(async (id: string) =>
+      id === "obs-ca" ? titleObservation("obs-ca", "page-ca") : titleObservation("obs-home", "page-home"),
+    );
+
+    const preview = await prepareAction({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION,
+      decisionId: "decision-c",
+    });
+
+    expect(preview.actionType).toBe("update_page_title");
+    expect(preview.targetPage).toEqual({ id: "page-home", url: HOME_URL });
+    expect(preview.mutationSpec).toEqual({
+      targetUrl: HOME_URL,
+      field: "title",
+      before: SHARED_TITLE,
+      after: null,
+    });
+    expect(preview.mutationSpec).not.toHaveProperty("targetUrls");
+    expect(JSON.stringify(preview.mutationSpec)).not.toContain(CA_URL);
+    const pageHome = preview.evidenceRefs.find((ref) => ref.kind === "page" && ref.recordId === "page-home");
+    expect(pageHome?.snapshot).toMatchObject({
+      pageUrl: HOME_URL,
+      sharedTitle: SHARED_TITLE,
+      otherMemberUrls: [CA_URL],
+      primaryReason: "decision_primary_highest_demand",
+    });
+    expect(preview.verificationPlan).not.toMatch(/fix all duplicate titles/i);
+    expect(insertActionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionType: "update_page_title",
+        targetPageId: "page-home",
+        targetPageUrl: HOME_URL,
+        field: "title",
+        observedBefore: SHARED_TITLE,
+        proposedValue: null,
+      }),
+    );
+  });
+
+  it("lets the owner edit and approve a title, then fail-closes Execute without Git", async () => {
+    findActionByIdMock.mockResolvedValue(preparedTitleAction());
+    findPageSnapshotMock.mockResolvedValue({
+      id: "page-home",
+      crawlRunId: "crawl-1",
+      requestedUrl: HOME_URL,
+      finalUrl: HOME_URL,
+      title: SHARED_TITLE,
+      metaDescription: null,
+      contentHash: "hash-1",
+    });
+
+    const edited = await updateActionProposal({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION,
+      actionId: "action-title",
+      proposedValue: "  Pintura sobre seda en Barcelona | DBHobby  ",
+    });
+    expect(edited.proposedValue).toBe("Pintura sobre seda en Barcelona | DBHobby");
+    expect(edited.mutationSpec.after).toBe("Pintura sobre seda en Barcelona | DBHobby");
+    expect(edited.mutationSpec.before).toBe(SHARED_TITLE);
+
+    findActionByIdMock.mockResolvedValue({
+      ...preparedTitleAction(),
+      proposedValue: null,
+      status: "prepared" as const,
+    });
+    await expect(
+      approveAction({ websiteId: WEBSITE_ID, sessionToken: SESSION, actionId: "action-title" }),
+    ).rejects.toMatchObject({ code: "empty_proposed_value" });
+
+    findDecisionByIdMock.mockResolvedValue(typeCDuplicateTitleDecision());
+    findObservationSnapshotMock.mockImplementation(async (id: string) =>
+      id === "obs-ca" ? titleObservation("obs-ca", "page-ca") : titleObservation("obs-home", "page-home"),
+    );
+    findActionByIdMock.mockResolvedValue({
+      ...preparedTitleAction(),
+      proposedValue: "Pintura sobre seda en Barcelona | DBHobby",
+      status: "awaiting_approval" as const,
+      mutationSpec: {
+        targetUrl: HOME_URL,
+        field: "title" as const,
+        before: SHARED_TITLE,
+        after: "Pintura sobre seda en Barcelona | DBHobby",
+      },
+    });
+    const approved = await approveAction({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION,
+      actionId: "action-title",
+    });
+    expect(approved.status).toBe("approved");
+
+    findActionByIdMock.mockResolvedValue({
+      ...preparedTitleAction(),
+      status: "approved" as const,
+      proposedValue: "Pintura sobre seda en Barcelona | DBHobby",
+    });
+    getWebsiteByIdMock.mockResolvedValue({ id: WEBSITE_ID, hostname: "foundfy.me" });
+    readGitHubAppConfigMock.mockReturnValue(githubConfig());
+    await expect(
+      executeAction({ websiteId: WEBSITE_ID, sessionToken: SESSION, actionId: "action-title" }),
+    ).rejects.toMatchObject({ code: "adapter_not_connected" });
+    expect(commitHomepageDescriptionMock).not.toHaveBeenCalled();
+    expect(fetchLiveHomepageMetaMock).not.toHaveBeenCalled();
+    expect(insertActionAttemptMock).toHaveBeenCalledWith(
+      expect.objectContaining({ result: "failure", errorCode: "adapter_not_connected", provider: null }),
+    );
+  });
+
+  it("fail-closes when the crawl title changes after Prepare", async () => {
+    findActionByIdMock.mockResolvedValue({
+      ...preparedTitleAction(),
+      proposedValue: "Unique title | DBHobby",
+      status: "awaiting_approval" as const,
+    });
+    findPageSnapshotMock.mockResolvedValue({
+      id: "page-home",
+      crawlRunId: "crawl-1",
+      requestedUrl: HOME_URL,
+      finalUrl: HOME_URL,
+      title: "Changed title",
+      metaDescription: null,
+      contentHash: "hash-1",
+    });
+
+    await expect(
+      approveAction({ websiteId: WEBSITE_ID, sessionToken: SESSION, actionId: "action-title" }),
+    ).rejects.toMatchObject({ code: "decision_stale" });
+    expect(updateActionMock).toHaveBeenCalledWith(
+      expect.objectContaining({ patch: expect.objectContaining({ status: "blocked" }) }),
+    );
+  });
+
+  it("does not allow editing an approved title and still lists it in history", async () => {
+    findPageSnapshotMock.mockResolvedValue({
+      id: "page-home",
+      crawlRunId: "crawl-1",
+      requestedUrl: HOME_URL,
+      finalUrl: HOME_URL,
+      title: SHARED_TITLE,
+      metaDescription: null,
+      contentHash: "hash-1",
+    });
+    findActionByIdMock.mockResolvedValue({
+      ...preparedTitleAction(),
+      status: "approved" as const,
+      proposedValue: "Unique title | DBHobby",
+    });
+    await expect(
+      updateActionProposal({
+        websiteId: WEBSITE_ID,
+        sessionToken: SESSION,
+        actionId: "action-title",
+        proposedValue: "Changed",
+      }),
+    ).rejects.toMatchObject({ code: "not_editable" });
+
+    listVisibleActionsForWebsiteMock.mockResolvedValue([
+      {
+        ...preparedTitleAction(),
+        status: "approved" as const,
+        proposedValue: "Unique title | DBHobby",
+      },
+    ]);
+    const { actions } = await listActionsForWebsite({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION,
+    });
+    expect(actions[0]?.actionType).toBe("update_page_title");
+    expect(actions[0]?.executeAvailable).toBe(false);
+    expect(actions[0]?.executeBlockedReason).toBe("adapter_not_connected");
+    expect(actions[0]?.verification).toBeNull();
+    expect(actions[0]?.learning).toBeNull();
+  });
+
+  it("cancels a prepared title action", async () => {
+    findActionByIdMock.mockResolvedValue(preparedTitleAction());
+    updateActionMock.mockResolvedValue({ ...preparedTitleAction(), status: "cancelled" });
+    const preview = await cancelAction({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION,
+      actionId: "action-title",
+    });
+    expect(preview.status).toBe("cancelled");
+  });
+
+  it("returns the existing open title action instead of inserting a duplicate", async () => {
+    findOpenActionForDecisionMock.mockResolvedValue(preparedTitleAction());
+    const preview = await prepareAction({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION,
+      decisionId: "decision-c",
+    });
+    expect(preview.id).toBe("action-title");
+    expect(insertActionMock).not.toHaveBeenCalled();
+  });
   });
 });
 

@@ -128,7 +128,7 @@ export type DecisionView = {
   rank: number;
   scoring: DecisionScoring;
   confidence: DecisionConfidence;
-  supportedActionType: "update_meta_description" | null;
+  supportedActionType: "update_meta_description" | "update_page_title" | null;
   why: {
     searchDemand: { appearances: number; visits: number } | null;
     websiteEvidence: string;

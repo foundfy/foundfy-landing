@@ -8,14 +8,12 @@ import {
   ACTION_BLOCKED_COPY,
   ACTION_CANCEL_LABEL,
   ACTION_CRAWL_HEADING,
-  ACTION_CURRENT_LABEL,
   ACTION_CURRENT_NONE_LABEL,
   ACTION_ERROR_COPY,
   ACTION_EXECUTE_DISABLED,
   ACTION_EXECUTE_LABEL,
   ACTION_EXECUTED_COPY,
   ACTION_EXPECTED_HEADING,
-  ACTION_FIELD_LABEL,
   ACTION_INCONCLUSIVE_COPY,
   ACTION_LEARN_APPEARANCES_HEADING,
   ACTION_LEARN_BASELINE_PERIOD_HEADING,
@@ -38,15 +36,18 @@ import {
   ACTION_OBSERVED_HEADING,
   ACTION_PAGE_HEADING,
   ACTION_PREPARE_LABEL,
-  ACTION_PROPOSED_LABEL,
   ACTION_SAFETY_HEADING,
   ACTION_SAFETY_LABELS,
   ACTION_SAVE_DRAFT_LABEL,
   ACTION_STATUS_HEADING,
   ACTION_STATUS_LABELS,
+  ACTION_TITLE_GROUP_COPY,
   ACTION_TYPE_HEADING,
-  ACTION_TYPE_LABEL,
   ACTION_UNSAFE_STALE_COPY,
+  actionCurrentLabel,
+  actionFieldLabel,
+  actionProposedLabel,
+  actionTypeLabel,
   ACTION_VERIFICATION_STATE_HEADING,
   ACTION_VERIFIED_AT_HEADING,
   ACTION_VERIFIED_COPY,
@@ -59,8 +60,9 @@ import {
 } from "@/lib/actions/display";
 import { OBSERVE_EVIDENCE_LAG_COPY } from "@/lib/gsc/display";
 import { formatEvidenceDate } from "@/lib/gsc/window";
-import { META_DESCRIPTION_MAX_LENGTH } from "@/lib/actions/config";
-import { actionSafetyState, canSubmitExecute } from "@/lib/actions/history";
+import { ACTION_PROPOSED_VALUE_MAX_LENGTH } from "@/lib/actions/config";
+import { actionSafetyState, canOfferExecute } from "@/lib/actions/history";
+import { titleGroupContextFromAction } from "@/lib/actions/title-group";
 import type { ActionPreviewView } from "@/lib/actions/types";
 import type { DecisionView } from "@/lib/decisions/types";
 import styles from "./SitePageView.module.css";
@@ -251,7 +253,7 @@ export default function SiteActionPanel({
   }
 
   if (!action) {
-    if (!current || decision.supportedActionType !== "update_meta_description") {
+    if (!current || !decision.supportedActionType) {
       return null;
     }
 
@@ -279,6 +281,7 @@ export default function SiteActionPanel({
   const editable = action.status === "prepared" || action.status === "awaiting_approval";
   const safety = actionSafetyState(action);
   const verification = action.verification;
+  const titleGroup = titleGroupContextFromAction(action.evidenceRefs);
   const safetyCopy =
     action.status === "blocked"
       ? ACTION_BLOCKED_COPY
@@ -303,7 +306,7 @@ export default function SiteActionPanel({
 
       <div className={styles.decisionWhyBlock}>
         <p className={styles.decisionWhyLabel}>{ACTION_TYPE_HEADING}</p>
-        <p className={styles.understandingCopy}>{ACTION_TYPE_LABEL}</p>
+        <p className={styles.understandingCopy}>{actionTypeLabel(action.actionType)}</p>
       </div>
 
       {safety ? (
@@ -328,26 +331,26 @@ export default function SiteActionPanel({
       </div>
 
       <div className={styles.decisionWhyBlock}>
-        <p className={styles.decisionWhyLabel}>{ACTION_FIELD_LABEL}</p>
-        <p className={styles.understandingCopy}>{ACTION_CURRENT_LABEL}</p>
+        <p className={styles.decisionWhyLabel}>{actionFieldLabel(action.field)}</p>
+        <p className={styles.understandingCopy}>{actionCurrentLabel(action.field)}</p>
         <p className={styles.understandingCopy}>{currentValueLabel(action.currentValue)}</p>
       </div>
 
       {editable ? (
         <label className={styles.interpretationLabel}>
-          {ACTION_PROPOSED_LABEL}
+          {actionProposedLabel(action.field)}
           <textarea
             className={styles.interpretationInput}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             rows={3}
-            maxLength={META_DESCRIPTION_MAX_LENGTH}
+            maxLength={ACTION_PROPOSED_VALUE_MAX_LENGTH}
             disabled={isWorking}
           />
         </label>
       ) : (
         <div className={styles.decisionWhyBlock}>
-          <p className={styles.decisionWhyLabel}>{ACTION_PROPOSED_LABEL}</p>
+          <p className={styles.decisionWhyLabel}>{actionProposedLabel(action.field)}</p>
           <p className={styles.understandingCopy}>
             {currentValueLabel(action.proposedValue)}
           </p>
@@ -359,6 +362,7 @@ export default function SiteActionPanel({
         <p className={styles.understandingCopy}>{decision.explanation}</p>
         <p className={styles.understandingCopy}>{decision.why.websiteEvidence}</p>
         <p className={styles.understandingCopy}>{decision.why.goalContext}</p>
+        {titleGroup ? <p className={styles.understandingCopy}>{ACTION_TITLE_GROUP_COPY}</p> : null}
       </div>
 
       <div className={styles.decisionWhyBlock}>
@@ -537,7 +541,7 @@ export default function SiteActionPanel({
             </button>
           </>
         ) : null}
-        {canSubmitExecute(action.status) ? (
+        {canOfferExecute(action) ? (
           <button
             type="button"
             className={styles.scanButton}

@@ -1,4 +1,5 @@
-import { ACTION_VERIFICATION_PLAN, ADAPTER_NOT_CONNECTED } from "./config";
+import { ACTION_VERIFICATION_PLAN, ADAPTER_NOT_CONNECTED, TITLE_VERIFICATION_PLAN } from "./config";
+import { PAGE_TITLE_ACTION_TYPE } from "@/lib/decisions/supported-action";
 import type {
   ActionPreviewView,
   ActionRecord,
@@ -41,7 +42,10 @@ export function toActionPreview(input: {
       goalId: input.action.goalId,
     },
     mutationSpec: input.action.mutationSpec,
-    verificationPlan: ACTION_VERIFICATION_PLAN,
+    verificationPlan:
+      input.action.actionType === PAGE_TITLE_ACTION_TYPE
+        ? TITLE_VERIFICATION_PLAN
+        : ACTION_VERIFICATION_PLAN,
     evidenceRefs: input.action.evidenceRefs,
     approvedAt: input.action.approvedAt,
     executeAvailable: input.executeAvailable,

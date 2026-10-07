@@ -1,11 +1,19 @@
+import type { SupportedActionType } from "@/lib/decisions/supported-action";
+import type { ActionField } from "./types";
+
 export const ACTION_PREPARE_LABEL = "Prepare this change";
 export const ACTION_SAVE_DRAFT_LABEL = "Save draft";
 export const ACTION_APPROVE_LABEL = "Approve";
 export const ACTION_CANCEL_LABEL = "Cancel";
 export const ACTION_CURRENT_NONE_LABEL = "None";
 export const ACTION_FIELD_LABEL = "Meta description";
+export const ACTION_TITLE_FIELD_LABEL = "Page title";
 export const ACTION_PROPOSED_LABEL = "Proposed meta description";
+export const ACTION_PROPOSED_TITLE_LABEL = "Proposed title";
 export const ACTION_CURRENT_LABEL = "Current meta description";
+export const ACTION_CURRENT_TITLE_LABEL = "Current title";
+export const ACTION_TITLE_GROUP_COPY =
+  "This page shares its title with another Google-visible page. Give this page a title that uniquely describes it.";
 export const ACTION_MUTATION_HEADING = "Exact change";
 export const ACTION_VERIFY_HEADING = "How Foundfy will verify this later";
 export const ACTION_WHY_HEADING = "Why Foundfy recommends this";
@@ -20,7 +28,24 @@ export const ACTION_APPROVED_AT_HEADING = "Approved";
 export const ACTION_SAFETY_HEADING = "Safety";
 export const ACTION_TYPE_HEADING = "Change";
 export const ACTION_TYPE_LABEL = "Update meta description";
+export const ACTION_TITLE_TYPE_LABEL = "Update page title";
 export const ACTION_PAGE_HEADING = "Page";
+
+export function actionTypeLabel(actionType: SupportedActionType): string {
+  return actionType === "update_page_title" ? ACTION_TITLE_TYPE_LABEL : ACTION_TYPE_LABEL;
+}
+
+export function actionFieldLabel(field: ActionField): string {
+  return field === "title" ? ACTION_TITLE_FIELD_LABEL : ACTION_FIELD_LABEL;
+}
+
+export function actionCurrentLabel(field: ActionField): string {
+  return field === "title" ? ACTION_CURRENT_TITLE_LABEL : ACTION_CURRENT_LABEL;
+}
+
+export function actionProposedLabel(field: ActionField): string {
+  return field === "title" ? ACTION_PROPOSED_TITLE_LABEL : ACTION_PROPOSED_LABEL;
+}
 
 export const ACTION_STATUS_LABELS: Record<
   "prepared" | "awaiting_approval" | "approved" | "executed" | "cancelled" | "blocked",
