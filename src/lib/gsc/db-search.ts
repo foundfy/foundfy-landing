@@ -257,6 +257,39 @@ export async function findLatestCompletedSearchSync(
   return mapSync(data as SyncRow);
 }
 
+export async function findSearchSyncById(syncId: string): Promise<GscSearchSyncRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("gsc_search_syncs")
+    .select(SYNC_COLUMNS)
+    .eq("id", syncId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load Search Analytics sync: ${error.message}`);
+  }
+
+  return data ? mapSync(data as SyncRow) : null;
+}
+
+export async function listCompletedSearchSyncsForWebsite(
+  websiteId: string,
+): Promise<GscSearchSyncRecord[]> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("gsc_search_syncs")
+    .select(SYNC_COLUMNS)
+    .eq("website_id", websiteId)
+    .eq("status", "completed")
+    .order("completed_at", { ascending: false, nullsFirst: false });
+
+  if (error) {
+    throw new Error(`Failed to list Search Analytics syncs: ${error.message}`);
+  }
+
+  return (data ?? []).map((row) => mapSync(row as SyncRow));
+}
+
 export async function listEvidenceForSync(syncId: string): Promise<GscSearchEvidenceRecord[]> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase

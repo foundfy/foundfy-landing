@@ -61,3 +61,59 @@ export const ACTION_EXPECTED_HEADING = "Expected meta description";
 export const ACTION_OBSERVED_HEADING = "Observed meta description";
 export const ACTION_VERIFIED_AT_HEADING = "Verified";
 export const ACTION_CRAWL_HEADING = "Crawl";
+export const ACTION_LEARN_HEADING = "After this change";
+export const ACTION_LEARN_WAITING_COPY =
+  "Foundfy will compare Google Search evidence after enough time has passed for Google's reporting to settle.";
+export const ACTION_LEARN_OTHER_FACTORS_COPY =
+  "Search visibility was higher in the comparison period. Other factors may also have contributed.";
+export const ACTION_LEARN_DECLINE_CAVEAT_COPY =
+  "Search visibility was lower in the comparison period. Other factors may also have contributed.";
+export const ACTION_LEARN_MIXED_COPY =
+  "Search appearances and visits from Google moved in different directions. Other factors may also have contributed.";
+export const ACTION_LEARN_NO_CHANGE_COPY =
+  "Search appearances and visits from Google did not change meaningfully in the comparison period.";
+export const ACTION_LEARN_INSUFFICIENT_COPY =
+  "Foundfy doesn't have enough Google Search evidence to compare this page yet. That does not mean the change failed.";
+export const ACTION_LEARN_TRUNCATED_COPY =
+  "This page was not in the bounded Google Search page dataset, so Foundfy cannot treat that as zero.";
+export const ACTION_LEARN_IDENTITY_COPY =
+  "Google's reported URL for this page is no longer a confident match, so Foundfy did not join the two periods.";
+export const ACTION_LEARN_REMOVED_COPY =
+  "Google Search evidence for this comparison was removed when Search Console was disconnected.";
+export const ACTION_LEARN_APPEARANCES_HEADING = "Search appearances";
+export const ACTION_LEARN_VISITS_HEADING = "Visits from Google";
+export const ACTION_LEARN_CTR_HEADING = "CTR";
+export const ACTION_LEARN_POSITION_HEADING = "Average position";
+export const ACTION_LEARN_BASELINE_PERIOD_HEADING = "Previous window";
+export const ACTION_LEARN_COMPARISON_PERIOD_HEADING = "Comparison window";
+
+export function formatLearningCount(value: number): string {
+  return String(Math.round(value));
+}
+
+export function formatLearningRange(before: number, after: number): string {
+  return `${formatLearningCount(before)} → ${formatLearningCount(after)}`;
+}
+
+export function learningObservedCopy(input: {
+  appearancesBefore: number;
+  appearancesAfter: number;
+  visitsBefore: number;
+  visitsAfter: number;
+}): string {
+  const appearanceDelta = Math.round(input.appearancesAfter - input.appearancesBefore);
+  const visitDelta = Math.round(input.visitsAfter - input.visitsBefore);
+  const appearanceAbs = Math.abs(appearanceDelta);
+  const visitAbs = Math.abs(visitDelta);
+
+  if (appearanceDelta > 0 && visitDelta > 0) {
+    return `Since this change was verified, this page received ${appearanceAbs} more search appearances and ${visitAbs} more visits from Google than in the previous comparison window.`;
+  }
+  if (appearanceDelta > 0) {
+    return `Since this change was verified, this page received ${appearanceAbs} more search appearances than in the previous comparison window.`;
+  }
+  if (visitDelta > 0) {
+    return `Since this change was verified, this page received ${visitAbs} more visits from Google than in the previous comparison window.`;
+  }
+  return ACTION_LEARN_NO_CHANGE_COPY;
+}

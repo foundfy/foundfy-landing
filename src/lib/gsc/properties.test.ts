@@ -45,6 +45,12 @@ vi.mock("./google", () => ({
   listSearchConsoleSites: (...args: unknown[]) => listSearchConsoleSitesMock(...args),
 }));
 
+const removeGoogleDerivedOwnerDataForWebsiteMock = vi.fn();
+vi.mock("@/lib/actions/google-privacy", () => ({
+  removeGoogleDerivedOwnerDataForWebsite: (...args: unknown[]) =>
+    removeGoogleDerivedOwnerDataForWebsiteMock(...args),
+}));
+
 import { bindObserveProperty, listObserveProperties } from "./properties";
 
 const WEBSITE_ID = "388c5109-fa75-4ba7-af55-f7c95a69122b";
@@ -92,6 +98,7 @@ describe("Search Console property discovery and binding", () => {
     findActivePropertyConnectionMock.mockResolvedValue(null);
     deleteSearchAnalyticsForWebsiteMock.mockResolvedValue(undefined);
     deleteDecisionEngineForWebsiteMock.mockResolvedValue(undefined);
+    removeGoogleDerivedOwnerDataForWebsiteMock.mockResolvedValue(undefined);
     listSearchConsoleSitesMock.mockResolvedValue([
       { siteUrl: "sc-domain:foundfy.me", permissionLevel: "siteOwner" },
       { siteUrl: "https://www.foundfy.me/", permissionLevel: "siteFullUser" },
@@ -217,7 +224,8 @@ describe("Search Console property discovery and binding", () => {
       siteUrl: "https://www.foundfy.me/",
     });
 
-    expect(deleteDecisionEngineForWebsiteMock).toHaveBeenCalledWith(WEBSITE_ID);
-    expect(deleteSearchAnalyticsForWebsiteMock).toHaveBeenCalledWith(WEBSITE_ID);
+    expect(removeGoogleDerivedOwnerDataForWebsiteMock).toHaveBeenCalledWith(WEBSITE_ID);
+    expect(deleteDecisionEngineForWebsiteMock).not.toHaveBeenCalled();
+    expect(deleteSearchAnalyticsForWebsiteMock).not.toHaveBeenCalled();
   });
 });

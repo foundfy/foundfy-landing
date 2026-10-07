@@ -14,6 +14,8 @@ describe("ACT v0 source boundary", () => {
     const liveMeta = read("./live-meta.ts");
     const verify = read("./verify.ts");
     const verification = read("./verification.ts");
+    const learn = read("./learn.ts");
+    const learning = read("./learning.ts");
     const github = [
       read("./github/commit.ts"),
       read("./github/api.ts"),
@@ -22,7 +24,7 @@ describe("ACT v0 source boundary", () => {
       read("./github/homepage-source.ts"),
       read("./github/target.ts"),
     ].join("\n");
-    const source = [lifecycle, db, mutation, liveMeta, verify, verification, github].join("\n");
+    const source = [lifecycle, db, mutation, liveMeta, verify, verification, learn, learning, github].join("\n");
 
     expect(source).not.toMatch(/openai|OpenAI/i);
     expect(source).not.toMatch(/generateObservationsForCrawlRun|persistFindings|createJob|from \"@\/lib\/findings|from \"@\/lib\/jobs/);
@@ -40,7 +42,9 @@ describe("ACT v0 source boundary", () => {
     expect(verify).not.toMatch(/from \"\.\/github|from \"\.\/lifecycle|from \"\.\/live-meta/);
     expect(verify).not.toMatch(/createAndEnqueueCrawl|start-crawl|generateObservationsForCrawlRun/);
     expect(verify).not.toMatch(/deploymentObserved|generateDecisionsForWebsite/);
-    expect(verification).not.toMatch(/contentHash|content_hash|decision_runs/);
+    expect(learn).not.toMatch(/from \"\.\/github|createAndEnqueueCrawl|start-crawl|openai|OpenAI|refreshGoogleAccessToken|webmasters/i);
+    expect(learning).not.toMatch(/decision_runs|searchDemandScore|issueImportance/);
+    expect(read("./google-privacy.ts")).not.toMatch(/openai|OpenAI|createAndEnqueueCrawl|webmasters|from \"\.\/github/i);
     expect(db).toMatch(/\.gt\("completed_at", input.afterIso\)/);
   });
 
@@ -49,7 +53,7 @@ describe("ACT v0 source boundary", () => {
     const publicRoute = read("../../app/api/websites/[websiteId]/route.ts");
     const pageView = read("../../components/site/SitePageView.tsx");
 
-    expect(overviewLoader).not.toMatch(/from \"@\/lib\/actions|action_runs|action_verifications/);
+    expect(overviewLoader).not.toMatch(/from \"@\/lib\/actions|action_runs|action_verifications|action_learning/);
     expect(publicRoute).not.toMatch(/from \"@\/lib\/actions|actions\/prepare/);
     expect(pageView).toContain("SiteDecisionsSection");
     expect(pageView).toContain("SiteActionsSection");

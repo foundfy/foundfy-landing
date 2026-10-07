@@ -17,6 +17,22 @@ import {
   ACTION_EXPECTED_HEADING,
   ACTION_FIELD_LABEL,
   ACTION_INCONCLUSIVE_COPY,
+  ACTION_LEARN_APPEARANCES_HEADING,
+  ACTION_LEARN_BASELINE_PERIOD_HEADING,
+  ACTION_LEARN_COMPARISON_PERIOD_HEADING,
+  ACTION_LEARN_CTR_HEADING,
+  ACTION_LEARN_DECLINE_CAVEAT_COPY,
+  ACTION_LEARN_HEADING,
+  ACTION_LEARN_IDENTITY_COPY,
+  ACTION_LEARN_INSUFFICIENT_COPY,
+  ACTION_LEARN_MIXED_COPY,
+  ACTION_LEARN_NO_CHANGE_COPY,
+  ACTION_LEARN_OTHER_FACTORS_COPY,
+  ACTION_LEARN_POSITION_HEADING,
+  ACTION_LEARN_REMOVED_COPY,
+  ACTION_LEARN_TRUNCATED_COPY,
+  ACTION_LEARN_VISITS_HEADING,
+  ACTION_LEARN_WAITING_COPY,
   ACTION_MUTATION_HEADING,
   ACTION_NOT_VERIFIED_COPY,
   ACTION_OBSERVED_HEADING,
@@ -38,7 +54,11 @@ import {
   ACTION_VERIFY_HEADING,
   ACTION_VERIFY_LABEL,
   ACTION_WHY_HEADING,
+  formatLearningRange,
+  learningObservedCopy,
 } from "@/lib/actions/display";
+import { OBSERVE_EVIDENCE_LAG_COPY } from "@/lib/gsc/display";
+import { formatEvidenceDate } from "@/lib/gsc/window";
 import { META_DESCRIPTION_MAX_LENGTH } from "@/lib/actions/config";
 import { actionSafetyState, canSubmitExecute } from "@/lib/actions/history";
 import type { ActionPreviewView } from "@/lib/actions/types";
@@ -59,6 +79,19 @@ type SiteActionPanelProps = {
 
 function currentValueLabel(value: string | null): string {
   return value?.trim() ? value : ACTION_CURRENT_NONE_LABEL;
+}
+
+function learningInsufficientCopy(reason: string | null): string {
+  if (reason === "truncated_page_dataset") {
+    return ACTION_LEARN_TRUNCATED_COPY;
+  }
+  if (reason === "url_identity_changed") {
+    return ACTION_LEARN_IDENTITY_COPY;
+  }
+  if (reason === "google_evidence_removed") {
+    return ACTION_LEARN_REMOVED_COPY;
+  }
+  return ACTION_LEARN_INSUFFICIENT_COPY;
 }
 
 export default function SiteActionPanel({
@@ -390,6 +423,96 @@ export default function SiteActionPanel({
               </p>
             </>
           ) : null}
+        </div>
+      ) : null}
+
+      {action.status === "executed" && verification?.state === "verified" && action.learning ? (
+        <div className={styles.decisionWhyBlock}>
+          <p className={styles.decisionWhyLabel}>{ACTION_LEARN_HEADING}</p>
+          {action.learning.state === "waiting_for_data" ? (
+            <p className={styles.understandingCopy}>{ACTION_LEARN_WAITING_COPY}</p>
+          ) : null}
+          {action.learning.state === "insufficient_data" ? (
+            <p className={styles.understandingCopy}>
+              {learningInsufficientCopy(action.learning.reason)}
+            </p>
+          ) : null}
+          {action.learning.state === "observed_improvement" &&
+          action.learning.baseline &&
+          action.learning.comparison ? (
+            <>
+              <p className={styles.understandingCopy}>
+                {learningObservedCopy({
+                  appearancesBefore: action.learning.baseline.appearances,
+                  appearancesAfter: action.learning.comparison.appearances,
+                  visitsBefore: action.learning.baseline.visits,
+                  visitsAfter: action.learning.comparison.visits,
+                })}
+              </p>
+              <p className={styles.understandingCopy}>{ACTION_LEARN_OTHER_FACTORS_COPY}</p>
+            </>
+          ) : null}
+          {action.learning.state === "observed_decline" ? (
+            <p className={styles.understandingCopy}>{ACTION_LEARN_DECLINE_CAVEAT_COPY}</p>
+          ) : null}
+          {action.learning.state === "mixed" ? (
+            <p className={styles.understandingCopy}>{ACTION_LEARN_MIXED_COPY}</p>
+          ) : null}
+          {action.learning.state === "no_meaningful_change" ? (
+            <p className={styles.understandingCopy}>{ACTION_LEARN_NO_CHANGE_COPY}</p>
+          ) : null}
+          {action.learning.baseline && action.learning.comparison ? (
+            <>
+              <p className={styles.decisionWhyLabel}>{ACTION_LEARN_APPEARANCES_HEADING}</p>
+              <p className={styles.understandingCopy}>
+                {formatLearningRange(
+                  action.learning.baseline.appearances,
+                  action.learning.comparison.appearances,
+                )}
+              </p>
+              <p className={styles.decisionWhyLabel}>{ACTION_LEARN_VISITS_HEADING}</p>
+              <p className={styles.understandingCopy}>
+                {formatLearningRange(
+                  action.learning.baseline.visits,
+                  action.learning.comparison.visits,
+                )}
+              </p>
+              {action.learning.baseline.ctr != null && action.learning.comparison.ctr != null ? (
+                <>
+                  <p className={styles.decisionWhyLabel}>{ACTION_LEARN_CTR_HEADING}</p>
+                  <p className={styles.understandingCopy}>
+                    {`${action.learning.baseline.ctr.toFixed(3)} → ${action.learning.comparison.ctr.toFixed(3)}`}
+                  </p>
+                </>
+              ) : null}
+              {action.learning.baseline.position != null &&
+              action.learning.comparison.position != null ? (
+                <>
+                  <p className={styles.decisionWhyLabel}>{ACTION_LEARN_POSITION_HEADING}</p>
+                  <p className={styles.understandingCopy}>
+                    {`${action.learning.baseline.position.toFixed(1)} → ${action.learning.comparison.position.toFixed(1)}`}
+                  </p>
+                </>
+              ) : null}
+            </>
+          ) : null}
+          {action.learning.baselinePeriod ? (
+            <>
+              <p className={styles.decisionWhyLabel}>{ACTION_LEARN_BASELINE_PERIOD_HEADING}</p>
+              <p className={styles.understandingCopy}>
+                {`${formatEvidenceDate(action.learning.baselinePeriod.start)} – ${formatEvidenceDate(action.learning.baselinePeriod.end)}`}
+              </p>
+            </>
+          ) : null}
+          {action.learning.comparisonPeriod ? (
+            <>
+              <p className={styles.decisionWhyLabel}>{ACTION_LEARN_COMPARISON_PERIOD_HEADING}</p>
+              <p className={styles.understandingCopy}>
+                {`${formatEvidenceDate(action.learning.comparisonPeriod.start)} – ${formatEvidenceDate(action.learning.comparisonPeriod.end)}`}
+              </p>
+            </>
+          ) : null}
+          <p className={styles.understandingCopy}>{OBSERVE_EVIDENCE_LAG_COPY}</p>
         </div>
       ) : null}
 

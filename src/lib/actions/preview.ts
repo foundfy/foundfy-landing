@@ -3,6 +3,7 @@ import type {
   ActionPreviewView,
   ActionRecord,
   ActionVerificationView,
+  ActionLearningView,
   ExecuteBlockedReason,
 } from "./types";
 import type { DecisionView } from "@/lib/decisions/types";
@@ -13,6 +14,7 @@ export function toActionPreview(input: {
   executeAvailable: boolean;
   executeBlockedReason: ExecuteBlockedReason;
   verification?: ActionVerificationView | null;
+  learning?: ActionLearningView | null;
 }): ActionPreviewView {
   return {
     id: input.action.id,
@@ -45,6 +47,7 @@ export function toActionPreview(input: {
     executeAvailable: input.executeAvailable,
     executeBlockedReason: input.executeBlockedReason,
     verification: input.verification ?? null,
+    learning: input.learning ?? null,
   };
 }
 

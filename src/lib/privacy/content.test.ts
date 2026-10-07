@@ -39,6 +39,9 @@ describe("privacy page content", () => {
     expect(googleSection?.body).toContain("deletes stored Search Console performance evidence");
     expect(googleSection?.body).toContain("derive prioritized next actions");
     expect(googleSection?.body).toContain("deletes derived next actions");
+    expect(googleSection?.body).toContain("deletes Google Search comparisons stored after a verified change");
+    expect(googleSection?.body).toContain("keeps the record that an approved change was executed or verified");
+    expect(googleSection?.body).toContain("without retaining Google performance numbers");
     expect(googleSection?.body).not.toMatch(/does not import Search Console performance data yet/i);
   });
 });
