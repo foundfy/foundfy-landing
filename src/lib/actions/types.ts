@@ -43,6 +43,8 @@ export type ActionErrorCode = (typeof ACTION_ERROR_CODES)[number];
 
 export type ExecuteBlockedReason = "adapter_not_connected" | "unsafe_stale" | null;
 
+export type ActionField = "meta_description" | "title";
+
 export type MetaDescriptionMutationSpec = {
   targetUrl: string;
   field: "meta_description";
@@ -50,7 +52,14 @@ export type MetaDescriptionMutationSpec = {
   after: string | null;
 };
 
-export type ActionMutationSpec = MetaDescriptionMutationSpec;
+export type PageTitleMutationSpec = {
+  targetUrl: string;
+  field: "title";
+  before: string | null;
+  after: string | null;
+};
+
+export type ActionMutationSpec = MetaDescriptionMutationSpec | PageTitleMutationSpec;
 
 export type ActionEvidenceRef = {
   kind: DecisionEvidenceKind;
@@ -85,7 +94,7 @@ export type ActionRecord = {
   actionType: SupportedActionType;
   targetPageId: string;
   targetPageUrl: string;
-  field: "meta_description";
+  field: ActionField;
   observedBefore: string | null;
   proposedValue: string | null;
   mutationSpec: ActionMutationSpec;
@@ -119,7 +128,7 @@ export type ActionPreviewView = {
   id: string;
   status: ActionStatus;
   actionType: SupportedActionType;
-  field: "meta_description";
+  field: ActionField;
   targetPage: {
     id: string;
     url: string;
@@ -174,7 +183,7 @@ export type ActionVerificationRecord = {
   executionAttemptId: string;
   crawlRunId: string;
   targetPageId: string | null;
-  verificationType: "update_meta_description";
+  verificationType: SupportedActionType;
   status: ActionVerificationStatus;
   expectedValue: string | null;
   observedValue: string | null;

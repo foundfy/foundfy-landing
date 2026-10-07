@@ -55,6 +55,7 @@ export type ActionPageSnapshot = {
   crawlRunId: string;
   requestedUrl: string;
   finalUrl: string;
+  title: string | null;
   metaDescription: string | null;
   contentHash: string | null;
 };
@@ -146,7 +147,7 @@ export async function findPageSnapshot(pageId: string): Promise<ActionPageSnapsh
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("pages")
-    .select("id, crawl_run_id, requested_url, final_url, meta_description, content_hash")
+    .select("id, crawl_run_id, requested_url, final_url, title, meta_description, content_hash")
     .eq("id", pageId)
     .maybeSingle();
 
@@ -163,6 +164,7 @@ export async function findPageSnapshot(pageId: string): Promise<ActionPageSnapsh
     crawlRunId: data.crawl_run_id,
     requestedUrl: data.requested_url,
     finalUrl: data.final_url,
+    title: data.title,
     metaDescription: data.meta_description,
     contentHash: data.content_hash,
   };
@@ -200,8 +202,10 @@ export async function insertAction(input: {
   decisionId: string;
   decisionRunId: string;
   ownerId: string;
+  actionType: ActionRecord["actionType"];
   targetPageId: string;
   targetPageUrl: string;
+  field: ActionRecord["field"];
   observedBefore: string | null;
   proposedValue: string | null;
   mutationSpec: ActionMutationSpec;
@@ -220,10 +224,10 @@ export async function insertAction(input: {
       decision_id: input.decisionId,
       decision_run_id: input.decisionRunId,
       owner_id: input.ownerId,
-      action_type: "update_meta_description",
+      action_type: input.actionType,
       target_page_id: input.targetPageId,
       target_page_url: input.targetPageUrl,
-      field: "meta_description",
+      field: input.field,
       observed_before: input.observedBefore,
       proposed_value: input.proposedValue,
       mutation_spec: input.mutationSpec,
@@ -270,8 +274,6 @@ export async function findOpenActionForDecision(input: {
     .select(ACTION_COLUMNS)
     .eq("website_id", input.websiteId)
     .eq("decision_id", input.decisionId)
-    .eq("action_type", "update_meta_description")
-    .eq("field", "meta_description")
     .in("status", [...OPEN_ACTION_STATUSES])
     .order("created_at", { ascending: false })
     .limit(1)

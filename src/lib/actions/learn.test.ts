@@ -136,6 +136,13 @@ describe("learningViewFor", () => {
     expect(await learningViewFor({ ...action(), status: "approved" })).toBeNull();
     findLatestVerificationForActionMock.mockResolvedValue({ ...verified(), status: "not_verified" });
     expect(await learningViewFor(action())).toBeNull();
+    expect(
+      await learningViewFor({
+        ...action(),
+        actionType: "update_page_title",
+        field: "title",
+      }),
+    ).toBeNull();
   });
 
   it("waits when there is no eligible later GSC sync", async () => {

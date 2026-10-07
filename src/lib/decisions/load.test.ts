@@ -286,6 +286,44 @@ describe("loadDecisionsForWebsite", () => {
     expect(view.decisions[0].supportedActionType).toBe("update_meta_description");
   });
 
+  it("marks current missing-title and Type C duplicate-title Decisions as preparable", async () => {
+    loadDecisionPrerequisitesMock.mockResolvedValue(readyPrerequisites());
+    findLatestCompletedDecisionRunMock.mockResolvedValue(completedRun());
+    listDecisionsForRunMock.mockResolvedValue([
+      {
+        ...rankedDecision(),
+        evidenceRefs: [
+          {
+            kind: "observation",
+            recordId: "obs-1",
+            snapshot: { ruleKey: "page_fundamentals.missing_title" },
+          },
+        ],
+      },
+    ]);
+
+    const missingTitle = await loadDecisionsForWebsite({ websiteId: WEBSITE_ID, sessionToken: "token" });
+    expect(missingTitle.decisions[0].supportedActionType).toBe("update_page_title");
+
+    listDecisionsForRunMock.mockResolvedValue([
+      {
+        ...rankedDecision(),
+        decisionType: "multi_page_issue_with_visibility",
+        title: "Make duplicate titles unique on 2 Google-visible pages including /",
+        pageUrl: "https://www.dbhobby.com/",
+        evidenceRefs: [
+          {
+            kind: "observation",
+            recordId: "obs-1",
+            snapshot: { ruleKey: "page_fundamentals.duplicate_title" },
+          },
+        ],
+      },
+    ]);
+    const typeC = await loadDecisionsForWebsite({ websiteId: WEBSITE_ID, sessionToken: "token" });
+    expect(typeC.decisions[0].supportedActionType).toBe("update_page_title");
+  });
+
   it("marks a completed run stale when a new crawl is current", async () => {
     loadDecisionPrerequisitesMock.mockResolvedValue({
       ...readyPrerequisites(),

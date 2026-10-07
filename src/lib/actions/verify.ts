@@ -25,7 +25,7 @@ function pageMatchesTarget(
 }
 
 export async function verificationViewFor(action: ActionRecord): Promise<ActionVerificationView | null> {
-  if (action.status !== "executed") {
+  if (action.status !== "executed" || action.actionType !== "update_meta_description") {
     return null;
   }
 

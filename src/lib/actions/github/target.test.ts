@@ -46,5 +46,13 @@ describe("isFoundfyHomepageMetaTarget", () => {
         actionType: "update_meta_description",
       }),
     ).toBe(false);
+    expect(
+      isFoundfyHomepageMetaTarget({
+        hostname: "foundfy.me",
+        pageUrl: "https://www.foundfy.me/",
+        field: "title",
+        actionType: "update_page_title",
+      }),
+    ).toBe(false);
   });
 });

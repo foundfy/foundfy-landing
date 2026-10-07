@@ -13,6 +13,7 @@ import {
   ACTION_NOT_VERIFIED_COPY,
   ACTION_PREPARE_LABEL,
   ACTION_STATUS_LABELS,
+  ACTION_TITLE_GROUP_COPY,
   ACTION_UNSAFE_STALE_COPY,
   ACTION_VERIFICATION_STATE_HEADING,
   ACTION_VERIFIED_COPY,
@@ -20,7 +21,7 @@ import {
   ACTION_VERIFY_LABEL,
   learningObservedCopy,
 } from "./display";
-import { ACTION_VERIFICATION_PLAN } from "./config";
+import { ACTION_VERIFICATION_PLAN, TITLE_VERIFICATION_PLAN } from "./config";
 
 const VERIFY_COPY = [
   ACTION_VERIFICATION_PLAN,
@@ -42,6 +43,9 @@ describe("ACT display copy", () => {
     expect(ACTION_EXECUTE_DISABLED).toContain("site connection");
     expect(ACTION_UNSAFE_STALE_COPY).toContain("underlying evidence has changed");
     expect(ACTION_PREPARE_LABEL).toBe("Prepare this change");
+    expect(ACTION_TITLE_GROUP_COPY).toContain("shares its title");
+    expect(ACTION_TITLE_GROUP_COPY).not.toMatch(/fix all duplicate titles/i);
+    expect(TITLE_VERIFICATION_PLAN).not.toMatch(/fix all duplicate titles/i);
     expect(VERIFY_COPY).not.toMatch(/rank|traffic|clicks|impressions|SEO performance/i);
   });
 

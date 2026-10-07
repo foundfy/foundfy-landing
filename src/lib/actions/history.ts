@@ -1,7 +1,14 @@
+import { META_DESCRIPTION_ACTION_TYPE } from "@/lib/decisions/supported-action";
 import type { ActionPreviewView, ActionStatus } from "./types";
 
 export function canSubmitExecute(status: ActionStatus): boolean {
   return status === "approved";
+}
+
+export function canOfferExecute(
+  action: Pick<ActionPreviewView, "status" | "actionType">,
+): boolean {
+  return action.status === "approved" && action.actionType === META_DESCRIPTION_ACTION_TYPE;
 }
 
 export function actionSafetyState(

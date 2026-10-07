@@ -5,7 +5,15 @@ import {
 } from "@/lib/decisions/db";
 import { staleReasonForRun, toDecisionView } from "@/lib/decisions/load";
 import { loadDecisionPrerequisites } from "@/lib/decisions/generate";
-import { supportedActionTypeForDecision, SUPPORTED_ACTION_RULE_KEY } from "@/lib/decisions/supported-action";
+import {
+  DUPLICATE_TITLE_RULE_KEY,
+  META_DESCRIPTION_ACTION_TYPE,
+  MISSING_TITLE_RULE_KEY,
+  PAGE_TITLE_ACTION_TYPE,
+  SUPPORTED_ACTION_RULE_KEY,
+  supportedActionField,
+  supportedActionTypeForDecision,
+} from "@/lib/decisions/supported-action";
 import type { DecisionRecord, DecisionRunRecord, GoalSnapshot } from "@/lib/decisions/types";
 import { requireObserveOwner } from "@/lib/gsc/observe";
 import { getWebsiteById } from "@/lib/websites/repository";
@@ -35,13 +43,31 @@ import { isFoundfyHomepageMetaTarget } from "./github/target";
 import { fetchLiveHomepageMeta, observeHomepageDeployment } from "./live-meta";
 import { metaValuesEqual } from "./meta";
 import { executeAvailability, toActionPreview } from "./preview";
-import { buildMutationSpec, normalizeProposedMetaDescription, statusAfterProposedValue } from "./mutation";
+import { buildMutationSpec, normalizeProposedValue, statusAfterProposedValue } from "./mutation";
+import {
+  freezeTitleGroupEvidence,
+  otherDuplicateMemberUrls,
+  sharedTitleFromEvidence,
+  titlePrimaryPage,
+} from "./title-group";
+import { normalizeTitle, titleValuesEqual } from "./title";
 import { ActionError, type ActionPreviewView, type ActionRecord } from "./types";
 import { verificationViewFor } from "./verify";
 import { learningViewFor } from "./learn";
 
 function isEmptyMeta(value: string | null | undefined): boolean {
   return !value?.trim();
+}
+
+function evidenceString(evidence: Record<string, unknown>, key: string): string | null {
+  const value = evidence[key];
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value == null) {
+    return null;
+  }
+  return String(value);
 }
 
 function observationSupportsMissingMeta(
@@ -60,14 +86,30 @@ function observationSupportsMissingMeta(
     return false;
   }
 
-  const evidenceMeta =
-    typeof observation.evidence.metaDescription === "string"
-      ? observation.evidence.metaDescription
-      : observation.evidence.metaDescription == null
-        ? null
-        : String(observation.evidence.metaDescription);
+  return isEmptyMeta(evidenceString(observation.evidence, "metaDescription"));
+}
 
-  return isEmptyMeta(evidenceMeta);
+function observationSupportsTitle(
+  observation: ActionObservationSnapshot,
+  page: ActionPageSnapshot,
+): boolean {
+  if (observation.status !== "active" || observation.pageId !== page.id) {
+    return false;
+  }
+
+  if (observation.ruleKey === MISSING_TITLE_RULE_KEY) {
+    return titleValuesEqual(page.title, null) && titleValuesEqual(evidenceString(observation.evidence, "title"), null);
+  }
+
+  if (observation.ruleKey === DUPLICATE_TITLE_RULE_KEY) {
+    const observedTitle = evidenceString(observation.evidence, "title");
+    return (
+      !titleValuesEqual(page.title, null) &&
+      titleValuesEqual(page.title, observedTitle)
+    );
+  }
+
+  return false;
 }
 
 async function loadCurrentRun(input: {
@@ -154,6 +196,13 @@ async function frozenBeforeStillHolds(action: ActionRecord): Promise<boolean> {
     return false;
   }
 
+  if (action.field === "title") {
+    return (
+      titleValuesEqual(page.title, action.mutationSpec.before) &&
+      titleValuesEqual(action.observedBefore, action.mutationSpec.before)
+    );
+  }
+
   return (
     metaValuesEqual(page.metaDescription, action.mutationSpec.before) &&
     metaValuesEqual(action.observedBefore, action.mutationSpec.before)
@@ -199,7 +248,7 @@ async function loadSupportedDecision(input: {
   if (!supportedActionTypeForDecision(decision)) {
     throw new ActionError(
       "unsupported_decision",
-      "Foundfy can only prepare a meta description change from a current missing-meta Type A Decision.",
+      "Foundfy can only prepare a change from a current supported missing-meta or page-title Decision.",
     );
   }
 
@@ -210,7 +259,7 @@ async function loadSupportedDecision(input: {
   return decision;
 }
 
-async function requireMatchingPage(input: {
+async function requireCurrentMappedPage(input: {
   pageId: string;
   crawlRunId: string;
 }): Promise<ActionPageSnapshot> {
@@ -219,6 +268,14 @@ async function requireMatchingPage(input: {
     throw new ActionError("missing_page", "The current mapped page is no longer available.");
   }
 
+  return page;
+}
+
+async function requireMatchingPage(input: {
+  pageId: string;
+  crawlRunId: string;
+}): Promise<ActionPageSnapshot> {
+  const page = await requireCurrentMappedPage(input);
   if (!isEmptyMeta(page.metaDescription)) {
     throw new ActionError(
       "observation_no_longer_supports",
@@ -229,22 +286,50 @@ async function requireMatchingPage(input: {
   return page;
 }
 
-async function requireSupportingObservation(decision: DecisionRecord, pageId: string): Promise<void> {
-  const observationRef = decision.evidenceRefs.find((ref) => ref.kind === "observation");
-  if (!observationRef) {
-    throw new ActionError(
-      "observation_no_longer_supports",
-      "This Decision no longer has missing-meta observation evidence.",
-    );
+async function loadDecisionObservations(
+  decision: DecisionRecord,
+): Promise<ActionObservationSnapshot[]> {
+  const observations: ActionObservationSnapshot[] = [];
+  for (const ref of decision.evidenceRefs.filter((item) => item.kind === "observation")) {
+    const observation = await findObservationSnapshot(ref.recordId);
+    if (observation) {
+      observations.push(observation);
+    }
+  }
+  return observations;
+}
+
+async function requireSupportingObservation(
+  decision: DecisionRecord,
+  page: ActionPageSnapshot,
+): Promise<ActionObservationSnapshot[]> {
+  const observations = await loadDecisionObservations(decision);
+  const actionType = supportedActionTypeForDecision(decision);
+
+  if (actionType === META_DESCRIPTION_ACTION_TYPE) {
+    if (!observations.some((observation) => observationSupportsMissingMeta(observation, page.id))) {
+      throw new ActionError(
+        "observation_no_longer_supports",
+        "Current observation evidence no longer supports a missing meta description change.",
+      );
+    }
+    return observations;
   }
 
-  const observation = await findObservationSnapshot(observationRef.recordId);
-  if (!observationSupportsMissingMeta(observation, pageId)) {
-    throw new ActionError(
-      "observation_no_longer_supports",
-      "Current observation evidence no longer supports a missing meta description change.",
-    );
+  if (actionType === PAGE_TITLE_ACTION_TYPE) {
+    if (!observations.some((observation) => observationSupportsTitle(observation, page))) {
+      throw new ActionError(
+        "observation_no_longer_supports",
+        "Current observation evidence no longer supports a page title change.",
+      );
+    }
+    return observations;
   }
+
+  throw new ActionError(
+    "unsupported_decision",
+    "Foundfy can only prepare a change from a current supported missing-meta or page-title Decision.",
+  );
 }
 
 async function adapterReadyFor(action: ActionRecord, hostname: string | null): Promise<boolean> {
@@ -364,11 +449,54 @@ export async function prepareAction(input: {
     decisionId: input.decisionId,
     runId: context.run.id,
   });
-  const page = await requireMatchingPage({
-    pageId: decision.pageId as string,
-    crawlRunId: context.run.crawlRunId,
-  });
-  await requireSupportingObservation(decision, page.id);
+  const actionType = supportedActionTypeForDecision(decision);
+  if (!actionType) {
+    throw new ActionError(
+      "unsupported_decision",
+      "Foundfy can only prepare a change from a current supported missing-meta or page-title Decision.",
+    );
+  }
+  const primary = titlePrimaryPage(decision);
+  if (!primary) {
+    throw new ActionError("missing_page", "This Decision does not have a current mapped page.");
+  }
+  const page =
+    actionType === META_DESCRIPTION_ACTION_TYPE
+      ? await requireMatchingPage({
+          pageId: primary.pageId,
+          crawlRunId: context.run.crawlRunId,
+        })
+      : await requireCurrentMappedPage({
+          pageId: primary.pageId,
+          crawlRunId: context.run.crawlRunId,
+        });
+  const observations = await requireSupportingObservation(decision, page);
+  const field = supportedActionField(actionType);
+  const observedBefore =
+    actionType === PAGE_TITLE_ACTION_TYPE ? normalizeTitle(page.title) : null;
+  const otherMemberUrls =
+    actionType === PAGE_TITLE_ACTION_TYPE
+      ? otherDuplicateMemberUrls({
+          targetUrl: primary.pageUrl,
+          observations,
+          evidenceRefs: decision.evidenceRefs,
+        })
+      : [];
+  const sharedTitle =
+    actionType === PAGE_TITLE_ACTION_TYPE
+      ? sharedTitleFromEvidence(observations, observedBefore)
+      : null;
+  const evidenceRefs =
+    actionType === PAGE_TITLE_ACTION_TYPE
+      ? freezeTitleGroupEvidence({
+          evidenceRefs: decision.evidenceRefs,
+          targetPageId: page.id,
+          targetUrl: primary.pageUrl,
+          sharedTitle,
+          otherMemberUrls,
+          group: otherMemberUrls.length > 0,
+        })
+      : decision.evidenceRefs;
 
   try {
     const action = await insertAction({
@@ -376,12 +504,16 @@ export async function prepareAction(input: {
       decisionId: decision.id,
       decisionRunId: context.run.id,
       ownerId: context.ownerId,
+      actionType,
       targetPageId: page.id,
-      targetPageUrl: decision.pageUrl as string,
-      observedBefore: null,
+      targetPageUrl: primary.pageUrl,
+      field,
+      observedBefore,
       proposedValue: null,
       mutationSpec: buildMutationSpec({
-        targetUrl: decision.pageUrl as string,
+        targetUrl: primary.pageUrl,
+        field,
+        before: observedBefore,
         proposedValue: null,
       }),
       pageContentHashAtPrepare: page.contentHash,
@@ -389,7 +521,7 @@ export async function prepareAction(input: {
       gscSyncId: context.run.gscSearchSyncId,
       siteModelId: context.run.siteModelId,
       goalId: context.run.goalId,
-      evidenceRefs: decision.evidenceRefs,
+      evidenceRefs,
     });
     return previewForWithGoal(action, context.goal, context.run.gscTruncated, safety);
   } catch (error) {
@@ -486,7 +618,7 @@ export async function updateActionProposal(input: {
     );
   }
 
-  const proposedValue = normalizeProposedMetaDescription(input.proposedValue);
+  const proposedValue = normalizeProposedValue(input.proposedValue, action.field);
   const updated = await updateAction({
     id: action.id,
     websiteId: input.websiteId,
@@ -495,6 +627,8 @@ export async function updateActionProposal(input: {
       proposedValue,
       mutationSpec: buildMutationSpec({
         targetUrl: action.targetPageUrl,
+        field: action.field,
+        before: action.mutationSpec.before,
         proposedValue,
       }),
       status: statusAfterProposedValue(proposedValue),
@@ -534,7 +668,9 @@ export async function approveAction(input: {
   if (!action.proposedValue) {
     throw new ActionError(
       "empty_proposed_value",
-      "Enter a meta description before approving this change.",
+      action.field === "title"
+        ? "Enter a page title before approving this change."
+        : "Enter a meta description before approving this change.",
       400,
     );
   }
@@ -559,10 +695,24 @@ export async function approveAction(input: {
     decisionId: action.decisionId,
     runId: currentRun.id,
   });
-  await requireMatchingPage({
-    pageId: action.targetPageId,
-    crawlRunId: currentRun.crawlRunId,
-  });
+  if (action.field === "title") {
+    const page = await requireCurrentMappedPage({
+      pageId: action.targetPageId,
+      crawlRunId: currentRun.crawlRunId,
+    });
+    if (!titleValuesEqual(page.title, action.mutationSpec.before)) {
+      await blockAction(action);
+      throw new ActionError(
+        "before_state_changed",
+        "The current page title no longer matches the prepared before-state.",
+      );
+    }
+  } else {
+    await requireMatchingPage({
+      pageId: action.targetPageId,
+      crawlRunId: currentRun.crawlRunId,
+    });
+  }
 
   const approved = await updateAction({
     id: action.id,
@@ -649,6 +799,22 @@ export async function executeAction(input: {
   }
 
   const website = await getWebsiteById(input.websiteId);
+  if (action.actionType === PAGE_TITLE_ACTION_TYPE || action.field === "title") {
+    const attemptNumber = (await countActionAttempts(action.id)) + 1;
+    await insertActionAttempt({
+      actionId: action.id,
+      attemptNumber,
+      idempotencyKey: `${action.id}:execute:${attemptNumber}`,
+      provider: null,
+      result: "failure",
+      errorCode: ADAPTER_NOT_CONNECTED,
+    });
+    throw new ActionError(
+      "adapter_not_connected",
+      "Foundfy cannot apply this change until a site connection exists.",
+    );
+  }
+
   const supported = Boolean(
     website &&
       isFoundfyHomepageMetaTarget({

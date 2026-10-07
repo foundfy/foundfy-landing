@@ -140,6 +140,22 @@ describe("verificationViewFor", () => {
     expect(await verificationViewFor({ ...executedAction(), status: "approved" })).toBeNull();
   });
 
+  it("does not fabricate verification for a title action", async () => {
+    expect(
+      await verificationViewFor({
+        ...executedAction(),
+        actionType: "update_page_title",
+        field: "title",
+        mutationSpec: {
+          targetUrl: "https://www.foundfy.me/",
+          field: "title",
+          before: "Old title",
+          after: "New title",
+        },
+      }),
+    ).toBeNull();
+  });
+
   it("asks for a fresh crawl when none exists after execute", async () => {
     findSuccessfulExecuteAttemptMock.mockResolvedValue(successAttempt());
     findLatestVerificationForActionMock.mockResolvedValue(null);
@@ -413,6 +429,20 @@ describe("verifyAction", () => {
         observedValue: "Changed later.",
       }),
     );
+  });
+
+  it("does not verify a title action", async () => {
+    requireObserveOwnerMock.mockResolvedValue({ owner: { id: "owner-1" } });
+    findActionByIdMock.mockResolvedValue({
+      ...executedAction(),
+      actionType: "update_page_title",
+      field: "title",
+    });
+
+    await expect(
+      verifyAction({ websiteId: WEBSITE_ID, sessionToken: SESSION, actionId: "action-1" }),
+    ).rejects.toMatchObject({ code: "unsupported_decision" });
+    expect(insertActionVerificationMock).not.toHaveBeenCalled();
   });
 
   it("does not call GitHub, start a crawl, or call OpenAI", async () => {

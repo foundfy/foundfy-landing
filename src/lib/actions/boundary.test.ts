@@ -11,6 +11,8 @@ describe("ACT v0 source boundary", () => {
     const lifecycle = read("./lifecycle.ts");
     const db = read("./db.ts");
     const mutation = read("./mutation.ts");
+    const title = read("./title.ts");
+    const titleGroup = read("./title-group.ts");
     const liveMeta = read("./live-meta.ts");
     const verify = read("./verify.ts");
     const verification = read("./verification.ts");
@@ -24,7 +26,19 @@ describe("ACT v0 source boundary", () => {
       read("./github/homepage-source.ts"),
       read("./github/target.ts"),
     ].join("\n");
-    const source = [lifecycle, db, mutation, liveMeta, verify, verification, learn, learning, github].join("\n");
+    const source = [
+      lifecycle,
+      db,
+      mutation,
+      title,
+      titleGroup,
+      liveMeta,
+      verify,
+      verification,
+      learn,
+      learning,
+      github,
+    ].join("\n");
 
     expect(source).not.toMatch(/openai|OpenAI/i);
     expect(source).not.toMatch(/generateObservationsForCrawlRun|persistFindings|createJob|from \"@\/lib\/findings|from \"@\/lib\/jobs/);
@@ -33,7 +47,12 @@ describe("ACT v0 source boundary", () => {
     expect(lifecycle).not.toMatch(/generateDecisionsForWebsite/);
     expect(lifecycle).toMatch(/staleReasonForRun/);
     expect(lifecycle).toMatch(/adapter_not_connected/);
+    expect(lifecycle).toMatch(/PAGE_TITLE_ACTION_TYPE/);
     expect(lifecycle).toMatch(/blockIfUnsafe/);
+    expect(titleGroup).toMatch(/TITLE_PRIMARY_REASON/);
+    expect(lifecycle.indexOf("PAGE_TITLE_ACTION_TYPE")).toBeLessThan(
+      lifecycle.indexOf("commitHomepageDescription"),
+    );
     expect(mutation).toMatch(/mutation_spec|buildMutationSpec/);
     expect(mutation).not.toMatch(/write_payload/);
     expect(github).toMatch(/foundfy-act:/);
