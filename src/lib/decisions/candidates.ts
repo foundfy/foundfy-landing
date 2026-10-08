@@ -86,6 +86,13 @@ function gscSnapshot(page: GscPageEvidenceInput) {
   };
 }
 
+function typeAIssuePageUrl(
+  observation: ObservationInput,
+  gscPage: GscPageEvidenceInput,
+): string {
+  return observation.pageUrl ?? gscPage.pageUrl;
+}
+
 function duplicateGroupKey(observation: ObservationInput): string | null {
   if (observation.ruleKey === "page_fundamentals.duplicate_title") {
     const title =
@@ -238,13 +245,14 @@ function buildTypeA(
       searchDemand: searchDemandScore(page, maxDemand),
       evidenceConfidence: confidence.score,
     });
+    const issuePageUrl = typeAIssuePageUrl(observation, page);
 
     return {
       decisionType: "existing_demand_page_issue" as const,
-      title: actionTitleForRule(observation.ruleKey, page.pageUrl),
+      title: actionTitleForRule(observation.ruleKey, issuePageUrl),
       explanation: pageIssueExplanation(observation.title),
-      pageUrl: page.pageUrl,
-      pageId: page.pageId,
+      pageUrl: issuePageUrl,
+      pageId: observation.pageId,
       priorityBand: "next" as const,
       rank: 0,
       scoring,

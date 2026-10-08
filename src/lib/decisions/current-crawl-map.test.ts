@@ -509,7 +509,7 @@ describe("DBHobby current-crawl remapping simulation", () => {
       {
         rank: 1,
         type: "existing_demand_page_issue",
-        url: "https://www.dbhobby.com/es/pintura-en-seda",
+        url: "https://www.dbhobby.com/es",
         pageId: "a5a8eb2d-288d-41c6-af2f-38e422922b64",
         total: 75,
       },
