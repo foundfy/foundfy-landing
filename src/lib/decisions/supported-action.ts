@@ -18,6 +18,12 @@ export const TITLE_GROUP_DECISION_TYPE: DecisionType = "multi_page_issue_with_vi
 
 export const TITLE_PRIMARY_REASON = "decision_primary_highest_demand" as const;
 
+export const CANONICAL_REVIEW_TYPE = "review_canonical_target" as const;
+export const CANONICAL_ELSEWHERE_RULE_KEY = "indexability.canonical_points_elsewhere" as const;
+export const CANONICAL_MISSING_RULE_KEY = "indexability.canonical_missing" as const;
+export const SUPPORTED_REVIEW_TYPES = [CANONICAL_REVIEW_TYPE] as const;
+export type SupportedReviewType = (typeof SUPPORTED_REVIEW_TYPES)[number];
+
 export function observationRuleKeys(
   decision: Pick<DecisionRecord, "evidenceRefs">,
 ): string[] {
@@ -61,4 +67,23 @@ export function supportedActionTypeForDecision(
 
 export function supportedActionField(actionType: SupportedActionType): "meta_description" | "title" {
   return actionType === PAGE_TITLE_ACTION_TYPE ? TITLE_ACTION_FIELD : SUPPORTED_ACTION_FIELD;
+}
+
+export function supportedReviewTypeForDecision(
+  decision: Pick<DecisionRecord, "decisionType" | "evidenceRefs">,
+): SupportedReviewType | null {
+  if (decision.decisionType !== SUPPORTED_ACTION_DECISION_TYPE) {
+    return null;
+  }
+
+  const rules = observationRuleKeys(decision);
+  if (rules.length === 0) {
+    return null;
+  }
+
+  if (rules.every((rule) => rule === CANONICAL_ELSEWHERE_RULE_KEY)) {
+    return CANONICAL_REVIEW_TYPE;
+  }
+
+  return null;
 }

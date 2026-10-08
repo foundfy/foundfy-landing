@@ -5,8 +5,10 @@ import {
   ACTION_ERROR_COPY,
   ACTION_HISTORY_HEADING,
 } from "@/lib/actions/display";
+import type { CanonicalReviewView } from "@/lib/actions/review-types";
 import type { ActionPreviewView } from "@/lib/actions/types";
 import SiteActionPanel from "./SiteActionPanel";
+import SiteCanonicalReviewPanel from "./SiteCanonicalReviewPanel";
 import styles from "./SitePageView.module.css";
 
 type SiteActionsSectionProps = {
@@ -14,39 +16,84 @@ type SiteActionsSectionProps = {
   refreshKey?: number;
 };
 
+type HistoryItem =
+  | { kind: "action"; id: string; at: string; action: ActionPreviewView }
+  | { kind: "review"; id: string; at: string; review: CanonicalReviewView };
+
 export default function SiteActionsSection({
   websiteId,
   refreshKey = 0,
 }: SiteActionsSectionProps) {
-  const [actions, setActions] = useState<ActionPreviewView[]>([]);
+  const [items, setItems] = useState<HistoryItem[]>([]);
   const [visible, setVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const response = await fetch(`/api/websites/${websiteId}/actions`, {
-        cache: "no-store",
-      });
+      const [actionsResponse, reviewsResponse] = await Promise.all([
+        fetch(`/api/websites/${websiteId}/actions`, { cache: "no-store" }),
+        fetch(`/api/websites/${websiteId}/reviews`, { cache: "no-store" }),
+      ]);
 
-      if (response.status === 401 || response.status === 403) {
+      if (actionsResponse.status === 401 || actionsResponse.status === 403) {
         setVisible(false);
-        setActions([]);
+        setItems([]);
         return;
       }
 
-      const payload = (await response.json()) as {
+      if (reviewsResponse.status === 401 || reviewsResponse.status === 403) {
+        setVisible(false);
+        setItems([]);
+        return;
+      }
+
+      const actionsPayload = (await actionsResponse.json()) as {
         actions?: ActionPreviewView[];
         error?: string;
       };
-      if (!response.ok) {
+      const reviewsPayload = (await reviewsResponse.json()) as {
+        reviews?: CanonicalReviewView[];
+        error?: string;
+      };
+
+      if (!actionsResponse.ok && !reviewsResponse.ok) {
         setVisible(true);
-        setErrorMessage(payload.error ?? ACTION_ERROR_COPY);
+        setErrorMessage(actionsPayload.error ?? reviewsPayload.error ?? ACTION_ERROR_COPY);
         return;
       }
 
+      const next: HistoryItem[] = [];
+      if (actionsResponse.ok) {
+        for (const action of actionsPayload.actions ?? []) {
+          next.push({
+            kind: "action",
+            id: action.id,
+            at: action.createdAt,
+            action,
+          });
+        }
+      }
+      if (reviewsResponse.ok) {
+        for (const review of reviewsPayload.reviews ?? []) {
+          next.push({
+            kind: "review",
+            id: review.id,
+            at: review.reviewedAt,
+            review,
+          });
+        }
+      }
+
+      next.sort((a, b) => b.at.localeCompare(a.at));
       setVisible(true);
-      setErrorMessage(null);
-      setActions(payload.actions ?? []);
+      setErrorMessage(
+        actionsResponse.ok
+          ? reviewsResponse.ok
+            ? null
+            : (reviewsPayload.error ?? null)
+          : (actionsPayload.error ?? ACTION_ERROR_COPY),
+      );
+      setItems(next);
     } catch {
       setVisible(false);
     }
@@ -56,7 +103,7 @@ export default function SiteActionsSection({
     void load();
   }, [load, refreshKey]);
 
-  if (!visible || (actions.length === 0 && !errorMessage)) {
+  if (!visible || (items.length === 0 && !errorMessage)) {
     return null;
   }
 
@@ -68,24 +115,41 @@ export default function SiteActionsSection({
         </h2>
       </div>
 
-      {actions.length > 0 ? (
+      {items.length > 0 ? (
         <ol className={styles.decisionList}>
-          {actions.map((action) => (
-            <li key={action.id} className={styles.decisionItem}>
-              <SiteActionPanel
-                websiteId={websiteId}
-                decision={action.decision}
-                action={action}
-                current={false}
-                onActionChange={(next) => {
-                  setActions((current) => {
-                    if (!next) {
-                      return current.filter((item) => item.id !== action.id);
-                    }
-                    return current.map((item) => (item.id === next.id ? next : item));
-                  });
-                }}
-              />
+          {items.map((item) => (
+            <li key={`${item.kind}-${item.id}`} className={styles.decisionItem}>
+              {item.kind === "action" ? (
+                <SiteActionPanel
+                  websiteId={websiteId}
+                  decision={item.action.decision}
+                  action={item.action}
+                  current={false}
+                  onActionChange={(next) => {
+                    setItems((current) => {
+                      if (!next) {
+                        return current.filter((entry) => entry.id !== item.id);
+                      }
+                      return current.map((entry) =>
+                        entry.kind === "action" && entry.id === next.id
+                          ? { ...entry, action: next }
+                          : entry,
+                      );
+                    });
+                  }}
+                />
+              ) : (
+                <SiteCanonicalReviewPanel
+                  websiteId={websiteId}
+                  decisionId={item.review.decisionId}
+                  identity={{
+                    pageUrl: item.review.pageUrl,
+                    canonicalUrl: item.review.canonicalUrl,
+                  }}
+                  review={item.review}
+                  interactive={false}
+                />
+              )}
             </li>
           ))}
         </ol>

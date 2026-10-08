@@ -22,6 +22,12 @@ import {
   learningObservedCopy,
 } from "./display";
 import { ACTION_VERIFICATION_PLAN, TITLE_VERIFICATION_PLAN } from "./config";
+import {
+  CANONICAL_REVIEW_DECIDE_COPY,
+  CANONICAL_REVIEW_LABEL,
+  CANONICAL_REVIEW_OUTCOME_LABELS,
+  CANONICAL_REVIEW_WHY_COPY,
+} from "./review-display";
 
 const VERIFY_COPY = [
   ACTION_VERIFICATION_PLAN,
@@ -47,6 +53,13 @@ describe("ACT display copy", () => {
     expect(ACTION_TITLE_GROUP_COPY).not.toMatch(/fix all duplicate titles/i);
     expect(TITLE_VERIFICATION_PLAN).not.toMatch(/fix all duplicate titles/i);
     expect(VERIFY_COPY).not.toMatch(/rank|traffic|clicks|impressions|SEO performance/i);
+    expect(CANONICAL_REVIEW_LABEL).toBe("Review canonical");
+    expect(CANONICAL_REVIEW_OUTCOME_LABELS.intentional).toBe("Looks intentional");
+    expect(CANONICAL_REVIEW_OUTCOME_LABELS.needs_change).toBe("Needs changing");
+    expect(CANONICAL_REVIEW_OUTCOME_LABELS.unsure).toBe("Not sure");
+    expect(CANONICAL_REVIEW_WHY_COPY).toContain("preferred version");
+    expect(CANONICAL_REVIEW_DECIDE_COPY).toContain("intentional");
+    expect(CANONICAL_REVIEW_WHY_COPY).not.toMatch(/Prepare this change|Approve|Apply this change/);
   });
 
   it("keeps Executed status separate from verification copy", () => {

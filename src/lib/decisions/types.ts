@@ -129,6 +129,7 @@ export type DecisionView = {
   scoring: DecisionScoring;
   confidence: DecisionConfidence;
   supportedActionType: "update_meta_description" | "update_page_title" | null;
+  supportedReviewType: "review_canonical_target" | null;
   why: {
     searchDemand: { appearances: number; visits: number } | null;
     websiteEvidence: string;

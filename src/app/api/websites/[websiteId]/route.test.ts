@@ -61,7 +61,7 @@ describe("GET /api/websites/[websiteId]", () => {
     expect(payload).not.toHaveProperty("email");
     expect(payload).not.toHaveProperty("decisions");
     expect(payload).not.toHaveProperty("actions");
-    expect(serialized).not.toMatch(/refresh_token|google_sub|gsc_|ciphertext|oauth|impressions|searchAnalytics|decision_runs|proposedValue|mutation_spec|adapter_not_connected|action_verifications|action_learning|expectedValue|observedValue|deploymentObserved|fresh_crawl_required|not_verified|waiting_for_data|otherMemberUrls|sharedTitle|update_page_title/i);
+    expect(serialized).not.toMatch(/refresh_token|google_sub|gsc_|ciphertext|oauth|impressions|searchAnalytics|decision_runs|proposedValue|mutation_spec|adapter_not_connected|action_verifications|action_learning|expectedValue|observedValue|deploymentObserved|fresh_crawl_required|not_verified|waiting_for_data|otherMemberUrls|sharedTitle|update_page_title|review_canonical|action_reviews|needs_change|canonical_url/i);
     expect(payload.goals.primaryType).toBe("grow_signups");
     expect(payload.siteModel.status).toBe("confirmed");
   });

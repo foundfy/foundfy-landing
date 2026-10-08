@@ -37,6 +37,7 @@ export const ACTION_ERROR_CODES = [
   "github_auth_failed",
   "not_executed",
   "fresh_crawl_required",
+  "invalid_review_outcome",
 ] as const;
 
 export type ActionErrorCode = (typeof ACTION_ERROR_CODES)[number];
@@ -151,6 +152,7 @@ export type ActionPreviewView = {
   mutationSpec: ActionMutationSpec;
   verificationPlan: string;
   evidenceRefs: ActionEvidenceRef[];
+  createdAt: string;
   approvedAt: string | null;
   executeAvailable: boolean;
   executeBlockedReason: ExecuteBlockedReason;
