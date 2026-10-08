@@ -31,4 +31,17 @@ describe("GSC page URL mapping", () => {
   it("keeps unmatched GSC URLs with a null page id", () => {
     expect(mapGscPageUrl("https://www.foundfy.me/unseen-landing", pages)).toBeNull();
   });
+
+  it("still joins GSC demand through a locale-home canonical", () => {
+    const crawlPages: FoundfyPageRef[] = [
+      {
+        id: "page-es",
+        requestedUrl: "https://www.dbhobby.com/es",
+        finalUrl: "https://www.dbhobby.com/es",
+        canonical: "https://www.dbhobby.com/es/pintura-en-seda",
+      },
+    ];
+
+    expect(mapGscPageUrl("https://www.dbhobby.com/es/pintura-en-seda", crawlPages)).toBe("page-es");
+  });
 });

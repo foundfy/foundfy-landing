@@ -112,6 +112,86 @@ describe("Decision Engine v1 candidates", () => {
     expect(decisions[0].explanation).not.toMatch(/increase traffic|CTR is too low|should rank higher/i);
   });
 
+  it("titles Type A from the crawl observation page, not a GSC URL joined through canonical", () => {
+    const crawlPageUrl = "https://www.dbhobby.com/es";
+    const canonicalUrl = "https://www.dbhobby.com/es/pintura-en-seda";
+    const gscPage = page({
+      id: "gsc-1",
+      pageUrl: canonicalUrl,
+      pageId: "page-es",
+      impressions: 212,
+      clicks: 29,
+    });
+    const canonicalObservation = observation({
+      id: "obs-es-canonical",
+      pageId: "page-es",
+      pageUrl: crawlPageUrl,
+      ruleKey: "indexability.canonical_points_elsewhere",
+      title: "Canonical points elsewhere",
+      severity: "warning",
+      priorityLevel: "medium",
+      evidence: {
+        requestedUrl: crawlPageUrl,
+        finalUrl: crawlPageUrl,
+        canonical: canonicalUrl,
+      },
+    });
+
+    const decisions = rank([gscPage], [canonicalObservation]);
+    const scoring = combineScoring({
+      issueImportance: issueImportance(canonicalObservation),
+      searchDemand: 100,
+      evidenceConfidence: 90,
+    });
+
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0].decisionType).toBe("existing_demand_page_issue");
+    expect(decisions[0].title).toBe("Review the canonical URL on /es");
+    expect(decisions[0].pageUrl).toBe(crawlPageUrl);
+    expect(decisions[0].pageId).toBe("page-es");
+    expect(decisions[0].rank).toBe(1);
+    expect(decisions[0].scoring).toEqual(scoring);
+    expect(decisions[0].confidence).toBe("exact_match");
+    expect(decisions[0].explanation).toContain("already appears in Google Search");
+    expect(decisions[0].explanation).toContain("canonical points elsewhere");
+
+    const gscRef = decisions[0].evidenceRefs.find((ref) => ref.kind === "gsc_evidence");
+    expect(gscRef?.recordId).toBe("gsc-1");
+    expect(gscRef?.snapshot).toMatchObject({
+      pageUrl: canonicalUrl,
+      impressions: 212,
+      clicks: 29,
+      currentMappedPageId: "page-es",
+    });
+    expect(
+      decisions[0].evidenceRefs.find((ref) => ref.kind === "page")?.snapshot.pageUrl,
+    ).toBe(crawlPageUrl);
+    expect(
+      decisions[0].evidenceRefs.find((ref) => ref.kind === "observation")?.snapshot,
+    ).toMatchObject({
+      ruleKey: "indexability.canonical_points_elsewhere",
+    });
+
+    const missingMeta = rank(
+      [gscPage],
+      [
+        observation({
+          id: "obs-es-meta",
+          pageId: "page-es",
+          pageUrl: crawlPageUrl,
+          ruleKey: "page_fundamentals.missing_meta_description",
+          title: "Missing meta description",
+          severity: "warning",
+          priorityLevel: "medium",
+        }),
+      ],
+    );
+    expect(missingMeta[0].title).toBe("Add a meta description on /es");
+    expect(missingMeta[0].pageUrl).toBe(crawlPageUrl);
+    expect(missingMeta[0].pageId).toBe("page-es");
+    expect(missingMeta[0].scoring.searchDemand).toBe(scoring.searchDemand);
+  });
+
   it("does not create a fix for GSC evidence without an actionable crawl issue", () => {
     const decisions = rank(
       [

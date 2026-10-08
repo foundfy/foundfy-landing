@@ -89,6 +89,48 @@ describe("canonical review identity", () => {
     expect(identity?.canonicalUrl).toBe(CANONICAL_URL);
   });
 
+  it("still reviews /es → /es/pintura-en-seda after Decision identity uses the crawl page", () => {
+    const identity = resolveCanonicalReviewIdentity({
+      observation: {
+        id: "obs-es",
+        pageId: "page-es",
+        pageUrl: PAGE_URL,
+        crawlRunId: "crawl-1",
+        ruleKey: "indexability.canonical_points_elsewhere",
+        status: "active",
+        evidence: {
+          requestedUrl: PAGE_URL,
+          finalUrl: PAGE_URL,
+          canonical: CANONICAL_URL,
+        },
+      },
+      page: {
+        id: "page-es",
+        crawlRunId: "crawl-1",
+        requestedUrl: PAGE_URL,
+        finalUrl: PAGE_URL,
+        canonical: CANONICAL_URL,
+      },
+    });
+
+    expect(identity?.pageUrl).toBe(PAGE_URL);
+    expect(identity?.canonicalUrl).toBe(CANONICAL_URL);
+    expect(canonicalObservationRefs({
+      evidenceRefs: [
+        {
+          kind: "gsc_evidence",
+          recordId: "gsc-1",
+          snapshot: { pageUrl: GSC_URL, impressions: 212, clicks: 29 },
+        },
+        {
+          kind: "observation",
+          recordId: "obs-es",
+          snapshot: { ruleKey: "indexability.canonical_points_elsewhere", pageUrl: PAGE_URL },
+        },
+      ],
+    })).toHaveLength(1);
+  });
+
   it("ignores a misleading Decision pageUrl when selecting observation refs", () => {
     const refs = canonicalObservationRefs({
       evidenceRefs: [
