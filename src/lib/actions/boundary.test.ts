@@ -26,6 +26,13 @@ describe("ACT v0 source boundary", () => {
       read("./github/homepage-source.ts"),
       read("./github/target.ts"),
     ].join("\n");
+    const review = [
+      read("./review.ts"),
+      read("./review-db.ts"),
+      read("./review-identity.ts"),
+      read("./review-types.ts"),
+      read("./review-display.ts"),
+    ].join("\n");
     const source = [
       lifecycle,
       db,
@@ -38,6 +45,7 @@ describe("ACT v0 source boundary", () => {
       learn,
       learning,
       github,
+      review,
     ].join("\n");
 
     expect(source).not.toMatch(/openai|OpenAI/i);
@@ -65,6 +73,18 @@ describe("ACT v0 source boundary", () => {
     expect(learning).not.toMatch(/decision_runs|searchDemandScore|issueImportance/);
     expect(read("./google-privacy.ts")).not.toMatch(/openai|OpenAI|createAndEnqueueCrawl|webmasters|from \"\.\/github/i);
     expect(db).toMatch(/\.gt\("completed_at", input.afterIso\)/);
+    expect(review).not.toMatch(/mutation_spec|prepareAction|approveAction|executeAction|verifyAction|learningViewFor/);
+    expect(review).not.toMatch(/from \"\.\/github|from \"\.\/verify|from \"\.\/learn|from \"\.\/lifecycle/);
+    expect(review).not.toMatch(/openai|OpenAI|createAndEnqueueCrawl|wordpress|drupal|shopify/i);
+    expect(review).toMatch(/review_canonical_target/);
+    expect(review).toMatch(/intentional/);
+    expect(review).toMatch(/needs_change/);
+    expect(review).toMatch(/unsure/);
+    expect(verify).not.toMatch(/review_canonical|action_reviews|submitCanonicalReview/);
+    expect(learn).not.toMatch(/review_canonical|action_reviews|submitCanonicalReview/);
+    expect(lifecycle).not.toMatch(/review_canonical_target|submitCanonicalReview|insertCanonicalReview/);
+    expect(read("../decisions/score.ts")).not.toMatch(/review_canonical|action_reviews|supportedReviewType/);
+    expect(read("../decisions/candidates.ts")).not.toMatch(/review_canonical|action_reviews|supportedReviewType/);
   });
 
   it("keeps ACT off the public website overview", () => {
@@ -72,8 +92,8 @@ describe("ACT v0 source boundary", () => {
     const publicRoute = read("../../app/api/websites/[websiteId]/route.ts");
     const pageView = read("../../components/site/SitePageView.tsx");
 
-    expect(overviewLoader).not.toMatch(/from \"@\/lib\/actions|action_runs|action_verifications|action_learning/);
-    expect(publicRoute).not.toMatch(/from \"@\/lib\/actions|actions\/prepare/);
+    expect(overviewLoader).not.toMatch(/from \"@\/lib\/actions|action_runs|action_verifications|action_learning|action_reviews|review_canonical/);
+    expect(publicRoute).not.toMatch(/from \"@\/lib\/actions|actions\/prepare|\/reviews/);
     expect(pageView).toContain("SiteDecisionsSection");
     expect(pageView).toContain("SiteActionsSection");
   });

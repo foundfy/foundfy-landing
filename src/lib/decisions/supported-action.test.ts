@@ -3,6 +3,7 @@ import type { DecisionRecord } from "./types";
 import {
   TITLE_LENGTH_RULE_KEY,
   supportedActionTypeForDecision,
+  supportedReviewTypeForDecision,
 } from "./supported-action";
 
 function decision(
@@ -114,5 +115,53 @@ describe("supportedActionTypeForDecision", () => {
         }),
       ),
     ).toBeNull();
+  });
+});
+
+describe("supportedReviewTypeForDecision", () => {
+  it("supports Type A canonical-points-elsewhere as review_canonical_target", () => {
+    expect(
+      supportedReviewTypeForDecision(
+        decision({
+          evidenceRefs: [observation("indexability.canonical_points_elsewhere")],
+        }),
+      ),
+    ).toBe("review_canonical_target");
+  });
+
+  it("does not support missing canonical, mutations, or mixed rules", () => {
+    expect(
+      supportedReviewTypeForDecision(
+        decision({
+          evidenceRefs: [observation("indexability.canonical_missing")],
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      supportedReviewTypeForDecision(
+        decision({
+          evidenceRefs: [observation("page_fundamentals.missing_meta_description")],
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      supportedReviewTypeForDecision(
+        decision({
+          evidenceRefs: [
+            observation("indexability.canonical_points_elsewhere"),
+            {
+              kind: "observation",
+              recordId: "obs-2",
+              snapshot: { ruleKey: "indexability.canonical_missing" },
+            },
+          ],
+        }),
+      ),
+    ).toBeNull();
+    expect(supportedActionTypeForDecision(
+      decision({
+        evidenceRefs: [observation("indexability.canonical_points_elsewhere")],
+      }),
+    )).toBeNull();
   });
 });

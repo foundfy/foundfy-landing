@@ -9,7 +9,7 @@ import {
 } from "./types";
 import { findLatestCompletedDecisionRun, listDecisionsForRun } from "./db";
 import { loadDecisionPrerequisites } from "./generate";
-import { supportedActionTypeForDecision } from "./supported-action";
+import { supportedActionTypeForDecision, supportedReviewTypeForDecision } from "./supported-action";
 import { goalContextCopy, matchingConfidenceCopy } from "./wording";
 
 function gscDemand(refs: DecisionRecord["evidenceRefs"]): { appearances: number; visits: number } | null {
@@ -67,6 +67,7 @@ export function toDecisionView(
     scoring: decision.scoring,
     confidence: decision.confidence,
     supportedActionType: supportedActionTypeForDecision(decision),
+    supportedReviewType: supportedReviewTypeForDecision(decision),
     why: {
       searchDemand: gscDemand(decision.evidenceRefs),
       websiteEvidence: websiteEvidenceCopy(decision),

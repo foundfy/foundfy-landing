@@ -24,10 +24,12 @@ import {
   DECISION_WHY_HEADING,
   DECISION_WHY_LABEL,
 } from "@/lib/decisions/display";
+import type { CanonicalReviewTargetView } from "@/lib/actions/review-types";
 import type { ActionPreviewView } from "@/lib/actions/types";
 import type { DecisionPrerequisiteReason, DecisionView, DecisionsOwnerView } from "@/lib/decisions/types";
 import { formatEvidenceDate } from "@/lib/gsc/window";
 import SiteActionPanel from "./SiteActionPanel";
+import SiteCanonicalReviewPanel from "./SiteCanonicalReviewPanel";
 import styles from "./SitePageView.module.css";
 
 type SiteDecisionsSectionProps = {
@@ -131,6 +133,9 @@ export default function SiteDecisionsSection({
 }: SiteDecisionsSectionProps) {
   const [view, setView] = useState<DecisionsOwnerView | null>(null);
   const [actionsByDecision, setActionsByDecision] = useState<Record<string, ActionPreviewView>>({});
+  const [reviewsByDecision, setReviewsByDecision] = useState<Record<string, CanonicalReviewTargetView>>(
+    {},
+  );
   const [visible, setVisible] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -170,6 +175,20 @@ export default function SiteDecisionsSection({
           next[action.decision.id] = action;
         }
         setActionsByDecision(next);
+      }
+
+      const reviewsResponse = await fetch(`/api/websites/${websiteId}/reviews`, {
+        cache: "no-store",
+      });
+      if (reviewsResponse.ok) {
+        const reviewsPayload = (await reviewsResponse.json()) as {
+          targets?: CanonicalReviewTargetView[];
+        };
+        const next: Record<string, CanonicalReviewTargetView> = {};
+        for (const target of reviewsPayload.targets ?? []) {
+          next[target.decisionId] = target;
+        }
+        setReviewsByDecision(next);
       }
     } catch {
       setVisible(false);
@@ -260,23 +279,42 @@ export default function SiteDecisionsSection({
               </p>
               <p className={styles.understandingCopy}>{decision.explanation}</p>
               <DecisionWhy decision={decision} />
-              <SiteActionPanel
-                websiteId={websiteId}
-                decision={decision}
-                action={actionsByDecision[decision.id] ?? null}
-                current={view.current}
-                onActionChange={(next) => {
-                  setActionsByDecision((current) => {
-                    const copy = { ...current };
-                    if (!next) {
-                      delete copy[decision.id];
-                    } else {
-                      copy[decision.id] = next;
-                    }
-                    return copy;
-                  });
-                }}
-              />
+              {reviewsByDecision[decision.id] ? (
+                <SiteCanonicalReviewPanel
+                  websiteId={websiteId}
+                  decisionId={decision.id}
+                  identity={reviewsByDecision[decision.id].identity}
+                  review={reviewsByDecision[decision.id].review}
+                  interactive
+                  onReviewChange={(next) => {
+                    setReviewsByDecision((current) => ({
+                      ...current,
+                      [decision.id]: {
+                        ...current[decision.id],
+                        review: next,
+                      },
+                    }));
+                  }}
+                />
+              ) : (
+                <SiteActionPanel
+                  websiteId={websiteId}
+                  decision={decision}
+                  action={actionsByDecision[decision.id] ?? null}
+                  current={view.current}
+                  onActionChange={(next) => {
+                    setActionsByDecision((current) => {
+                      const copy = { ...current };
+                      if (!next) {
+                        delete copy[decision.id];
+                      } else {
+                        copy[decision.id] = next;
+                      }
+                      return copy;
+                    });
+                  }}
+                />
+              )}
             </li>
           ))}
         </ol>

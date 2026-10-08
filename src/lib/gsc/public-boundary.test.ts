@@ -12,7 +12,7 @@ describe("public vs owner-private OBSERVE boundary", () => {
     const publicRoute = read("../../app/api/websites/[websiteId]/route.ts");
     const overviewTypes = read("../websites/types.ts");
 
-    expect(overviewLoader).not.toMatch(/google_identit|observeOwner|refresh_token|gsc_property|gsc_search|impressions|query_text|decision_runs/i);
+    expect(overviewLoader).not.toMatch(/google_identit|observeOwner|refresh_token|gsc_property|gsc_search|impressions|query_text|decision_runs|action_reviews|review_canonical/i);
     expect(publicRoute).not.toMatch(/from \"@\/lib\/gsc|from \"@\/lib\/decisions|observeOwner|propertyUri|search-analytics/i);
     expect(overviewTypes).not.toMatch(/googleIdentity|refreshToken|observeOwner|searchAnalytics|DecisionView/i);
   });
@@ -39,6 +39,19 @@ describe("public vs owner-private OBSERVE boundary", () => {
     expect(decisionsUi).not.toContain("DECISION_EMPTY_COPY");
     expect(decisionsUi).not.toMatch(/enough cross-signal evidence to prioritize an action yet/);
     expect(decisionsUi).not.toMatch(/CTR is too low|you should target|increase traffic by/i);
+    expect(decisionsUi).toContain("/api/websites/${websiteId}/reviews");
+    expect(decisionsUi).toContain("SiteCanonicalReviewPanel");
+    expect(decisionsUi).not.toMatch(/Prepare this change|Approve|Apply this change|mutation_spec/);
+  });
+
+  it("keeps canonical review UI review-only", () => {
+    const ui = read("../../components/site/SiteCanonicalReviewPanel.tsx");
+    expect(ui).toContain("CANONICAL_REVIEW_LABEL");
+    expect(ui).toContain("CANONICAL_REVIEW_PAGE_HEADING");
+    expect(ui).toContain("CANONICAL_REVIEW_CANONICAL_HEADING");
+    expect(ui).toContain("CANONICAL_REVIEW_OUTCOME_LABELS");
+    expect(ui).not.toMatch(/Prepare this change|Apply this change|mutation_spec|mutationSpec/);
+    expect(ui).not.toMatch(/ACTION_PREPARE_LABEL|ACTION_APPROVE_LABEL|ACTION_EXECUTE_LABEL/);
   });
 
   it("does not let public first-scan crawl use private GSC evidence", () => {

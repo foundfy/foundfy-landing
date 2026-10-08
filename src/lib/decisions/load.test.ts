@@ -262,6 +262,7 @@ describe("loadDecisionsForWebsite", () => {
     expect(view.decisions).toHaveLength(1);
     expect(view.decisions[0].why.searchDemand).toEqual({ appearances: 153, visits: 26 });
     expect(view.decisions[0].supportedActionType).toBeNull();
+    expect(view.decisions[0].supportedReviewType).toBeNull();
   });
 
   it("marks a current missing-meta Type A Decision as preparable", async () => {
@@ -322,6 +323,37 @@ describe("loadDecisionsForWebsite", () => {
     ]);
     const typeC = await loadDecisionsForWebsite({ websiteId: WEBSITE_ID, sessionToken: "token" });
     expect(typeC.decisions[0].supportedActionType).toBe("update_page_title");
+    expect(typeC.decisions[0].supportedReviewType).toBeNull();
+  });
+
+  it("marks Type A canonical-points-elsewhere as review-only", async () => {
+    loadDecisionPrerequisitesMock.mockResolvedValue(readyPrerequisites());
+    findLatestCompletedDecisionRunMock.mockResolvedValue(completedRun());
+    listDecisionsForRunMock.mockResolvedValue([
+      {
+        ...rankedDecision(),
+        title: "Review the canonical URL on /es/pintura-en-seda",
+        pageUrl: "https://www.dbhobby.com/es/pintura-en-seda",
+        evidenceRefs: [
+          {
+            kind: "observation",
+            recordId: "obs-es",
+            snapshot: { ruleKey: "indexability.canonical_points_elsewhere" },
+          },
+        ],
+      },
+    ]);
+
+    const view = await loadDecisionsForWebsite({ websiteId: WEBSITE_ID, sessionToken: "token" });
+
+    expect(view.decisions[0].supportedActionType).toBeNull();
+    expect(view.decisions[0].supportedReviewType).toBe("review_canonical_target");
+    expect(view.decisions[0].scoring).toEqual({
+      issueImportance: 80,
+      searchDemand: 100,
+      evidenceConfidence: 90,
+      total: 88,
+    });
   });
 
   it("marks a completed run stale when a new crawl is current", async () => {

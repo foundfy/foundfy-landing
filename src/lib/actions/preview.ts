@@ -47,6 +47,7 @@ export function toActionPreview(input: {
         ? TITLE_VERIFICATION_PLAN
         : ACTION_VERIFICATION_PLAN,
     evidenceRefs: input.action.evidenceRefs,
+    createdAt: input.action.createdAt,
     approvedAt: input.action.approvedAt,
     executeAvailable: input.executeAvailable,
     executeBlockedReason: input.executeBlockedReason,

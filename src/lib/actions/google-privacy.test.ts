@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 const deleteOpenActionsForWebsiteMock = vi.fn();
 const deleteActionLearningSnapshotsForWebsiteMock = vi.fn();
 const scrubGoogleMetricsFromActionEvidenceMock = vi.fn();
+const scrubGoogleMetricsFromReviewEvidenceMock = vi.fn();
 const deleteDecisionEngineForWebsiteMock = vi.fn();
 const deleteSearchAnalyticsForWebsiteMock = vi.fn();
 
@@ -12,6 +13,11 @@ vi.mock("./db", () => ({
     deleteActionLearningSnapshotsForWebsiteMock(...args),
   scrubGoogleMetricsFromActionEvidence: (...args: unknown[]) =>
     scrubGoogleMetricsFromActionEvidenceMock(...args),
+}));
+
+vi.mock("./review-db", () => ({
+  scrubGoogleMetricsFromReviewEvidence: (...args: unknown[]) =>
+    scrubGoogleMetricsFromReviewEvidenceMock(...args),
 }));
 
 vi.mock("@/lib/decisions/db", () => ({
@@ -39,6 +45,7 @@ describe("disconnect/property-change Google-metric cleanup", () => {
     deleteOpenActionsForWebsiteMock.mockResolvedValue(undefined);
     deleteActionLearningSnapshotsForWebsiteMock.mockResolvedValue(undefined);
     scrubGoogleMetricsFromActionEvidenceMock.mockResolvedValue(undefined);
+    scrubGoogleMetricsFromReviewEvidenceMock.mockResolvedValue(undefined);
     deleteDecisionEngineForWebsiteMock.mockResolvedValue(undefined);
     deleteSearchAnalyticsForWebsiteMock.mockResolvedValue(undefined);
     const fetchSpy = vi.spyOn(globalThis, "fetch");
@@ -48,7 +55,11 @@ describe("disconnect/property-change Google-metric cleanup", () => {
     expect(deleteOpenActionsForWebsiteMock).toHaveBeenCalledWith("website-1");
     expect(deleteActionLearningSnapshotsForWebsiteMock).toHaveBeenCalledWith("website-1");
     expect(scrubGoogleMetricsFromActionEvidenceMock).toHaveBeenCalledWith("website-1");
+    expect(scrubGoogleMetricsFromReviewEvidenceMock).toHaveBeenCalledWith("website-1");
     expect(deleteDecisionEngineForWebsiteMock).toHaveBeenCalledWith("website-1");
+    expect(scrubGoogleMetricsFromReviewEvidenceMock.mock.invocationCallOrder[0]).toBeLessThan(
+      deleteSearchAnalyticsForWebsiteMock.mock.invocationCallOrder[0],
+    );
     expect(deleteSearchAnalyticsForWebsiteMock).toHaveBeenCalledWith("website-1");
     expect(deleteActionLearningSnapshotsForWebsiteMock.mock.invocationCallOrder[0]).toBeLessThan(
       deleteSearchAnalyticsForWebsiteMock.mock.invocationCallOrder[0],
