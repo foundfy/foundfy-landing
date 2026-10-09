@@ -1,5 +1,6 @@
 import { classifyPagePath } from "@/lib/crawler/select/page-priority";
 import { DECISION_ENGINE_VERSION, DECISION_MAX_COUNT } from "./config";
+import { SUPPORTED_ACTION_RULE_KEY, TITLE_PRIMARY_REASON } from "./supported-action";
 import {
   bandForRank,
   combineScoring,
@@ -23,9 +24,13 @@ import {
   duplicateIssueTitle,
   inspectPageExplanation,
   inspectPageTitle,
+  missingMetaGroupExplanation,
+  missingMetaGroupTitle,
   multiPageExplanation,
   pageIssueExplanation,
 } from "./wording";
+
+type VisibleMember = { observation: ObservationInput; page: GscPageEvidenceInput };
 
 export type CandidateBuildInput = {
   engine: DecisionEngineInput;
@@ -113,7 +118,112 @@ function duplicateGroupKey(observation: ObservationInput): string | null {
   return null;
 }
 
-function buildTypeC(input: CandidateBuildInput, maxDemand: number): RankedDecision[] {
+function highestDemandMember(visible: VisibleMember[]): VisibleMember {
+  return visible.reduce((best, item) =>
+    item.page.impressions > best.page.impressions ? item : best,
+  );
+}
+
+function equivalentTypeAScoring(
+  member: VisibleMember,
+  maxDemand: number,
+  truncated: boolean,
+) {
+  const confidence = evidenceConfidenceScore({ mapped: true, truncated });
+  return combineScoring({
+    issueImportance: issueImportance(member.observation),
+    searchDemand: searchDemandScore(member.page, maxDemand),
+    evidenceConfidence: confidence.score,
+  });
+}
+
+function strongestEquivalentTypeAMember(
+  visible: VisibleMember[],
+  maxDemand: number,
+  truncated: boolean,
+): VisibleMember {
+  return visible.reduce((best, item) => {
+    const bestTotal = equivalentTypeAScoring(best, maxDemand, truncated).total;
+    const itemTotal = equivalentTypeAScoring(item, maxDemand, truncated).total;
+    if (itemTotal !== bestTotal) {
+      return itemTotal > bestTotal ? item : best;
+    }
+
+    return item.page.impressions > best.page.impressions ? item : best;
+  });
+}
+
+function typeCEvidenceRefs(
+  engine: DecisionEngineInput,
+  visible: VisibleMember[],
+  primaryPageId: string | null,
+): RankedDecision["evidenceRefs"] {
+  return [
+    ...sharedRefs(engine, engine.goal),
+    ...visible.flatMap((item) => [
+      {
+        kind: "observation" as const,
+        recordId: item.observation.id,
+        snapshot: { ruleKey: item.observation.ruleKey, title: item.observation.title },
+      },
+      {
+        kind: "gsc_evidence" as const,
+        recordId: item.page.id,
+        snapshot: gscSnapshot(item.page),
+      },
+      ...(item.observation.pageId
+        ? [
+            {
+              kind: "page" as const,
+              recordId: item.observation.pageId,
+              snapshot: {
+                pageUrl: item.observation.pageUrl,
+                ...(item.observation.pageId === primaryPageId
+                  ? { primaryReason: TITLE_PRIMARY_REASON }
+                  : {}),
+              },
+            },
+          ]
+        : []),
+    ]),
+  ];
+}
+
+function typeCFromVisible(input: {
+  engine: DecisionEngineInput;
+  visible: VisibleMember[];
+  demandPage: VisibleMember;
+  maxDemand: number;
+  title: string;
+  explanation: string;
+  pageUrl: string;
+  pageId: string | null;
+}): RankedDecision {
+  const confidence = evidenceConfidenceScore({
+    mapped: true,
+    truncated: input.engine.gscTruncated,
+  });
+  const scoring = combineScoring({
+    issueImportance: Math.max(...input.visible.map((item) => issueImportance(item.observation))),
+    searchDemand: searchDemandScore(input.demandPage.page, input.maxDemand),
+    evidenceConfidence: confidence.score,
+  });
+
+  return {
+    decisionType: "multi_page_issue_with_visibility",
+    title: input.title,
+    explanation: input.explanation,
+    pageUrl: input.pageUrl,
+    pageId: input.pageId,
+    priorityBand: "next",
+    rank: 0,
+    scoring,
+    confidence: confidence.confidence,
+    evidenceRefs: typeCEvidenceRefs(input.engine, input.visible, input.pageId),
+  };
+}
+
+function buildDuplicateTypeC(input: CandidateBuildInput, maxDemand: number): RankedDecision[] {
   const gscPages = pagesById(input.pages);
   const groups = new Map<string, ObservationInput[]>();
 
@@ -146,60 +256,81 @@ function buildTypeC(input: CandidateBuildInput, maxDemand: number): RankedDecisi
       continue;
     }
 
-    const demandPage = visible.reduce((best, item) =>
-      item.page.impressions > best.page.impressions ? item : best,
-    );
+    const demandPage = highestDemandMember(visible);
     const ruleKey = visible[0].observation.ruleKey as
       | "page_fundamentals.duplicate_title"
       | "page_fundamentals.duplicate_meta_description";
-    const confidence = evidenceConfidenceScore({
-      mapped: true,
-      truncated: input.engine.gscTruncated,
-    });
-    const scoring = combineScoring({
-      issueImportance: Math.max(...visible.map((item) => issueImportance(item.observation))),
-      searchDemand: searchDemandScore(demandPage.page, maxDemand),
-      evidenceConfidence: confidence.score,
-    });
 
-    candidates.push({
-      decisionType: "multi_page_issue_with_visibility",
-      title: duplicateIssueTitle(ruleKey, visible.length, demandPage.page.pageUrl),
-      explanation: multiPageExplanation(visible[0].observation.title, visible.length, demandPage.page.pageUrl),
-      pageUrl: demandPage.page.pageUrl,
-      pageId: demandPage.page.pageId,
-      priorityBand: "next",
-      rank: 0,
-      scoring,
-      confidence: confidence.confidence,
-      evidenceRefs: [
-        ...sharedRefs(input.engine, input.engine.goal),
-        ...visible.flatMap((item) => [
-          {
-            kind: "observation" as const,
-            recordId: item.observation.id,
-            snapshot: { ruleKey: item.observation.ruleKey, title: item.observation.title },
-          },
-          {
-            kind: "gsc_evidence" as const,
-            recordId: item.page.id,
-            snapshot: gscSnapshot(item.page),
-          },
-          ...(item.observation.pageId
-            ? [
-                {
-                  kind: "page" as const,
-                  recordId: item.observation.pageId,
-                  snapshot: { pageUrl: item.observation.pageUrl },
-                },
-              ]
-            : []),
-        ]),
-      ],
-    });
+    candidates.push(
+      typeCFromVisible({
+        engine: input.engine,
+        visible,
+        demandPage,
+        maxDemand,
+        title: duplicateIssueTitle(ruleKey, visible.length, demandPage.page.pageUrl),
+        explanation: multiPageExplanation(
+          visible[0].observation.title,
+          visible.length,
+          demandPage.page.pageUrl,
+        ),
+        pageUrl: demandPage.page.pageUrl,
+        pageId: demandPage.page.pageId,
+      }),
+    );
   }
 
   return candidates;
+}
+
+function buildMissingMetaTypeC(input: CandidateBuildInput, maxDemand: number): RankedDecision[] {
+  const gscPages = pagesById(input.pages);
+  const group: ObservationInput[] = [];
+
+  for (const observation of input.observations) {
+    if (
+      !isActionablePageObservation(observation) ||
+      observation.ruleKey !== SUPPORTED_ACTION_RULE_KEY
+    ) {
+      continue;
+    }
+
+    group.push(observation);
+  }
+
+  const visible = group.flatMap((observation) => {
+    const page = observation.pageId ? gscPages.get(observation.pageId) : undefined;
+    return page && hasMeaningfulVisibility(page, maxDemand)
+      ? [{ observation, page }]
+      : [];
+  });
+
+  if (visible.length < 2) {
+    return [];
+  }
+
+  const demandPage = strongestEquivalentTypeAMember(
+    visible,
+    maxDemand,
+    input.engine.gscTruncated,
+  );
+  const pageUrl = typeAIssuePageUrl(demandPage.observation, demandPage.page);
+
+  return [
+    typeCFromVisible({
+      engine: input.engine,
+      visible,
+      demandPage,
+      maxDemand,
+      title: missingMetaGroupTitle(visible.length),
+      explanation: missingMetaGroupExplanation(visible.length),
+      pageUrl,
+      pageId: demandPage.observation.pageId,
+    }),
+  ];
+}
+
+function buildTypeC(input: CandidateBuildInput, maxDemand: number): RankedDecision[] {
+  return [...buildDuplicateTypeC(input, maxDemand), ...buildMissingMetaTypeC(input, maxDemand)];
 }
 
 function buildTypeA(

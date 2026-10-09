@@ -14,6 +14,8 @@ export const ACTION_CURRENT_LABEL = "Current meta description";
 export const ACTION_CURRENT_TITLE_LABEL = "Current title";
 export const ACTION_TITLE_GROUP_COPY =
   "This page shares its title with another Google-visible page. Give this page a title that uniquely describes it.";
+export const ACTION_META_GROUP_COPY =
+  "This prepares a meta description for this page only. Other pages in the group may still need their own descriptions.";
 export const ACTION_MUTATION_HEADING = "Exact change";
 export const ACTION_VERIFY_HEADING = "How Foundfy will verify this later";
 export const ACTION_WHY_HEADING = "Why Foundfy recommends this";

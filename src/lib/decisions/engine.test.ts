@@ -591,6 +591,88 @@ describe("Decision Engine v1 candidates", () => {
     );
   });
 
+  it("emits one Type C when four Google-visible pages share the same exact title", () => {
+    const decisions = rank(
+      [
+        page({
+          id: "gsc-home",
+          pageUrl: "https://www.dbhobby.com/",
+          pageId: "page-home",
+          impressions: 200,
+          clicks: 16,
+        }),
+        page({
+          id: "gsc-ca",
+          pageUrl: "https://www.dbhobby.com/ca",
+          pageId: "page-ca",
+          impressions: 80,
+          clicks: 6,
+        }),
+        page({
+          id: "gsc-es",
+          pageUrl: "https://www.dbhobby.com/es",
+          pageId: "page-es",
+          impressions: 120,
+          clicks: 8,
+        }),
+        page({
+          id: "gsc-en",
+          pageUrl: "https://www.dbhobby.com/en",
+          pageId: "page-en",
+          impressions: 60,
+          clicks: 4,
+        }),
+      ],
+      [
+        observation({
+          id: "obs-home",
+          pageId: "page-home",
+          pageUrl: "https://www.dbhobby.com/",
+          ruleKey: "page_fundamentals.duplicate_title",
+          title: "Duplicate page title",
+          severity: "warning",
+          priorityLevel: "medium",
+          evidence: { title: "Pintura sobre seda | DBHOBBY" },
+        }),
+        observation({
+          id: "obs-ca",
+          pageId: "page-ca",
+          pageUrl: "https://www.dbhobby.com/ca",
+          ruleKey: "page_fundamentals.duplicate_title",
+          title: "Duplicate page title",
+          severity: "warning",
+          priorityLevel: "medium",
+          evidence: { title: "Pintura sobre seda | DBHOBBY" },
+        }),
+        observation({
+          id: "obs-es",
+          pageId: "page-es",
+          pageUrl: "https://www.dbhobby.com/es",
+          ruleKey: "page_fundamentals.duplicate_title",
+          title: "Duplicate page title",
+          severity: "warning",
+          priorityLevel: "medium",
+          evidence: { title: "Pintura sobre seda | DBHOBBY" },
+        }),
+        observation({
+          id: "obs-en",
+          pageId: "page-en",
+          pageUrl: "https://www.dbhobby.com/en",
+          ruleKey: "page_fundamentals.duplicate_title",
+          title: "Duplicate page title",
+          severity: "warning",
+          priorityLevel: "medium",
+          evidence: { title: "Pintura sobre seda | DBHOBBY" },
+        }),
+      ],
+    );
+
+    const typeC = decisions.filter((decision) => decision.decisionType === "multi_page_issue_with_visibility");
+    expect(typeC).toHaveLength(1);
+    expect(typeC[0].title).toBe("Make duplicate titles unique on 4 Google-visible pages including /");
+    expect(typeC[0].pageId).toBe("page-home");
+  });
+
   it("keeps one decision per page when several issues exist on the same URL", () => {
     const decisions = rank(
       [

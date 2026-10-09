@@ -63,6 +63,14 @@ export function duplicateIssueTitle(
   return `Make duplicate ${noun} unique on ${visibleCount} Google-visible pages including ${displayPath(sampleUrl)}`;
 }
 
+export function missingMetaGroupTitle(visibleCount: number): string {
+  return `Add meta descriptions on ${visibleCount} Google-visible pages`;
+}
+
+export function missingMetaGroupExplanation(visibleCount: number): string {
+  return `${visibleCount} pages that already appear in Google Search are missing meta descriptions. Start with the page receiving the strongest current search demand.`;
+}
+
 export function pageIssueExplanation(issueTitle: string, ruleKey?: string): string {
   if (ruleKey === "page_fundamentals.missing_h1") {
     return "This page already appears in Google Search, and Foundfy did not find an H1 heading on it. A clear main heading can help describe the page, but Foundfy does not yet know where a heading should safely be added.";

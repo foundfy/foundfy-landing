@@ -56,6 +56,25 @@ describe("supportedActionTypeForDecision", () => {
     ).toBe("update_page_title");
   });
 
+  it("supports Type C missing-meta when DECIDE selected a primary page", () => {
+    expect(
+      supportedActionTypeForDecision(
+        decision({
+          decisionType: "multi_page_issue_with_visibility",
+          pageId: "page-ciano",
+          evidenceRefs: [
+            observation("page_fundamentals.missing_meta_description"),
+            {
+              kind: "observation",
+              recordId: "obs-2",
+              snapshot: { ruleKey: "page_fundamentals.missing_meta_description" },
+            },
+          ],
+        }),
+      ),
+    ).toBe("update_meta_description");
+  });
+
   it("supports Type C duplicate-title when DECIDE selected a primary page", () => {
     expect(
       supportedActionTypeForDecision(

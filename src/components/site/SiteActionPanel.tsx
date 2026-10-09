@@ -41,6 +41,7 @@ import {
   ACTION_SAVE_DRAFT_LABEL,
   ACTION_STATUS_HEADING,
   ACTION_STATUS_LABELS,
+  ACTION_META_GROUP_COPY,
   ACTION_TITLE_GROUP_COPY,
   ACTION_TYPE_HEADING,
   ACTION_UNSAFE_STALE_COPY,
@@ -281,7 +282,15 @@ export default function SiteActionPanel({
   const editable = action.status === "prepared" || action.status === "awaiting_approval";
   const safety = actionSafetyState(action);
   const verification = action.verification;
-  const titleGroup = titleGroupContextFromAction(action.evidenceRefs);
+  const groupContext = titleGroupContextFromAction(action.evidenceRefs);
+  const groupCopy =
+    action.actionType === "update_page_title" && groupContext
+      ? ACTION_TITLE_GROUP_COPY
+      : action.actionType === "update_meta_description" &&
+          groupContext &&
+          groupContext.otherMemberUrls.length > 0
+        ? ACTION_META_GROUP_COPY
+        : null;
   const safetyCopy =
     action.status === "blocked"
       ? ACTION_BLOCKED_COPY
@@ -362,7 +371,7 @@ export default function SiteActionPanel({
         <p className={styles.understandingCopy}>{decision.explanation}</p>
         <p className={styles.understandingCopy}>{decision.why.websiteEvidence}</p>
         <p className={styles.understandingCopy}>{decision.why.goalContext}</p>
-        {titleGroup ? <p className={styles.understandingCopy}>{ACTION_TITLE_GROUP_COPY}</p> : null}
+        {groupCopy ? <p className={styles.understandingCopy}>{groupCopy}</p> : null}
       </div>
 
       <div className={styles.decisionWhyBlock}>

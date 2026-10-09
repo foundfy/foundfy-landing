@@ -13,6 +13,7 @@ import {
   ACTION_NOT_VERIFIED_COPY,
   ACTION_PREPARE_LABEL,
   ACTION_STATUS_LABELS,
+  ACTION_META_GROUP_COPY,
   ACTION_TITLE_GROUP_COPY,
   ACTION_UNSAFE_STALE_COPY,
   ACTION_VERIFICATION_STATE_HEADING,
@@ -51,6 +52,10 @@ describe("ACT display copy", () => {
     expect(ACTION_PREPARE_LABEL).toBe("Prepare this change");
     expect(ACTION_TITLE_GROUP_COPY).toContain("shares its title");
     expect(ACTION_TITLE_GROUP_COPY).not.toMatch(/fix all duplicate titles/i);
+    expect(ACTION_META_GROUP_COPY).toBe(
+      "This prepares a meta description for this page only. Other pages in the group may still need their own descriptions.",
+    );
+    expect(ACTION_META_GROUP_COPY).not.toMatch(/template|all pages|N pages|fix all/i);
     expect(TITLE_VERIFICATION_PLAN).not.toMatch(/fix all duplicate titles/i);
     expect(VERIFY_COPY).not.toMatch(/rank|traffic|clicks|impressions|SEO performance/i);
     expect(CANONICAL_REVIEW_LABEL).toBe("Review canonical");

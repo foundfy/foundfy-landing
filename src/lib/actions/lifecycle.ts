@@ -474,20 +474,17 @@ export async function prepareAction(input: {
   const field = supportedActionField(actionType);
   const observedBefore =
     actionType === PAGE_TITLE_ACTION_TYPE ? normalizeTitle(page.title) : null;
-  const otherMemberUrls =
-    actionType === PAGE_TITLE_ACTION_TYPE
-      ? otherDuplicateMemberUrls({
-          targetUrl: primary.pageUrl,
-          observations,
-          evidenceRefs: decision.evidenceRefs,
-        })
-      : [];
+  const otherMemberUrls = otherDuplicateMemberUrls({
+    targetUrl: primary.pageUrl,
+    observations,
+    evidenceRefs: decision.evidenceRefs,
+  });
   const sharedTitle =
     actionType === PAGE_TITLE_ACTION_TYPE
       ? sharedTitleFromEvidence(observations, observedBefore)
       : null;
   const evidenceRefs =
-    actionType === PAGE_TITLE_ACTION_TYPE
+    actionType === PAGE_TITLE_ACTION_TYPE || otherMemberUrls.length > 0
       ? freezeTitleGroupEvidence({
           evidenceRefs: decision.evidenceRefs,
           targetPageId: page.id,

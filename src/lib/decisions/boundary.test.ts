@@ -23,6 +23,7 @@ describe("Decision Engine v1 source boundary", () => {
     expect(generate).not.toMatch(/confirmSiteModel|saveWebsiteGoals/);
     expect(score).not.toMatch(/\bctr\b|\bposition\b|keyword|competitor/i);
     expect(candidates).not.toMatch(/\bctr\b|target this keyword|AI search/i);
+    expect(candidates).not.toMatch(/template-wide|shared template/i);
   });
 
   it("keeps Decision Engine output off the public website overview", () => {
