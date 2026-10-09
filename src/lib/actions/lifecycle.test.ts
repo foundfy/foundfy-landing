@@ -238,6 +238,70 @@ function typeCDuplicateTitleDecision() {
   };
 }
 
+const CIANO_URL = "https://www.dbhobby.com/es/cianotipo";
+const FIJACION_URL = "https://www.dbhobby.com/es/fijacion";
+
+function typeCMissingMetaRefs() {
+  return [
+    { kind: "crawl_run" as const, recordId: "crawl-1", snapshot: {} },
+    {
+      kind: "gsc_sync" as const,
+      recordId: "sync-1",
+      snapshot: { periodStart: "2026-08-27", periodEnd: "2026-09-23" },
+    },
+    { kind: "site_model" as const, recordId: "site-model-1", snapshot: {} },
+    { kind: "goal" as const, recordId: "goal-1", snapshot: { primaryType: "grow_signups" } },
+    {
+      kind: "observation" as const,
+      recordId: "obs-ciano",
+      snapshot: { ruleKey: "page_fundamentals.missing_meta_description", title: "Missing meta description" },
+    },
+    {
+      kind: "gsc_evidence" as const,
+      recordId: "gsc-ciano",
+      snapshot: { pageUrl: CIANO_URL, impressions: 153, clicks: 26 },
+    },
+    {
+      kind: "page" as const,
+      recordId: "page-ciano",
+      snapshot: { pageUrl: CIANO_URL, primaryReason: "decision_primary_highest_demand" },
+    },
+    {
+      kind: "observation" as const,
+      recordId: "obs-fijacion",
+      snapshot: { ruleKey: "page_fundamentals.missing_meta_description", title: "Missing meta description" },
+    },
+    {
+      kind: "gsc_evidence" as const,
+      recordId: "gsc-fijacion",
+      snapshot: { pageUrl: FIJACION_URL, impressions: 80, clicks: 4 },
+    },
+    { kind: "page" as const, recordId: "page-fijacion", snapshot: { pageUrl: FIJACION_URL } },
+  ];
+}
+
+function typeCMissingMetaDecision() {
+  return {
+    ...missingMetaDecision(),
+    id: "decision-meta-c",
+    decisionType: "multi_page_issue_with_visibility" as const,
+    title: "Add meta descriptions on 2 Google-visible pages",
+    pageUrl: CIANO_URL,
+    pageId: "page-ciano",
+    evidenceRefs: typeCMissingMetaRefs(),
+  };
+}
+
+function missingMetaObservation(id: string, pageId: string) {
+  return {
+    id,
+    pageId,
+    ruleKey: "page_fundamentals.missing_meta_description",
+    status: "active",
+    evidence: { metaDescription: null },
+  };
+}
+
 function titleObservation(id: string, pageId: string) {
   return {
     id,
@@ -1326,6 +1390,65 @@ describe("ACT v0 lifecycle", () => {
     });
     expect(preview.id).toBe("action-title");
     expect(insertActionMock).not.toHaveBeenCalled();
+  });
+  });
+
+  describe("ACT grouped missing-meta prepare", () => {
+  it("prepares the Type C primary page only and keeps group URLs as context", async () => {
+    findDecisionByIdMock.mockResolvedValue(typeCMissingMetaDecision());
+    findPageSnapshotMock.mockResolvedValue({
+      id: "page-ciano",
+      crawlRunId: "crawl-1",
+      requestedUrl: CIANO_URL,
+      finalUrl: CIANO_URL,
+      title: "Cianotipo",
+      metaDescription: null,
+      contentHash: "hash-ciano",
+    });
+    findObservationSnapshotMock.mockImplementation(async (id: string) =>
+      id === "obs-fijacion"
+        ? missingMetaObservation("obs-fijacion", "page-fijacion")
+        : missingMetaObservation("obs-ciano", "page-ciano"),
+    );
+
+    const preview = await prepareAction({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION,
+      decisionId: "decision-meta-c",
+    });
+
+    expect(preview.actionType).toBe("update_meta_description");
+    expect(preview.targetPage).toEqual({ id: "page-ciano", url: CIANO_URL });
+    expect(preview.proposedValue).toBeNull();
+    expect(preview.currentValue).toBeNull();
+    expect(preview.mutationSpec).toEqual({
+      targetUrl: CIANO_URL,
+      field: "meta_description",
+      before: null,
+      after: null,
+    });
+    expect(preview.mutationSpec).not.toHaveProperty("targetUrls");
+    expect(JSON.stringify(preview.mutationSpec)).not.toContain(FIJACION_URL);
+    const pageCiano = preview.evidenceRefs.find(
+      (ref) => ref.kind === "page" && ref.recordId === "page-ciano",
+    );
+    expect(pageCiano?.snapshot).toMatchObject({
+      pageUrl: CIANO_URL,
+      otherMemberUrls: [FIJACION_URL],
+      primaryReason: "decision_primary_highest_demand",
+    });
+    expect(preview.verificationPlan).toContain("re-check this page");
+    expect(preview.verificationPlan).not.toMatch(/all pages|group|template/i);
+    expect(insertActionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionType: "update_meta_description",
+        targetPageId: "page-ciano",
+        targetPageUrl: CIANO_URL,
+        field: "meta_description",
+        observedBefore: null,
+        proposedValue: null,
+      }),
+    );
   });
   });
 });

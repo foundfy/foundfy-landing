@@ -3,6 +3,7 @@ import { TITLE_PRIMARY_REASON } from "@/lib/decisions/supported-action";
 import {
   freezeTitleGroupEvidence,
   otherDuplicateMemberUrls,
+  titleGroupContextFromAction,
   titlePrimaryPage,
 } from "./title-group";
 
@@ -62,6 +63,12 @@ describe("title group primary page", () => {
     expect(frozen[0]?.snapshot).toEqual({ pageUrl: CA });
     expect(frozen[1]?.snapshot).toMatchObject({
       pageUrl: HOME,
+      sharedTitle: "Pintura sobre seda | DBHOBBY",
+      otherMemberUrls: [CA],
+      primaryReason: TITLE_PRIMARY_REASON,
+    });
+
+    expect(titleGroupContextFromAction(frozen)).toEqual({
       sharedTitle: "Pintura sobre seda | DBHOBBY",
       otherMemberUrls: [CA],
       primaryReason: TITLE_PRIMARY_REASON,

@@ -110,7 +110,16 @@ export function titleGroupContextFromAction(evidenceRefs: Array<{ kind: string; 
   otherMemberUrls: string[];
   primaryReason: string | null;
 } | null {
-  const pageRef = evidenceRefs.find((ref) => ref.kind === "page");
+  const pageRefs = evidenceRefs.filter((ref) => ref.kind === "page");
+  const pageRef =
+    pageRefs.find((ref) => {
+      const otherMemberUrls = Array.isArray(ref.snapshot.otherMemberUrls)
+        ? ref.snapshot.otherMemberUrls
+        : [];
+      const sharedTitle = typeof ref.snapshot.sharedTitle === "string" ? ref.snapshot.sharedTitle : null;
+      const primaryReason = typeof ref.snapshot.primaryReason === "string" ? ref.snapshot.primaryReason : null;
+      return Boolean(sharedTitle) || otherMemberUrls.length > 0 || Boolean(primaryReason);
+    }) ?? pageRefs[0];
   if (!pageRef) {
     return null;
   }

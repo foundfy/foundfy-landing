@@ -55,11 +55,14 @@ export function supportedActionTypeForDecision(
     return null;
   }
 
-  if (
-    decision.decisionType === TITLE_GROUP_DECISION_TYPE &&
-    rules.every((rule) => rule === DUPLICATE_TITLE_RULE_KEY)
-  ) {
-    return PAGE_TITLE_ACTION_TYPE;
+  if (decision.decisionType === TITLE_GROUP_DECISION_TYPE) {
+    if (rules.every((rule) => rule === DUPLICATE_TITLE_RULE_KEY)) {
+      return PAGE_TITLE_ACTION_TYPE;
+    }
+    if (rules.every((rule) => rule === SUPPORTED_ACTION_RULE_KEY)) {
+      return META_DESCRIPTION_ACTION_TYPE;
+    }
+    return null;
   }
 
   return null;

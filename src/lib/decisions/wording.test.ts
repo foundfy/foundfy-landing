@@ -12,7 +12,12 @@ import type {
   GscPageEvidenceInput,
   ObservationInput,
 } from "./types";
-import { actionTitleForRule, pageIssueExplanation } from "./wording";
+import {
+  actionTitleForRule,
+  missingMetaGroupExplanation,
+  missingMetaGroupTitle,
+  pageIssueExplanation,
+} from "./wording";
 
 const MUTATION_LANGUAGE = /add an h1|reduce h1|insert|dom|cms field|component|demote/i;
 const SUGGESTED_H1_VALUE = /pintura en seda|this should be the heading/i;
@@ -95,6 +100,11 @@ describe("H1 Decision wording", () => {
         "https://www.dbhobby.com/",
       ),
     ).toBe("Add a meta description on /");
+    expect(missingMetaGroupTitle(3)).toBe("Add meta descriptions on 3 Google-visible pages");
+    expect(missingMetaGroupExplanation(3)).toContain(
+      "3 pages that already appear in Google Search are missing meta descriptions",
+    );
+    expect(missingMetaGroupExplanation(3)).not.toMatch(/template/i);
     expect(
       actionTitleForRule("page_fundamentals.missing_title", "https://www.dbhobby.com/es/pintura-en-seda"),
     ).toBe("Improve the page title on /es/pintura-en-seda");
