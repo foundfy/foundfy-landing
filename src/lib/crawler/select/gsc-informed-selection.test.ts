@@ -21,6 +21,7 @@ import {
   type CrawlCandidate,
   type GscVisibilityPage,
 } from "./gsc-informed-selection";
+import { REQUIRED_QUEUE_PRIORITY } from "./required-url";
 
 const DBHOBBY_SEED = "https://dbhobby.com/";
 
@@ -260,6 +261,7 @@ describe("GSC-informed bounded crawl selection", () => {
     for (const url of urls) {
       for (const source of sources) {
         expect(scorePageUrl(url, source)).not.toBe(GSC_QUEUE_PRIORITY);
+        expect(scorePageUrl(url, source)).not.toBe(REQUIRED_QUEUE_PRIORITY);
       }
     }
 
@@ -348,13 +350,14 @@ describe("GSC-informed bounded crawl selection", () => {
     const startCrawl = readFileSync(path.join(__dirname, "../start-crawl.ts"), "utf8");
     const processRun = readFileSync(path.join(__dirname, "../worker/process-run.ts"), "utf8");
     const hostVariant = readFileSync(path.join(__dirname, "host-variant-equivalence.ts"), "utf8");
+    const requiredUrl = readFileSync(path.join(__dirname, "required-url.ts"), "utf8");
     const decisionsCandidates = readFileSync(
       path.join(__dirname, "../../decisions/candidates.ts"),
       "utf8",
     );
     const decisionsScore = readFileSync(path.join(__dirname, "../../decisions/score.ts"), "utf8");
 
-    for (const contents of [source, visibility, startCrawl, processRun, hostVariant]) {
+    for (const contents of [source, visibility, startCrawl, processRun, hostVariant, requiredUrl]) {
       expect(contents).not.toMatch(/from \"@\/lib\/decisions/);
       expect(contents).not.toMatch(/openai|OpenAI/);
     }
@@ -881,6 +884,196 @@ describe("evidence-backed www/apex sample dedupe in GSC-informed selection", () 
       "https://www.ekoiq.com/hakkimizda",
       "https://www.ekoiq.com/dergi",
     ]);
+  });
+});
+
+const REQUIRED_CIANOTIPO = "https://www.dbhobby.com/es/pintura-seda/set-de-cianotipo";
+
+const packedRequiredCandidates: CrawlCandidate[] = [
+  { url: DBHOBBY_SEED, source: "seed" },
+  { url: "https://www.dbhobby.com/es", source: "navigation" },
+  { url: "https://www.dbhobby.com/ca", source: "navigation" },
+  { url: "https://www.dbhobby.com/en", source: "navigation" },
+  { url: "https://www.dbhobby.com/es/nosotros", source: "sitemap" },
+  { url: "https://www.dbhobby.com/es/contact", source: "navigation" },
+  { url: "https://www.dbhobby.com/es/shop", source: "navigation" },
+  { url: "https://www.dbhobby.com/ca/shop", source: "navigation" },
+  ...Array.from({ length: 12 }, (_, index) => ({
+    url: `https://www.dbhobby.com/es/product-${index}`,
+    source: "sitemap" as const,
+  })),
+];
+
+const packedRequiredGsc: GscVisibilityPage[] = [
+  { url: "https://www.dbhobby.com/es/product-0", impressions: 400, clicks: 20 },
+  { url: "https://www.dbhobby.com/es/product-1", impressions: 350, clicks: 18 },
+  { url: "https://www.dbhobby.com/es/product-2", impressions: 300, clicks: 16 },
+  { url: "https://www.dbhobby.com/es/product-3", impressions: 250, clicks: 12 },
+  { url: REQUIRED_CIANOTIPO, impressions: 201, clicks: 1 },
+];
+
+describe("required URL force-include", () => {
+  it("keeps selection unchanged when no required URL is supplied", () => {
+    const baseline = selectGscInformedCrawlUrls({
+      seedUrl: DBHOBBY_SEED,
+      candidates: packedRequiredCandidates,
+      gscPages: packedRequiredGsc,
+      hostname: "dbhobby.com",
+    });
+    const selected = selectGscInformedCrawlUrls({
+      seedUrl: DBHOBBY_SEED,
+      candidates: packedRequiredCandidates,
+      gscPages: packedRequiredGsc,
+      hostname: "dbhobby.com",
+      requiredUrls: [],
+    });
+
+    expect(urlsOf(selected)).toEqual(urlsOf(baseline));
+    expect(urlsOf(baseline).includes(REQUIRED_CIANOTIPO)).toBe(false);
+    expect(selected).toHaveLength(MAX_PAGES_PER_CRAWL);
+  });
+
+  it("includes a Type B-style required URL that would lose to the 3-GSC cap", () => {
+    const withoutRequired = selectGscInformedCrawlUrls({
+      seedUrl: DBHOBBY_SEED,
+      candidates: packedRequiredCandidates,
+      gscPages: packedRequiredGsc,
+      hostname: "dbhobby.com",
+    });
+    const selected = selectGscInformedCrawlUrls({
+      seedUrl: DBHOBBY_SEED,
+      candidates: packedRequiredCandidates,
+      gscPages: packedRequiredGsc,
+      hostname: "dbhobby.com",
+      requiredUrls: [REQUIRED_CIANOTIPO],
+    });
+
+    expect(urlsOf(withoutRequired).includes(REQUIRED_CIANOTIPO)).toBe(false);
+    expect(urlsOf(selected)).toContain(REQUIRED_CIANOTIPO);
+    expect(selected.filter((item) => item.url === REQUIRED_CIANOTIPO)).toHaveLength(1);
+    expect(selected.find((item) => item.url === REQUIRED_CIANOTIPO)?.reason).toBe("required");
+    expect(selected).toHaveLength(MAX_PAGES_PER_CRAWL);
+    expect(urlsOf(selected)).toContain(DBHOBBY_SEED);
+    expect(selected[0]?.reason).toBe("seed");
+    expect(
+      selected.filter((item) =>
+        ["seed", "homepage", "identity", "locale_home", "category_service"].includes(item.reason),
+      ).length,
+    ).toBeGreaterThanOrEqual(STRUCTURAL_RESERVE_SLOTS);
+    expect(selected.filter((item) => item.reason === "gsc_visibility").length).toBeLessThanOrEqual(
+      GSC_RESERVE_SLOTS,
+    );
+    expect(selected.filter((item) => item.reason === "gsc_visibility").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("assigns required URLs queue priority 98 instead of leftover or GSC ranks", () => {
+    const selected = selectGscInformedCrawlUrls({
+      seedUrl: DBHOBBY_SEED,
+      candidates: packedRequiredCandidates,
+      gscPages: packedRequiredGsc,
+      hostname: "dbhobby.com",
+      requiredUrls: [REQUIRED_CIANOTIPO],
+    });
+    const updates = assignGscInformedQueuePriorities({
+      items: [
+        { id: "seed", url: DBHOBBY_SEED, status: "done", priority: 100 },
+        {
+          id: "required",
+          url: REQUIRED_CIANOTIPO,
+          status: "pending",
+          priority: REQUIRED_QUEUE_PRIORITY,
+        },
+        {
+          id: "gsc-top",
+          url: "https://www.dbhobby.com/es/product-0",
+          status: "pending",
+          priority: GSC_QUEUE_PRIORITY,
+        },
+        {
+          id: "gsc-lost",
+          url: "https://www.dbhobby.com/es/product-3",
+          status: "pending",
+          priority: GSC_QUEUE_PRIORITY,
+        },
+      ],
+      selected,
+    });
+
+    expect(updates.find((item) => item.id === "required")).toBeUndefined();
+    expect(updates.find((item) => item.id === "gsc-lost")?.priority).toBe(UNSELECTED_QUEUE_PRIORITY);
+    expect(updates.find((item) => item.id === "gsc-top")?.priority ?? GSC_QUEUE_PRIORITY).toBeGreaterThan(
+      UNSELECTED_QUEUE_PRIORITY,
+    );
+  });
+
+  it("does not consume an extra slot when the required URL is already structural", () => {
+    const selected = selectGscInformedCrawlUrls({
+      seedUrl: DBHOBBY_SEED,
+      candidates: packedRequiredCandidates,
+      gscPages: packedRequiredGsc,
+      hostname: "dbhobby.com",
+      requiredUrls: ["https://www.dbhobby.com/es"],
+    });
+
+    expect(selected.filter((item) => item.url === "https://www.dbhobby.com/es")).toHaveLength(1);
+    expect(selected.find((item) => item.url === "https://www.dbhobby.com/es")?.reason).toBe(
+      "locale_home",
+    );
+    expect(selected).toHaveLength(MAX_PAGES_PER_CRAWL);
+    expect(selected.filter((item) => item.reason === "gsc_visibility").length).toBe(GSC_RESERVE_SLOTS);
+  });
+
+  it("does not consume an extra slot when the required URL is already a top GSC page", () => {
+    const selected = selectGscInformedCrawlUrls({
+      seedUrl: DBHOBBY_SEED,
+      candidates: packedRequiredCandidates,
+      gscPages: packedRequiredGsc,
+      hostname: "dbhobby.com",
+      requiredUrls: ["https://www.dbhobby.com/es/product-0"],
+    });
+
+    expect(
+      selected.filter((item) => item.url === "https://www.dbhobby.com/es/product-0"),
+    ).toHaveLength(1);
+    expect(selected).toHaveLength(MAX_PAGES_PER_CRAWL);
+  });
+
+  it("dedupes a www/apex equivalent required URL to one slot", () => {
+    const selected = selectGscInformedCrawlUrls({
+      seedUrl: DBHOBBY_SEED,
+      candidates: packedRequiredCandidates,
+      gscPages: packedRequiredGsc,
+      hostname: "dbhobby.com",
+      origin: "https://dbhobby.com",
+      requiredUrls: ["https://dbhobby.com/es/pintura-seda/set-de-cianotipo"],
+    });
+    const matches = selected.filter((item) => item.url.includes("set-de-cianotipo"));
+
+    expect(matches).toHaveLength(1);
+    expect(selected).toHaveLength(MAX_PAGES_PER_CRAWL);
+  });
+
+  it("rejects utility, external, and invalid required URLs", () => {
+    const baseline = selectGscInformedCrawlUrls({
+      seedUrl: DBHOBBY_SEED,
+      candidates: packedRequiredCandidates,
+      gscPages: packedRequiredGsc,
+      hostname: "dbhobby.com",
+    });
+    const selected = selectGscInformedCrawlUrls({
+      seedUrl: DBHOBBY_SEED,
+      candidates: packedRequiredCandidates,
+      gscPages: packedRequiredGsc,
+      hostname: "dbhobby.com",
+      requiredUrls: [
+        "https://www.dbhobby.com/login",
+        "https://other.com/es/pintura-seda/set-de-cianotipo",
+        "ftp://dbhobby.com/es/pintura-seda/set-de-cianotipo",
+      ],
+    });
+
+    expect(urlsOf(selected)).toEqual(urlsOf(baseline));
+    expect(selected.some((item) => item.reason === "required")).toBe(false);
   });
 });
 

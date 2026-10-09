@@ -48,6 +48,11 @@ import {
   type CandidateSource,
 } from "../select/gsc-informed-selection";
 import {
+  MAX_REQUIRED_URLS,
+  REQUIRED_QUEUE_PRIORITY,
+  isRequiredQueuePriority,
+} from "../select/required-url";
+import {
   collapseLatestPageEvidence,
   shouldSkipEquivalentHostVariant,
   type PageHostEvidence,
@@ -373,7 +378,11 @@ function inferCandidateSource(
 async function applyGscInformedQueueSelection(ctx: CrawlWorkerContext): Promise<void> {
   const items = await listQueueItems(ctx.run.id);
   const gscItems = items.filter((item) => isGscVisibilityQueuePriority(item.priority));
-  if (gscItems.length === 0) {
+  const requiredUrls = items
+    .filter((item) => isRequiredQueuePriority(item.priority))
+    .map((item) => item.url)
+    .slice(0, MAX_REQUIRED_URLS);
+  if (gscItems.length === 0 && requiredUrls.length === 0) {
     return;
   }
 
@@ -384,6 +393,7 @@ async function applyGscInformedQueueSelection(ctx: CrawlWorkerContext): Promise<
     limit: ctx.run.maxPages,
     evidence: ctx.hostVariantEvidence,
     alreadyCrawledUrls: items.filter((item) => item.status === "done").map((item) => item.url),
+    requiredUrls,
     candidates: items
       .filter((item) => !isGscVisibilityQueuePriority(item.priority))
       .map((item) => ({
@@ -409,7 +419,12 @@ async function applyGscInformedQueueSelection(ctx: CrawlWorkerContext): Promise<
       crawlRunId: ctx.run.id,
       url: item.url,
       depth: 0,
-      priority: item.reason === "gsc_visibility" ? GSC_QUEUE_PRIORITY : scorePageUrl(item.url, "internal"),
+      priority:
+        item.reason === "required"
+          ? REQUIRED_QUEUE_PRIORITY
+          : item.reason === "gsc_visibility"
+            ? GSC_QUEUE_PRIORITY
+            : scorePageUrl(item.url, "internal"),
     });
     const normalized = normalizeCrawlUrl(item.url, ctx.origin);
     if (normalized) {
