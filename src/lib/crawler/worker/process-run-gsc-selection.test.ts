@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GSC_QUEUE_PRIORITY, UNSELECTED_QUEUE_PRIORITY } from "../select/gsc-informed-selection";
+import { REQUIRED_QUEUE_PRIORITY } from "../select/required-url";
 
 const claimNextQueuedRunMock = vi.fn();
 const getCrawlRunSummaryMock = vi.fn();
@@ -396,6 +397,93 @@ describe("processCrawlRun GSC-informed selection", () => {
     );
     expect(priorityById.get("queue-gsc")).not.toBe(UNSELECTED_QUEUE_PRIORITY);
     expect(priorityById.get("queue-zzz")).toBe(UNSELECTED_QUEUE_PRIORITY);
+    expect(claimedRun.max_pages).toBe(10);
+  });
+
+  it("keeps a required URL selected through GSC rewrite and still completes a normal crawl", async () => {
+    const requiredUrl = "https://example.com/es/pintura-seda/set-de-cianotipo";
+    const queueItems = [
+      {
+        id: "queue-seed",
+        url: "https://example.com/",
+        depth: 0,
+        priority: 100,
+        status: "done",
+        createdAt: "2026-09-24T12:00:00.000Z",
+      },
+      {
+        id: "queue-required",
+        url: requiredUrl,
+        depth: 0,
+        priority: REQUIRED_QUEUE_PRIORITY,
+        status: "pending",
+        createdAt: "2026-09-24T12:00:01.000Z",
+      },
+      ...["product-0", "product-1", "product-2", "product-3"].map((slug, index) => ({
+        id: `queue-gsc-${slug}`,
+        url: `https://example.com/es/${slug}`,
+        depth: 0,
+        priority: GSC_QUEUE_PRIORITY,
+        status: "pending",
+        createdAt: `2026-09-24T12:00:0${index + 2}.000Z`,
+      })),
+      {
+        id: "queue-about",
+        url: "https://example.com/about",
+        depth: 0,
+        priority: 99,
+        status: "pending",
+        createdAt: "2026-09-24T12:00:08.000Z",
+      },
+      ...Array.from({ length: 12 }, (_, index) => ({
+        id: `queue-blog-${index}`,
+        url: `https://example.com/blog/2020/old-article-${index}`,
+        depth: 0,
+        priority: 48,
+        status: "pending",
+        createdAt: `2026-09-24T12:00:1${index}.000Z`,
+      })),
+    ];
+    listQueueItemsMock.mockResolvedValue(queueItems);
+
+    let pagesCrawled = 1;
+    getCrawlRunSummaryMock.mockImplementation(async () => ({
+      id: claimedRun.id,
+      status: "running",
+      hostname: "example.com",
+      seedUrl: claimedRun.seed_url,
+      maxPages: 10,
+      pagesCrawled,
+      pagesDiscovered: queueItems.length,
+      errorMessage: null,
+      startedAt: claimedRun.started_at,
+      completedAt: null,
+      createdAt: claimedRun.created_at,
+    }));
+    incrementCrawlProgressMock.mockImplementation(async (_id: string, crawledDelta: number) => {
+      pagesCrawled += crawledDelta;
+    });
+    getNextQueueItemMock
+      .mockResolvedValueOnce({
+        id: "queue-seed",
+        url: "https://example.com/",
+        depth: 0,
+        priority: 100,
+        status: "pending",
+      })
+      .mockResolvedValue(null);
+
+    await processCrawlRun("run-gsc");
+
+    const priorityById = new Map(
+      updateQueueItemPriorityMock.mock.calls.map((call) => [call[0], call[1]]),
+    );
+    expect(priorityById.get("queue-required")).not.toBe(UNSELECTED_QUEUE_PRIORITY);
+    expect(priorityById.get("queue-gsc-product-3")).toBe(UNSELECTED_QUEUE_PRIORITY);
+    expect(markCrawlRunCompletedMock).toHaveBeenCalledWith(claimedRun.id, claimedRun.website_id, {
+      expectedStartedAt: claimedRun.started_at,
+    });
+    expect(generateObservationsForCrawlRunMock).toHaveBeenCalledWith(claimedRun.id);
     expect(claimedRun.max_pages).toBe(10);
   });
 });

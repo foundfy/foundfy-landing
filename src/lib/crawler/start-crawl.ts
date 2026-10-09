@@ -13,6 +13,11 @@ import {
   GSC_QUEUE_PRIORITY,
   gscDedupeKey,
 } from "@/lib/crawler/select/gsc-informed-selection";
+import {
+  InvalidRequiredCrawlUrlError,
+  REQUIRED_QUEUE_PRIORITY,
+  resolveRequiredCrawlUrl,
+} from "@/lib/crawler/select/required-url";
 import { MAX_PAGES_PER_CRAWL } from "@/lib/crawler/types";
 import { isSameSite } from "@/lib/crawler/url/normalize";
 
@@ -29,7 +34,18 @@ export async function createAndEnqueueCrawl(input: {
   seedUrl: string;
   priorityUrls?: string[];
   gscVisibilityUrls?: string[];
+  requiredUrl?: string;
 }): Promise<{ crawlRunId: string; websiteId: string }> {
+  const hostname = seedHostname(input.seedUrl);
+  const requiredUrl = resolveRequiredCrawlUrl({
+    requiredUrl: input.requiredUrl,
+    seedUrl: input.seedUrl,
+    hostname: hostname ?? undefined,
+  });
+  if (input.requiredUrl?.trim() && !requiredUrl) {
+    throw new InvalidRequiredCrawlUrlError();
+  }
+
   await assertCanCreateNewCrawl();
 
   const crawlRun = await createCrawlRun({
@@ -45,11 +61,23 @@ export async function createAndEnqueueCrawl(input: {
     priority: SEED_QUEUE_PRIORITY,
   });
 
-  const hostname = seedHostname(input.seedUrl);
   const seenKeys = new Set<string>();
   const seedKey = gscDedupeKey(input.seedUrl);
   if (seedKey) {
     seenKeys.add(seedKey);
+  }
+
+  if (requiredUrl) {
+    const key = gscDedupeKey(requiredUrl, input.seedUrl);
+    if (key && !seenKeys.has(key)) {
+      seenKeys.add(key);
+      await enqueueUrl({
+        crawlRunId: crawlRun.id,
+        url: requiredUrl,
+        depth: 0,
+        priority: REQUIRED_QUEUE_PRIORITY,
+      });
+    }
   }
 
   const verificationLimit = Math.max(0, MAX_PAGES_PER_CRAWL - 1);

@@ -24,6 +24,7 @@ vi.mock("./db/repository", () => ({
 import { DailyCrawlLimitReachedError } from "./daily-crawl-limit";
 import { SEED_QUEUE_PRIORITY, VERIFICATION_QUEUE_PRIORITY } from "./select/page-priority";
 import { GSC_QUEUE_PRIORITY } from "./select/gsc-informed-selection";
+import { InvalidRequiredCrawlUrlError, REQUIRED_QUEUE_PRIORITY } from "./select/required-url";
 import { createAndEnqueueCrawl } from "./start-crawl";
 
 describe("createAndEnqueueCrawl", () => {
@@ -134,6 +135,78 @@ describe("createAndEnqueueCrawl", () => {
       seedUrl: "https://example.com/",
       maxPages: 10,
     });
+  });
+
+  it("enqueues one required URL without raising max pages", async () => {
+    assertCanCreateNewCrawlMock.mockResolvedValue(undefined);
+
+    await createAndEnqueueCrawl({
+      websiteId: "website-1",
+      seedUrl: "https://dbhobby.com/",
+      requiredUrl: "https://www.dbhobby.com/es/pintura-seda/set-de-cianotipo",
+      gscVisibilityUrls: [
+        "https://www.dbhobby.com/es/product-0",
+        "https://www.dbhobby.com/es/product-1",
+        "https://www.dbhobby.com/es/product-2",
+      ],
+    });
+
+    const enqueued = enqueueUrlMock.mock.calls.map(
+      (call) => call[0] as { url: string; priority: number },
+    );
+
+    expect(createCrawlRunMock).toHaveBeenCalledWith({
+      websiteId: "website-1",
+      seedUrl: "https://dbhobby.com/",
+      maxPages: 10,
+    });
+    expect(enqueued[0]).toEqual({
+      crawlRunId: "run-1",
+      url: "https://dbhobby.com/",
+      depth: 0,
+      priority: SEED_QUEUE_PRIORITY,
+    });
+    expect(enqueued).toContainEqual({
+      crawlRunId: "run-1",
+      url: "https://www.dbhobby.com/es/pintura-seda/set-de-cianotipo",
+      depth: 0,
+      priority: REQUIRED_QUEUE_PRIORITY,
+    });
+    expect(
+      enqueued.filter((item) => item.url.includes("set-de-cianotipo")),
+    ).toHaveLength(1);
+  });
+
+  it("does not enqueue a required URL that is already the seed", async () => {
+    assertCanCreateNewCrawlMock.mockResolvedValue(undefined);
+
+    await createAndEnqueueCrawl({
+      websiteId: "website-1",
+      seedUrl: "https://dbhobby.com/",
+      requiredUrl: "https://www.dbhobby.com/",
+    });
+
+    const enqueued = enqueueUrlMock.mock.calls.map(
+      (call) => call[0] as { url: string; priority: number },
+    );
+
+    expect(enqueued).toHaveLength(1);
+    expect(enqueued[0]?.url).toBe("https://dbhobby.com/");
+    expect(enqueued[0]?.priority).toBe(SEED_QUEUE_PRIORITY);
+  });
+
+  it("rejects an unsafe required URL before creating a crawl", async () => {
+    await expect(
+      createAndEnqueueCrawl({
+        websiteId: "website-1",
+        seedUrl: "https://dbhobby.com/",
+        requiredUrl: "https://www.dbhobby.com/login",
+      }),
+    ).rejects.toBeInstanceOf(InvalidRequiredCrawlUrlError);
+
+    expect(assertCanCreateNewCrawlMock).not.toHaveBeenCalled();
+    expect(createCrawlRunMock).not.toHaveBeenCalled();
+    expect(enqueueUrlMock).not.toHaveBeenCalled();
   });
 
   it("does not create a crawl when the daily ceiling is reached", async () => {

@@ -15,6 +15,11 @@ import {
   preferHostVariant,
   type PageHostEvidence,
 } from "./host-variant-equivalence";
+import {
+  MAX_REQUIRED_URLS,
+  REQUIRED_QUEUE_PRIORITY,
+  resolveRequiredCrawlUrl,
+} from "./required-url";
 
 export const STRUCTURAL_RESERVE_SLOTS = 6;
 export const GSC_RESERVE_SLOTS = 3;
@@ -32,7 +37,7 @@ export const STRUCTURAL_PATH_CLASSES = new Set<PathClass>([
 ]);
 
 export type CandidateSource = DiscoverySource | "verification";
-export type SelectionSource = CandidateSource | "gsc_visibility";
+export type SelectionSource = CandidateSource | "gsc_visibility" | "required";
 export type SelectionReason =
   | "seed"
   | "homepage"
@@ -40,6 +45,7 @@ export type SelectionReason =
   | "locale_home"
   | "category_service"
   | "gsc_visibility"
+  | "required"
   | "priority_queue"
   | "sitemap"
   | "navigation"
@@ -214,6 +220,7 @@ export function selectGscInformedCrawlUrls(input: {
   candidates: CrawlCandidate[];
   gscPages?: GscVisibilityPage[];
   alreadyCrawledUrls?: string[];
+  requiredUrls?: string[];
   limit?: number;
   origin?: string;
   hostname?: string;
@@ -224,10 +231,21 @@ export function selectGscInformedCrawlUrls(input: {
   const hostname = input.hostname;
   const evidence = input.evidence ?? [];
   const gscPages = rankGscVisibilityPages(input.gscPages ?? [], { hostname, origin });
+  const requiredUrls = (input.requiredUrls ?? [])
+    .map((url) =>
+      resolveRequiredCrawlUrl({
+        requiredUrl: url,
+        seedUrl: input.seedUrl,
+        hostname,
+      }),
+    )
+    .filter((url): url is string => Boolean(url))
+    .slice(0, MAX_REQUIRED_URLS);
   const urlsInPlay = [
     input.seedUrl,
     ...input.candidates.map((candidate) => candidate.url),
     ...gscPages.map((page) => page.url),
+    ...requiredUrls,
     ...(input.alreadyCrawledUrls ?? []),
   ];
   const keyFor = createSampleSelectionKey({ urls: urlsInPlay, evidence, origin });
@@ -235,6 +253,16 @@ export function selectGscInformedCrawlUrls(input: {
   const selectedKeys = new Set<string>();
   const add = (item: SelectedCrawlUrl) =>
     addSelected(selected, selectedKeys, item, { limit, origin, hostname, keyFor });
+
+  const addRequired = () => {
+    for (const url of requiredUrls) {
+      add({
+        url,
+        source: "required",
+        reason: "required",
+      });
+    }
+  };
 
   const candidateByKey = new Map<string, CrawlCandidate>();
   for (const candidate of input.candidates) {
@@ -294,7 +322,7 @@ export function selectGscInformedCrawlUrls(input: {
     }));
     const sourceByUrl = new Map(representativeCandidates.map((candidate) => [candidate.url, candidate.source]));
 
-    if (selected.length === 0) {
+    if (requiredUrls.length === 0 && selected.length === 0) {
       return selectRepresentativeUrls(allCandidates, limit).map((url) => {
         const source = sourceByUrl.get(url) ?? "internal";
         return {
@@ -303,6 +331,18 @@ export function selectGscInformedCrawlUrls(input: {
           reason: reasonForCandidate(url, source),
         };
       });
+    }
+
+    if (requiredUrls.length > 0) {
+      const seedKey = keyFor(input.seedUrl);
+      if (seedKey && !selectedKeys.has(seedKey)) {
+        add({
+          url: input.seedUrl,
+          source: "seed",
+          reason: "seed",
+        });
+      }
+      addRequired();
     }
 
     const remainingCandidates = representativeCandidates.filter((candidate) => {
@@ -379,6 +419,8 @@ export function selectGscInformedCrawlUrls(input: {
       structuralCount += 1;
     }
   }
+
+  addRequired();
 
   let gscCount = 0;
   for (const page of gscPages) {
@@ -522,7 +564,9 @@ export function assignGscInformedQueuePriorities(input: {
     }
 
     let nextPriority = SELECTED_FILLER_PRIORITY;
-    if (selected.reason === "gsc_visibility") {
+    if (selected.reason === "required") {
+      nextPriority = REQUIRED_QUEUE_PRIORITY;
+    } else if (selected.reason === "gsc_visibility") {
       nextPriority = GSC_QUEUE_PRIORITY - (gscIndex.get(key) ?? 0);
     } else if (selected.source === "seed" || selected.reason === "seed") {
       nextPriority = 100;
