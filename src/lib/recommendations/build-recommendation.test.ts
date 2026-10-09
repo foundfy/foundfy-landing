@@ -106,7 +106,7 @@ describe("buildFindingRecommendation", () => {
     expect(recommendation.recommendedAction).not.toMatch(/keep one primary h1|demote|h2 or lower/i);
   });
 
-  it("builds a canonical missing recommendation", () => {
+  it("builds a diagnostic canonical missing recommendation without a target", () => {
     const recommendation = buildFindingRecommendation(
       input("indexability.canonical_missing", {
         requestedUrl: "https://example.com/page",
@@ -116,7 +116,32 @@ describe("buildFindingRecommendation", () => {
     );
 
     expect(recommendation.recommendedAction).toContain("/page");
-    expect(recommendation.verification).toContain("canonical");
+    expect(recommendation.recommendedAction).toContain("did not find a canonical URL");
+    expect(recommendation.recommendedAction).toContain(
+      "does not yet know which URL is intended here",
+    );
+    expect(recommendation.recommendedAction).not.toMatch(
+      /\badd a canonical\b|\bset a canonical\b|use this url|point canonical to|self-canonical/i,
+    );
+    expect(recommendation.recommendedAction).not.toMatch(/requested url|final url|homepage/i);
+    expect(recommendation.whyItMatters).not.toMatch(/\badd a canonical\b|preferred URL for this page/i);
+    expect(recommendation.verification).toContain("canonical URL");
+    expect(recommendation.verification).not.toMatch(/confirm .+ includes a canonical tag/i);
+  });
+
+  it("keeps the missing-canonical template diagnostic and elsewhere copy unchanged", () => {
+    const missing = getRuleRecommendation("indexability.canonical_missing");
+    const elsewhere = getRuleRecommendation("indexability.canonical_points_elsewhere");
+
+    expect(missing.title).toBe("Review canonical setup");
+    expect(missing.recommendedAction).toContain("did not find a canonical URL");
+    expect(missing.recommendedAction).not.toMatch(
+      /\badd a canonical\b|\bset a canonical\b|use this url|point canonical to|self-canonical/i,
+    );
+    expect(elsewhere.title).toBe("Align canonical with final URL");
+    expect(elsewhere.recommendedAction).toContain(
+      "Decide whether this page should stay its own URL",
+    );
   });
 
   it("builds a canonical points elsewhere recommendation", () => {

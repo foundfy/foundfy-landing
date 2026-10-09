@@ -41,12 +41,12 @@ export const RULE_RECOMMENDATIONS: Record<RuleKey, RuleRecommendation> = {
     verification: "Confirm the preferred URL resolves directly or with a single redirect.",
   },
   "indexability.canonical_missing": {
-    title: "Add a canonical URL",
+    title: "Review canonical setup",
     whyItMatters:
-      "Without a preferred URL, search engines may treat copies of this page as separate results.",
+      "A canonical URL can indicate which URL should be treated as the preferred version of a page.",
     recommendedAction:
-      "Add a canonical link that points to the preferred URL for this page.",
-    verification: "Scan again and confirm the page HTML includes a canonical tag.",
+      "Foundfy did not find a canonical URL on this page. A canonical can indicate which URL should be treated as the preferred version, but Foundfy does not yet know which URL is intended here.",
+    verification: "Scan the page again to see whether it has a canonical URL.",
   },
   "indexability.canonical_points_elsewhere": {
     title: "Align canonical with final URL",

@@ -378,6 +378,7 @@ export function shouldCollapseAllFindings(groupCount: number): boolean {
 const DIAGNOSTIC_RECOMMENDATION_RULES = new Set([
   "page_fundamentals.missing_h1",
   "page_fundamentals.multiple_h1",
+  "indexability.canonical_missing",
 ]);
 
 export function recommendationActionLabel(ruleKey: string): string {
