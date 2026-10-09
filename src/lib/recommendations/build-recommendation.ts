@@ -160,6 +160,15 @@ function buildMissingMetaDescriptionRecommendation(
   }));
 }
 
+function buildMissingH1Recommendation(
+  input: RecommendationInput,
+): FindingRecommendation | null {
+  return withPageContext(input, (page) => ({
+    recommendedAction: `Foundfy did not find an H1 heading on ${page}. Check whether the page has a clear main heading. Foundfy does not yet know where that heading should safely be added.`,
+    verification: `Scan ${page} again to see whether it has a main heading.`,
+  }));
+}
+
 function buildMultipleH1Recommendation(
   input: RecommendationInput,
 ): FindingRecommendation | null {
@@ -173,8 +182,8 @@ function buildMultipleH1Recommendation(
   const base = baseRecommendation("page_fundamentals.multiple_h1");
   return {
     whyItMatters: base.whyItMatters,
-    recommendedAction: `Keep one primary H1 on ${page} and change the other ${h1Count - 1} heading(s) to H2 or lower.`,
-    verification: `Re-crawl ${page} and confirm only one H1 remains.`,
+    recommendedAction: `Foundfy found ${h1Count} H1 headings on ${page}. Check which heading should represent the page's main topic.`,
+    verification: `Scan ${page} again to see how many H1 headings it has.`,
   };
 }
 
@@ -306,6 +315,7 @@ const RULE_BUILDERS: Partial<
   "indexability.robots_blocked_url": buildRobotsBlockedRecommendation,
   "page_fundamentals.missing_title": buildMissingTitleRecommendation,
   "page_fundamentals.missing_meta_description": buildMissingMetaDescriptionRecommendation,
+  "page_fundamentals.missing_h1": buildMissingH1Recommendation,
   "page_fundamentals.multiple_h1": buildMultipleH1Recommendation,
   "page_fundamentals.duplicate_title": buildDuplicateTitleRecommendation,
   "page_fundamentals.duplicate_meta_description": buildDuplicateMetaRecommendation,

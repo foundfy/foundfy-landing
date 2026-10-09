@@ -70,6 +70,24 @@ describe("buildFindingRecommendation", () => {
     expect(recommendation.recommendedAction).toContain("/services");
   });
 
+  it("builds a missing H1 recommendation without a value or insertion point", () => {
+    const recommendation = buildFindingRecommendation(
+      input("page_fundamentals.missing_h1", {
+        requestedUrl: "https://example.com/es/pintura-en-seda",
+        finalUrl: "https://example.com/es/pintura-en-seda",
+        h1: [],
+      }),
+    );
+
+    expect(recommendation.recommendedAction).toContain("/es/pintura-en-seda");
+    expect(recommendation.recommendedAction).toContain("did not find an H1 heading");
+    expect(recommendation.recommendedAction).toContain(
+      "does not yet know where that heading should safely be added",
+    );
+    expect(recommendation.recommendedAction).not.toMatch(/add an h1|insert|dom/i);
+    expect(recommendation.recommendedAction).not.toContain("Pintura en seda");
+  });
+
   it("builds a multiple H1 recommendation with the count", () => {
     const recommendation = buildFindingRecommendation(
       input("page_fundamentals.multiple_h1", {
@@ -82,6 +100,10 @@ describe("buildFindingRecommendation", () => {
 
     expect(recommendation.recommendedAction).toContain("2");
     expect(recommendation.recommendedAction).toContain("/page");
+    expect(recommendation.recommendedAction).toContain(
+      "Check which heading should represent the page's main topic",
+    );
+    expect(recommendation.recommendedAction).not.toMatch(/keep one primary h1|demote|h2 or lower/i);
   });
 
   it("builds a canonical missing recommendation", () => {
