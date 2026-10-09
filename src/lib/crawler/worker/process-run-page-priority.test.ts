@@ -24,6 +24,10 @@ vi.mock("@/lib/observations/db/repository", () => ({
     generateObservationsForCrawlRunMock(...args),
 }));
 
+vi.mock("@/lib/analysis-requests/settle", () => ({
+  settleAnalysisRequestsForCrawlRun: vi.fn(),
+}));
+
 vi.mock("../db/repository", () => ({
   claimNextQueuedRun: (...args: unknown[]) => claimNextQueuedRunMock(...args),
   getCrawlRunSummary: (...args: unknown[]) => getCrawlRunSummaryMock(...args),

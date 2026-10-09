@@ -152,6 +152,7 @@ describe("POST /api/websites/[websiteId]/scan", () => {
       seedUrl: "https://www.ekoiq.com/",
       priorityUrls: ["https://www.ekoiq.com/hakkimizda"],
     });
+    expect(createAndEnqueueCrawlMock.mock.calls[0]?.[0]).not.toHaveProperty("requiredUrl");
     expect(afterMock).not.toHaveBeenCalled();
     expect(processCrawlRunMock).not.toHaveBeenCalled();
   });
@@ -234,5 +235,6 @@ describe("POST /api/websites/[websiteId]/scan", () => {
       priorityUrls: [],
       gscVisibilityUrls: ["https://www.ekoiq.com/dergi"],
     });
+    expect(createAndEnqueueCrawlMock.mock.calls[0]?.[0]).not.toHaveProperty("requiredUrl");
   });
 });

@@ -1,3 +1,4 @@
+import { disconnectAnalysisRequestsForWebsite } from "@/lib/analysis-requests/db";
 import { deleteDecisionEngineForWebsite } from "@/lib/decisions/db";
 import { deleteSearchAnalyticsForWebsite } from "@/lib/gsc/db-search";
 import {
@@ -14,8 +15,10 @@ import { scrubGoogleMetricsFromReviewEvidence } from "./review-db";
  * - Scrub Google metrics copied onto remaining action evidence refs.
  * - Keep executed/verified/blocked/cancelled ACT history without Google numbers.
  * - Keep canonical reviews; SET NULL GSC FKs and scrub copied Google metrics.
+ * - Block pending/running Type B analysis requests and SET NULL GSC/Decision FKs.
  */
 export async function removeGoogleDerivedOwnerDataForWebsite(websiteId: string): Promise<void> {
+  await disconnectAnalysisRequestsForWebsite(websiteId);
   await deleteOpenActionsForWebsite(websiteId);
   await deleteActionLearningSnapshotsForWebsite(websiteId);
   await scrubGoogleMetricsFromActionEvidence(websiteId);

@@ -12,7 +12,7 @@ describe("public vs owner-private OBSERVE boundary", () => {
     const publicRoute = read("../../app/api/websites/[websiteId]/route.ts");
     const overviewTypes = read("../websites/types.ts");
 
-    expect(overviewLoader).not.toMatch(/google_identit|observeOwner|refresh_token|gsc_property|gsc_search|impressions|query_text|decision_runs|action_reviews|review_canonical/i);
+    expect(overviewLoader).not.toMatch(/google_identit|observeOwner|refresh_token|gsc_property|gsc_search|impressions|query_text|decision_runs|action_reviews|review_canonical|analysis_requests/i);
     expect(publicRoute).not.toMatch(/from \"@\/lib\/gsc|from \"@\/lib\/decisions|observeOwner|propertyUri|search-analytics/i);
     expect(overviewTypes).not.toMatch(/googleIdentity|refreshToken|observeOwner|searchAnalytics|DecisionView/i);
   });
@@ -41,6 +41,8 @@ describe("public vs owner-private OBSERVE boundary", () => {
     expect(decisionsUi).not.toMatch(/CTR is too low|you should target|increase traffic by/i);
     expect(decisionsUi).toContain("/api/websites/${websiteId}/reviews");
     expect(decisionsUi).toContain("SiteCanonicalReviewPanel");
+    expect(decisionsUi).toContain("/api/websites/${websiteId}/analysis-requests");
+    expect(decisionsUi).toContain("SiteAnalyzePagePanel");
     expect(decisionsUi).not.toMatch(/Prepare this change|Approve|Apply this change|mutation_spec/);
   });
 
@@ -51,6 +53,14 @@ describe("public vs owner-private OBSERVE boundary", () => {
     expect(ui).toContain("CANONICAL_REVIEW_CANONICAL_HEADING");
     expect(ui).toContain("CANONICAL_REVIEW_OUTCOME_LABELS");
     expect(ui).not.toMatch(/Prepare this change|Apply this change|mutation_spec|mutationSpec/);
+    expect(ui).not.toMatch(/ACTION_PREPARE_LABEL|ACTION_APPROVE_LABEL|ACTION_EXECUTE_LABEL/);
+  });
+
+  it("keeps Type B analyze UI as an OBSERVE request", () => {
+    const ui = read("../../components/site/SiteAnalyzePagePanel.tsx");
+    expect(ui).toContain("ANALYZE_PAGE_LABEL");
+    expect(ui).toContain("ANALYZE_PAGE_ANALYZED_COPY");
+    expect(ui).not.toMatch(/Prepare this change|Approve|Apply this change|mutation_spec|VERIFY|LEARN|Safety/);
     expect(ui).not.toMatch(/ACTION_PREPARE_LABEL|ACTION_APPROVE_LABEL|ACTION_EXECUTE_LABEL/);
   });
 

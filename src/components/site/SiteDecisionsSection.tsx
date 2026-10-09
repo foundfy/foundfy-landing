@@ -25,10 +25,12 @@ import {
   DECISION_WHY_LABEL,
 } from "@/lib/decisions/display";
 import type { CanonicalReviewTargetView } from "@/lib/actions/review-types";
+import type { AnalysisRequestView } from "@/lib/analysis-requests/types";
 import type { ActionPreviewView } from "@/lib/actions/types";
 import type { DecisionPrerequisiteReason, DecisionView, DecisionsOwnerView } from "@/lib/decisions/types";
 import { formatEvidenceDate } from "@/lib/gsc/window";
 import SiteActionPanel from "./SiteActionPanel";
+import SiteAnalyzePagePanel from "./SiteAnalyzePagePanel";
 import SiteCanonicalReviewPanel from "./SiteCanonicalReviewPanel";
 import styles from "./SitePageView.module.css";
 
@@ -136,6 +138,9 @@ export default function SiteDecisionsSection({
   const [reviewsByDecision, setReviewsByDecision] = useState<Record<string, CanonicalReviewTargetView>>(
     {},
   );
+  const [analysisByDecision, setAnalysisByDecision] = useState<Record<string, AnalysisRequestView>>(
+    {},
+  );
   const [visible, setVisible] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -189,6 +194,22 @@ export default function SiteDecisionsSection({
           next[target.decisionId] = target;
         }
         setReviewsByDecision(next);
+      }
+
+      const analysisResponse = await fetch(`/api/websites/${websiteId}/analysis-requests`, {
+        cache: "no-store",
+      });
+      if (analysisResponse.ok) {
+        const analysisPayload = (await analysisResponse.json()) as {
+          requests?: AnalysisRequestView[];
+        };
+        const next: Record<string, AnalysisRequestView> = {};
+        for (const item of analysisPayload.requests ?? []) {
+          if (item.decisionId && !next[item.decisionId]) {
+            next[item.decisionId] = item;
+          }
+        }
+        setAnalysisByDecision(next);
       }
     } catch {
       setVisible(false);
@@ -293,6 +314,19 @@ export default function SiteDecisionsSection({
                         ...current[decision.id],
                         review: next,
                       },
+                    }));
+                  }}
+                />
+              ) : decision.decisionType === "inspect_unanalyzed_page" ? (
+                <SiteAnalyzePagePanel
+                  websiteId={websiteId}
+                  decision={decision}
+                  request={analysisByDecision[decision.id] ?? null}
+                  current={view.current}
+                  onRequestChange={(next) => {
+                    setAnalysisByDecision((current) => ({
+                      ...current,
+                      [decision.id]: next,
                     }));
                   }}
                 />

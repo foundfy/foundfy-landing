@@ -29,6 +29,7 @@ import {
   type ActiveCrawlRun,
 } from "../db/repository";
 import { CrawlLeaseLostError, isCurrentCrawlLease } from "./crawl-lease";
+import { settleAnalysisRequestsForCrawlRun } from "@/lib/analysis-requests/settle";
 import { generateObservationsForCrawlRun } from "@/lib/observations/db/repository";
 import { parseHtmlPage } from "../parse/page";
 import { SsrfValidationError, ssrfSafeFetch } from "../security/ssrf-fetch";
@@ -612,6 +613,7 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
       await markCrawlRunFailed(run.id, ZERO_PAGE_CRAWL_FAILURE_MESSAGE, {
         expectedStartedAt: claimedStartedAt,
       });
+      await settleAnalysisRequestsForCrawlRun(run.id);
       return run.id;
     }
 
@@ -629,6 +631,15 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
             : "Observation generation after crawl completion failed.";
         console.error("[Crawl] Post-completion observation generation failed:", message);
       }
+      try {
+        await settleAnalysisRequestsForCrawlRun(run.id);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Analysis request settlement after crawl completion failed.";
+        console.error("[Crawl] Post-completion analysis request settlement failed:", message);
+      }
     }
 
     return run.id;
@@ -643,6 +654,15 @@ export async function processCrawlRun(preferredRunId?: string): Promise<string |
     await markCrawlRunFailed(run.id, message, {
       expectedStartedAt: claimedStartedAt,
     });
+    try {
+      await settleAnalysisRequestsForCrawlRun(run.id);
+    } catch (settleError) {
+      const settleMessage =
+        settleError instanceof Error
+          ? settleError.message
+          : "Analysis request settlement after crawl failure failed.";
+      console.error("[Crawl] Failed-run analysis request settlement failed:", settleMessage);
+    }
     return run.id;
   }
 }
