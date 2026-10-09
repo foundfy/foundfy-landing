@@ -19,6 +19,7 @@ describe("Decision Engine v1 source boundary", () => {
     expect(generate).toMatch(/listFoundfyPagesForCrawlRun/);
     expect(generate).toMatch(/mapGscEvidenceToCurrentCrawl/);
     expect(generate).not.toMatch(/from \"@\/lib\/crawler/);
+    expect(generate).not.toMatch(/requestPageAnalysis|analysis_requests|generateObservationsForCrawlRun/);
     expect(generate).not.toMatch(/confirmSiteModel|saveWebsiteGoals/);
     expect(score).not.toMatch(/\bctr\b|\bposition\b|keyword|competitor/i);
     expect(candidates).not.toMatch(/\bctr\b|target this keyword|AI search/i);

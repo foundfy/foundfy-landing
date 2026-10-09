@@ -1,11 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 
+const disconnectAnalysisRequestsForWebsiteMock = vi.fn();
 const deleteOpenActionsForWebsiteMock = vi.fn();
 const deleteActionLearningSnapshotsForWebsiteMock = vi.fn();
 const scrubGoogleMetricsFromActionEvidenceMock = vi.fn();
 const scrubGoogleMetricsFromReviewEvidenceMock = vi.fn();
 const deleteDecisionEngineForWebsiteMock = vi.fn();
 const deleteSearchAnalyticsForWebsiteMock = vi.fn();
+
+vi.mock("@/lib/analysis-requests/db", () => ({
+  disconnectAnalysisRequestsForWebsite: (...args: unknown[]) =>
+    disconnectAnalysisRequestsForWebsiteMock(...args),
+}));
 
 vi.mock("./db", () => ({
   deleteOpenActionsForWebsite: (...args: unknown[]) => deleteOpenActionsForWebsiteMock(...args),
@@ -42,6 +48,7 @@ describe("disconnect/property-change Google-metric cleanup", () => {
   });
 
   it("removes Google metrics and open actions before deleting GSC evidence", async () => {
+    disconnectAnalysisRequestsForWebsiteMock.mockResolvedValue(undefined);
     deleteOpenActionsForWebsiteMock.mockResolvedValue(undefined);
     deleteActionLearningSnapshotsForWebsiteMock.mockResolvedValue(undefined);
     scrubGoogleMetricsFromActionEvidenceMock.mockResolvedValue(undefined);
@@ -52,6 +59,10 @@ describe("disconnect/property-change Google-metric cleanup", () => {
 
     await removeGoogleDerivedOwnerDataForWebsite("website-1");
 
+    expect(disconnectAnalysisRequestsForWebsiteMock).toHaveBeenCalledWith("website-1");
+    expect(disconnectAnalysisRequestsForWebsiteMock.mock.invocationCallOrder[0]).toBeLessThan(
+      deleteSearchAnalyticsForWebsiteMock.mock.invocationCallOrder[0],
+    );
     expect(deleteOpenActionsForWebsiteMock).toHaveBeenCalledWith("website-1");
     expect(deleteActionLearningSnapshotsForWebsiteMock).toHaveBeenCalledWith("website-1");
     expect(scrubGoogleMetricsFromActionEvidenceMock).toHaveBeenCalledWith("website-1");
