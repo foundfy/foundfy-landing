@@ -22,7 +22,7 @@ const ACTION_BY_RULE: Partial<Record<RuleKey, (path: string) => string>> = {
     `Make the meta description unique on ${path}`,
   "page_fundamentals.missing_h1": (path) => `Review the main heading on ${path}`,
   "page_fundamentals.multiple_h1": (path) => `Review the main headings on ${path}`,
-  "indexability.canonical_missing": (path) => `Add a canonical URL on ${path}`,
+  "indexability.canonical_missing": (path) => `Review canonical setup on ${path}`,
   "indexability.canonical_points_elsewhere": (path) =>
     `Review the canonical URL on ${path}`,
   "indexability.noindex": (path) => `Review the noindex signal on ${path}`,
@@ -70,6 +70,10 @@ export function pageIssueExplanation(issueTitle: string, ruleKey?: string): stri
 
   if (ruleKey === "page_fundamentals.multiple_h1") {
     return "This page already appears in Google Search, and Foundfy found more than one H1 heading. Check which heading should represent the page's main topic.";
+  }
+
+  if (ruleKey === "indexability.canonical_missing") {
+    return "This page already appears in Google Search, and Foundfy did not find a canonical URL on it. A canonical can indicate which URL should be treated as the preferred version, but Foundfy does not yet know which URL is intended here.";
   }
 
   return `This page already appears in Google Search, and Foundfy found a ${issueTitle.toLowerCase()} on the same page.`;

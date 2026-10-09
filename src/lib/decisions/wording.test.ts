@@ -88,7 +88,7 @@ describe("H1 Decision wording", () => {
     ).toBe("Review the main headings on /es/pintura-en-seda");
   });
 
-  it("keeps meta, title, and canonical Decision titles unchanged", () => {
+  it("keeps meta, title, and canonical-elsewhere Decision titles unchanged", () => {
     expect(
       actionTitleForRule(
         "page_fundamentals.missing_meta_description",
@@ -166,5 +166,101 @@ describe("H1 Type A Decision generation", () => {
     expect(IMPACT_SCORES["page_fundamentals.multiple_h1"]).toBe(35);
     expect(BASE_CONFIDENCE_SCORES["page_fundamentals.missing_h1"]).toBe(100);
     expect(BASE_CONFIDENCE_SCORES["page_fundamentals.multiple_h1"]).toBe(100);
+  });
+});
+
+const CANONICAL_MUTATION_LANGUAGE =
+  /\badd a canonical\b|\bset a canonical\b|use this url|point canonical to|self-canonical|requested url|final url|homepage/i;
+const CANONICAL_TARGET_SUGGESTION =
+  /\/es\/gutta-para-seda should be|point(?:s)? (?:its )?canonical at|canonical at \/es/i;
+
+describe("Missing canonical Decision wording", () => {
+  it("uses diagnostic review language for missing canonical titles", () => {
+    expect(
+      actionTitleForRule(
+        "indexability.canonical_missing",
+        "https://www.dbhobby.com/es/gutta-para-seda",
+      ),
+    ).toBe("Review canonical setup on /es/gutta-para-seda");
+  });
+
+  it("does not suggest a canonical target or mutation", () => {
+    const missing = pageIssueExplanation(
+      "Canonical URL missing",
+      "indexability.canonical_missing",
+    );
+
+    expect(missing).toContain("already appears in Google Search");
+    expect(missing).toContain("did not find a canonical URL");
+    expect(missing).toContain("does not yet know which URL is intended here");
+    expect(missing).not.toMatch(CANONICAL_MUTATION_LANGUAGE);
+    expect(missing).not.toMatch(CANONICAL_TARGET_SUGGESTION);
+  });
+
+  it("keeps GSC demand, score, rank, and page identity for missing canonical", () => {
+    const gscPage = page({
+      id: "gsc-1",
+      pageUrl: "https://www.dbhobby.com/es/gutta-para-seda",
+      pageId: "page-1",
+      impressions: 201,
+      clicks: 4,
+    });
+    const missingCanonical = observation({
+      id: "obs-canonical-missing",
+      pageUrl: "https://www.dbhobby.com/es/gutta-para-seda",
+      ruleKey: "indexability.canonical_missing",
+      title: "Canonical URL missing",
+      description: "An indexable HTML page does not declare a canonical URL.",
+      evidence: {
+        requestedUrl: "https://www.dbhobby.com/es/gutta-para-seda",
+        finalUrl: "https://www.dbhobby.com/es/gutta-para-seda",
+        canonical: null,
+      },
+    });
+    const decisions = rank([gscPage], [missingCanonical]);
+    const scoring = combineScoring({
+      issueImportance: issueImportance(missingCanonical),
+      searchDemand: 100,
+      evidenceConfidence: 90,
+    });
+
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0].decisionType).toBe("existing_demand_page_issue");
+    expect(decisions[0].title).toBe("Review canonical setup on /es/gutta-para-seda");
+    expect(decisions[0].pageUrl).toBe("https://www.dbhobby.com/es/gutta-para-seda");
+    expect(decisions[0].pageId).toBe("page-1");
+    expect(decisions[0].rank).toBe(1);
+    expect(decisions[0].scoring).toEqual(scoring);
+    expect(decisions[0].explanation).toContain("already appears in Google Search");
+    expect(decisions[0].explanation).toContain("did not find a canonical URL");
+    expect(decisions[0].explanation).not.toMatch(CANONICAL_MUTATION_LANGUAGE);
+    expect(decisions[0].explanation).not.toMatch(CANONICAL_TARGET_SUGGESTION);
+    expect(
+      decisions[0].evidenceRefs.some((ref) => ref.kind === "gsc_evidence" && ref.recordId === "gsc-1"),
+    ).toBe(true);
+    expect(supportedActionTypeForDecision(decisions[0])).toBeNull();
+    expect(supportedReviewTypeForDecision(decisions[0])).toBeNull();
+  });
+
+  it("keeps scoring config for canonical rules unchanged", () => {
+    expect(IMPACT_SCORES["indexability.canonical_missing"]).toBe(65);
+    expect(IMPACT_SCORES["indexability.canonical_points_elsewhere"]).toBe(70);
+    expect(BASE_CONFIDENCE_SCORES["indexability.canonical_missing"]).toBe(95);
+    expect(BASE_CONFIDENCE_SCORES["indexability.canonical_points_elsewhere"]).toBe(95);
+  });
+
+  it("keeps canonical-elsewhere wording distinct from missing canonical", () => {
+    expect(
+      actionTitleForRule(
+        "indexability.canonical_points_elsewhere",
+        "https://www.dbhobby.com/es",
+      ),
+    ).toBe("Review the canonical URL on /es");
+    expect(
+      actionTitleForRule(
+        "indexability.canonical_missing",
+        "https://www.dbhobby.com/es/gutta-para-seda",
+      ),
+    ).not.toBe("Review the canonical URL on /es/gutta-para-seda");
   });
 });

@@ -71,7 +71,7 @@ function missingCanonicalDecision() {
   return {
     ...elsewhereDecision(),
     id: "decision-missing",
-    title: "Add a canonical URL on /ca/pintures-arasilk-per-la-seda",
+    title: "Review canonical setup on /ca/pintures-arasilk-per-la-seda",
     evidenceRefs: [
       {
         kind: "observation",

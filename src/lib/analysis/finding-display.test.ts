@@ -226,9 +226,22 @@ describe("results comprehension copy", () => {
     expect(recommendationActionLabel("page_fundamentals.missing_meta_description")).toBe(
       "What to change",
     );
+    expect(recommendationActionLabel("indexability.canonical_missing")).toBe(
+      "What Foundfy found",
+    );
     expect(recommendationActionLabel("indexability.canonical_points_elsewhere")).toBe(
       "What to change",
     );
+    expect(
+      formatGroupedFindingTitle("indexability.canonical_missing", "Canonical URL missing", 1),
+    ).toBe("Canonical URL missing");
+    expect(
+      formatGroupedFindingTitle(
+        "indexability.canonical_points_elsewhere",
+        "This page tells Google another page is the real one",
+        1,
+      ),
+    ).toBe("This page tells Google another page is the real one");
   });
 
   it("surfaces a shared title from evidence without hard-coding a site", () => {

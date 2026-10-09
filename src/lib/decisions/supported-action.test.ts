@@ -93,6 +93,13 @@ describe("supportedActionTypeForDecision", () => {
     expect(
       supportedActionTypeForDecision(
         decision({
+          evidenceRefs: [observation("indexability.canonical_missing")],
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      supportedActionTypeForDecision(
+        decision({
           evidenceRefs: [observation("page_fundamentals.missing_h1")],
         }),
       ),
@@ -137,6 +144,13 @@ describe("supportedReviewTypeForDecision", () => {
   });
 
   it("does not support missing canonical, mutations, or mixed rules", () => {
+    expect(
+      supportedActionTypeForDecision(
+        decision({
+          evidenceRefs: [observation("indexability.canonical_missing")],
+        }),
+      ),
+    ).toBeNull();
     expect(
       supportedReviewTypeForDecision(
         decision({

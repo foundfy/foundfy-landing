@@ -111,8 +111,8 @@ function buildCanonicalMissingRecommendation(
   input: RecommendationInput,
 ): FindingRecommendation | null {
   return withPageContext(input, (page) => ({
-    recommendedAction: `Add a canonical link on ${page} that points to the preferred URL for this page.`,
-    verification: `Scan again and confirm ${page} includes a canonical tag.`,
+    recommendedAction: `Foundfy did not find a canonical URL on ${page}. A canonical can indicate which URL should be treated as the preferred version, but Foundfy does not yet know which URL is intended here.`,
+    verification: `Scan ${page} again to see whether it has a canonical URL.`,
   }));
 }
 
