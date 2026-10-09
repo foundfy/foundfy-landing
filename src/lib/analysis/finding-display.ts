@@ -60,12 +60,12 @@ const GROUPED_PROBLEM_TITLES: Record<string, { one: string; many: string }> = {
     many: "Duplicate meta descriptions",
   },
   "page_fundamentals.missing_h1": {
-    one: "Missing H1",
-    many: "Missing H1 headings",
+    one: "No main heading",
+    many: "No main headings",
   },
   "page_fundamentals.multiple_h1": {
-    one: "Multiple H1 headings",
-    many: "Multiple H1 headings",
+    one: "More than one main heading",
+    many: "More than one main heading",
   },
   "internal_structure.zero_internal_links": {
     one: "No outgoing internal links",
@@ -373,4 +373,17 @@ export function formatSeriousnessLine(groups: ResultsBriefGroup[]): string | nul
 
 export function shouldCollapseAllFindings(groupCount: number): boolean {
   return groupCount >= ALL_FINDINGS_COLLAPSE_AFTER;
+}
+
+const DIAGNOSTIC_RECOMMENDATION_RULES = new Set([
+  "page_fundamentals.missing_h1",
+  "page_fundamentals.multiple_h1",
+]);
+
+export function recommendationActionLabel(ruleKey: string): string {
+  if (DIAGNOSTIC_RECOMMENDATION_RULES.has(ruleKey)) {
+    return "What Foundfy found";
+  }
+
+  return "What to change";
 }

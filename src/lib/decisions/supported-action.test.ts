@@ -100,6 +100,13 @@ describe("supportedActionTypeForDecision", () => {
     expect(
       supportedActionTypeForDecision(
         decision({
+          evidenceRefs: [observation("page_fundamentals.multiple_h1")],
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      supportedActionTypeForDecision(
+        decision({
           decisionType: "inspect_unanalyzed_page",
           pageId: null,
           evidenceRefs: [observation("page_fundamentals.missing_title")],
@@ -163,5 +170,22 @@ describe("supportedReviewTypeForDecision", () => {
         evidenceRefs: [observation("indexability.canonical_points_elsewhere")],
       }),
     )).toBeNull();
+  });
+
+  it("does not support H1 as a review workflow", () => {
+    expect(
+      supportedReviewTypeForDecision(
+        decision({
+          evidenceRefs: [observation("page_fundamentals.missing_h1")],
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      supportedReviewTypeForDecision(
+        decision({
+          evidenceRefs: [observation("page_fundamentals.multiple_h1")],
+        }),
+      ),
+    ).toBeNull();
   });
 });

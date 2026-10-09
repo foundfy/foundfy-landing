@@ -6,6 +6,7 @@ import {
   AFFECTED_PAGE_PREVIEW_COUNT,
   formatFindingPath,
   formatPriorityLabel,
+  recommendationActionLabel,
 } from "@/lib/analysis/finding-display";
 import type { AffectedPageDetail } from "@/lib/analysis/results-display-model";
 import type { AnalysisFinding } from "@/lib/analysis/crawl-status";
@@ -125,7 +126,9 @@ export default function FindingCard({
       {recommendation ? (
         <div className={styles.findingRecommendationBlock}>
           <div className={styles.findingActionRow}>
-            <span className={styles.findingActionLabel}>What to change</span>
+            <span className={styles.findingActionLabel}>
+              {recommendationActionLabel(finding.ruleKey)}
+            </span>
             <p className={styles.findingRecommendedAction}>
               {recommendation.recommendedAction}
             </p>

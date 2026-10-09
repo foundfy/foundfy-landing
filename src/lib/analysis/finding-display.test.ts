@@ -11,6 +11,7 @@ import {
   formatSharedTitleLine,
   formatSeriousnessLine,
   formatZeroFindingsCopy,
+  recommendationActionLabel,
   shouldCollapseAllFindings,
   shouldShowHostInAffectedPages,
 } from "./finding-display";
@@ -200,6 +201,34 @@ describe("results comprehension copy", () => {
         4,
       ),
     ).toBe("Duplicate page titles");
+    expect(
+      formatGroupedFindingTitle("page_fundamentals.missing_h1", "No main heading", 1),
+    ).toBe("No main heading");
+    expect(
+      formatGroupedFindingTitle("page_fundamentals.missing_h1", "No main heading", 9),
+    ).toBe("No main headings");
+    expect(
+      formatGroupedFindingTitle(
+        "page_fundamentals.multiple_h1",
+        "More than one main heading",
+        1,
+      ),
+    ).toBe("More than one main heading");
+  });
+
+  it("labels H1 recommendations as what Foundfy found", () => {
+    expect(recommendationActionLabel("page_fundamentals.missing_h1")).toBe(
+      "What Foundfy found",
+    );
+    expect(recommendationActionLabel("page_fundamentals.multiple_h1")).toBe(
+      "What Foundfy found",
+    );
+    expect(recommendationActionLabel("page_fundamentals.missing_meta_description")).toBe(
+      "What to change",
+    );
+    expect(recommendationActionLabel("indexability.canonical_points_elsewhere")).toBe(
+      "What to change",
+    );
   });
 
   it("surfaces a shared title from evidence without hard-coding a site", () => {

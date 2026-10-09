@@ -97,20 +97,20 @@ export const RULE_RECOMMENDATIONS: Record<RuleKey, RuleRecommendation> = {
     verification: "Confirm affected pages no longer share the same description.",
   },
   "page_fundamentals.missing_h1": {
-    title: "Add an H1 heading",
+    title: "Review the main heading",
     whyItMatters:
-      "A clear H1 helps users and search engines identify the main topic of the page.",
+      "A clear main heading can help people and search engines understand what the page is about.",
     recommendedAction:
-      "Add one primary H1 heading that reflects the page topic.",
-    verification: "Confirm the page contains exactly one meaningful H1.",
+      "Foundfy did not find an H1 heading on this page. Check whether the page has a clear main heading. Foundfy does not yet know where that heading should safely be added.",
+    verification: "Scan the page again to see whether it has a main heading.",
   },
   "page_fundamentals.multiple_h1": {
-    title: "Use a single primary H1",
+    title: "Review the main headings",
     whyItMatters:
-      "Multiple H1 headings can make the page topic less clear.",
+      "More than one H1 heading can make the page topic less clear.",
     recommendedAction:
-      "Keep one primary H1 and demote additional headings to H2 or lower.",
-    verification: "Confirm only one H1 remains on the page.",
+      "Foundfy found more than one H1 heading. Check which heading should represent the page's main topic.",
+    verification: "Scan the page again to see how many H1 headings it has.",
   },
   "internal_structure.zero_internal_links": {
     title: "Add internal links",

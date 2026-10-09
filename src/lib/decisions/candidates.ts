@@ -250,7 +250,7 @@ function buildTypeA(
     return {
       decisionType: "existing_demand_page_issue" as const,
       title: actionTitleForRule(observation.ruleKey, issuePageUrl),
-      explanation: pageIssueExplanation(observation.title),
+      explanation: pageIssueExplanation(observation.title, observation.ruleKey),
       pageUrl: issuePageUrl,
       pageId: observation.pageId,
       priorityBand: "next" as const,

@@ -20,8 +20,8 @@ const ACTION_BY_RULE: Partial<Record<RuleKey, (path: string) => string>> = {
   "page_fundamentals.duplicate_title": (path) => `Make the page title unique on ${path}`,
   "page_fundamentals.duplicate_meta_description": (path) =>
     `Make the meta description unique on ${path}`,
-  "page_fundamentals.missing_h1": (path) => `Add an H1 on ${path}`,
-  "page_fundamentals.multiple_h1": (path) => `Reduce H1 headings on ${path}`,
+  "page_fundamentals.missing_h1": (path) => `Review the main heading on ${path}`,
+  "page_fundamentals.multiple_h1": (path) => `Review the main headings on ${path}`,
   "indexability.canonical_missing": (path) => `Add a canonical URL on ${path}`,
   "indexability.canonical_points_elsewhere": (path) =>
     `Review the canonical URL on ${path}`,
@@ -63,7 +63,15 @@ export function duplicateIssueTitle(
   return `Make duplicate ${noun} unique on ${visibleCount} Google-visible pages including ${displayPath(sampleUrl)}`;
 }
 
-export function pageIssueExplanation(issueTitle: string): string {
+export function pageIssueExplanation(issueTitle: string, ruleKey?: string): string {
+  if (ruleKey === "page_fundamentals.missing_h1") {
+    return "This page already appears in Google Search, and Foundfy did not find an H1 heading on it. A clear main heading can help describe the page, but Foundfy does not yet know where a heading should safely be added.";
+  }
+
+  if (ruleKey === "page_fundamentals.multiple_h1") {
+    return "This page already appears in Google Search, and Foundfy found more than one H1 heading. Check which heading should represent the page's main topic.";
+  }
+
   return `This page already appears in Google Search, and Foundfy found a ${issueTitle.toLowerCase()} on the same page.`;
 }
 
