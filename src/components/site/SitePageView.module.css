@@ -623,6 +623,52 @@
   }
 }
 
+.opportunityList {
+  display: grid;
+  gap: 28px;
+  margin: 0 0 24px;
+  padding: 0;
+  list-style: none;
+  max-width: 46rem;
+}
+
+.opportunityItem {
+  margin: 0;
+}
+
+.opportunityQuery {
+  margin: 0 0 8px;
+  font-size: 1.0625rem;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.4;
+  color: #f5f3ee;
+}
+
+.opportunityMetrics {
+  margin: 0 0 14px;
+  color: rgba(245, 243, 238, 0.62);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.opportunityPage {
+  margin: 4px 0 12px;
+  color: rgba(245, 243, 238, 0.82);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.opportunityVariantList {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: rgba(245, 243, 238, 0.72);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
 .decisionList {
   display: grid;
   gap: 28px;
