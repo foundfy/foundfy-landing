@@ -1,8 +1,10 @@
 import { hasMeaningfulVisibility } from "@/lib/decisions/score";
-import { isClearlyBrandedQuery, opportunityQueryKey } from "./normalize";
+import { isClearlyBrandedQuery, opportunityCompactKey } from "./normalize";
 import type {
+  OpportunityMemberPageEvidence,
   OpportunityQueryInput,
   OpportunityQueryPageInput,
+  OpportunityVariantEvidence,
   QueryOpportunityCard,
 } from "./types";
 
@@ -10,16 +12,14 @@ function opportunityId(groupingKey: string, leadingPageUrl: string): string {
   return `${groupingKey}\t${leadingPageUrl}`;
 }
 
-function pickDisplayQuery(variants: OpportunityQueryInput[]): OpportunityQueryInput {
-  return [...variants].sort((left, right) => {
-    if (right.impressions !== left.impressions) {
-      return right.impressions - left.impressions;
-    }
-    if (right.clicks !== left.clicks) {
-      return right.clicks - left.clicks;
-    }
-    return left.query.localeCompare(right.query);
-  })[0];
+function compareQueries(left: OpportunityQueryInput, right: OpportunityQueryInput): number {
+  if (right.impressions !== left.impressions) {
+    return right.impressions - left.impressions;
+  }
+  if (right.clicks !== left.clicks) {
+    return right.clicks - left.clicks;
+  }
+  return left.query.localeCompare(right.query);
 }
 
 function leadingPage(
@@ -55,6 +55,25 @@ function leadingPage(
   return { pageUrl: winner[0], pageId: winner[1].pageId };
 }
 
+export function impressionWeightedPosition(
+  members: Pick<OpportunityQueryInput, "impressions" | "position">[],
+): number | null {
+  const totalImpressions = members.reduce((sum, row) => sum + row.impressions, 0);
+  if (totalImpressions <= 0) {
+    return null;
+  }
+
+  const weighted = members.reduce((sum, row) => sum + row.position * row.impressions, 0);
+  return weighted / totalImpressions;
+}
+
+function pagesForQuery(
+  query: string,
+  queryPages: OpportunityQueryPageInput[],
+): OpportunityQueryPageInput[] {
+  return queryPages.filter((row) => row.query === query && row.pageUrl.trim());
+}
+
 export function deriveQueryOpportunities(input: {
   hostname: string;
   queries: OpportunityQueryInput[];
@@ -65,7 +84,13 @@ export function deriveQueryOpportunities(input: {
     0,
   );
 
-  const groups = new Map<string, OpportunityQueryInput[]>();
+  type EligibleMember = OpportunityQueryInput & {
+    compactKey: string;
+    page: { pageUrl: string; pageId: string | null };
+    memberPages: OpportunityQueryPageInput[];
+  };
+
+  const eligible: EligibleMember[] = [];
   for (const row of input.queries) {
     if (!row.query.trim()) {
       continue;
@@ -77,62 +102,74 @@ export function deriveQueryOpportunities(input: {
       continue;
     }
 
-    const groupingKey = opportunityQueryKey(row.query);
-    if (!groupingKey) {
+    const compactKey = opportunityCompactKey(row.query);
+    if (!compactKey) {
       continue;
     }
 
-    const members = groups.get(groupingKey) ?? [];
-    members.push(row);
-    groups.set(groupingKey, members);
+    const memberPages = pagesForQuery(row.query, input.queryPages);
+    const page = leadingPage(memberPages);
+    if (!page) {
+      continue;
+    }
+
+    eligible.push({ ...row, compactKey, page, memberPages });
   }
 
-  const queryPagesByKey = new Map<string, OpportunityQueryPageInput[]>();
-  for (const row of input.queryPages) {
-    if (!row.query.trim() || !row.pageUrl.trim()) {
-      continue;
-    }
-    const groupingKey = opportunityQueryKey(row.query);
-    if (!groupingKey) {
-      continue;
-    }
-    const members = queryPagesByKey.get(groupingKey) ?? [];
-    members.push(row);
-    queryPagesByKey.set(groupingKey, members);
+  const groups = new Map<string, EligibleMember[]>();
+  for (const member of eligible) {
+    const id = opportunityId(member.compactKey, member.page.pageUrl);
+    const members = groups.get(id) ?? [];
+    members.push(member);
+    groups.set(id, members);
   }
 
   const cards: QueryOpportunityCard[] = [];
-  for (const [groupingKey, variants] of groups) {
-    const display = pickDisplayQuery(variants);
-    const page = leadingPage(queryPagesByKey.get(groupingKey) ?? []);
-    if (!display || !page) {
+  for (const members of groups.values()) {
+    const sorted = [...members].sort(compareQueries);
+    const display = sorted[0];
+    if (!display) {
       continue;
     }
 
-    const uniqueVariants = [
-      ...new Set(
-        [...variants]
-          .sort((left, right) => {
-            if (right.impressions !== left.impressions) {
-              return right.impressions - left.impressions;
-            }
-            return left.query.localeCompare(right.query);
-          })
-          .map((row) => row.query),
-      ),
-    ];
+    const appearances = sorted.reduce((sum, row) => sum + row.impressions, 0);
+    const visits = sorted.reduce((sum, row) => sum + row.clicks, 0);
+    const pageId =
+      sorted.find((row) => row.page.pageId)?.page.pageId ?? display.page.pageId;
+    const variantEvidence: OpportunityVariantEvidence[] = sorted.map((row) => ({
+      query: row.query,
+      appearances: row.impressions,
+      visits: row.clicks,
+      position: row.position,
+    }));
+    const memberPages: OpportunityMemberPageEvidence[] = sorted.flatMap((row) =>
+      [...row.memberPages]
+        .sort((left, right) => {
+          if (right.impressions !== left.impressions) {
+            return right.impressions - left.impressions;
+          }
+          return left.pageUrl.localeCompare(right.pageUrl);
+        })
+        .map((page) => ({
+          query: page.query,
+          pageUrl: page.pageUrl,
+          impressions: page.impressions,
+        })),
+    );
 
     cards.push({
-      id: opportunityId(groupingKey, page.pageUrl),
+      id: opportunityId(display.compactKey, display.page.pageUrl),
       query: display.query,
-      groupingKey,
-      appearances: display.impressions,
-      visits: display.clicks,
-      position: display.position,
-      leadingPageUrl: page.pageUrl,
-      leadingPageId: page.pageId,
-      mapped: Boolean(page.pageId),
-      variants: uniqueVariants,
+      groupingKey: display.compactKey,
+      appearances,
+      visits,
+      position: impressionWeightedPosition(sorted),
+      leadingPageUrl: display.page.pageUrl,
+      leadingPageId: pageId,
+      mapped: Boolean(pageId),
+      variants: variantEvidence.map((row) => row.query),
+      variantEvidence,
+      memberPages,
     });
   }
 

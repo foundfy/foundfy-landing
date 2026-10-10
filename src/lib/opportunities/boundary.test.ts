@@ -15,12 +15,20 @@ describe("Opportunity Discovery v0 source boundary", () => {
     const ui = read("../../components/site/SiteOpportunitiesSection.tsx");
     const combined = [derive, load, display, route, ui].join("\n");
 
+    const normalize = read("./normalize.ts");
+
     expect(combined).not.toMatch(/openai|OpenAI|anthropic/i);
+    expect(combined).not.toMatch(/\blevenshtein\b|edit.?distance|semantic cluster|embeddings/i);
     expect(combined).not.toMatch(/\.insert\(|\.upsert\(|\.update\(|from\(\"opportunities\"\)|create table/i);
+    expect(normalize).toContain('normalize("NFC")');
+    expect(normalize).toContain("[^\\p{L}\\p{N}]+");
+    expect(normalize).not.toMatch(/normalize\("NFD"\)|\\p\{M\}/);
     expect(load).toMatch(/findLatestCompletedSearchSync/);
     expect(load).toMatch(/listEvidenceForSync/);
     expect(load).not.toMatch(/syncSearchAnalytics|insertSearchEvidence|deleteEvidenceForSync/);
     expect(derive).toMatch(/hasMeaningfulVisibility/);
+    expect(derive).toMatch(/isClearlyBrandedQuery/);
+    expect(derive).toMatch(/opportunityCompactKey/);
     expect(derive).not.toMatch(/searchDemandScore|combineScoring|issueImportance|DECISION_MAX_COUNT/);
     expect(combined).not.toMatch(/generateDecisionsForWebsite|insertRunningDecisionRun|prepareAction|mutation_spec|supportedAction/);
     expect(combined).not.toMatch(/primary_goal_type|siteDescription|confirmed\.offers|sell_more_products/);

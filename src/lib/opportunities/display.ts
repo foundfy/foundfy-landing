@@ -15,7 +15,10 @@ export const OPPORTUNITY_TRUNCATED_COPY =
 export const OPPORTUNITY_UNMAPPED_COPY =
   "This Google Search URL is not in the current crawl sample.";
 export const OPPORTUNITY_LEADING_PAGE_COPY = "This is the leading page Foundfy sees for this search.";
+export const OPPORTUNITY_GROUPED_COPY =
+  "Foundfy grouped these query variants because they normalize to the same mechanical form and share the same leading page in the current Google Search data.";
 export const OPPORTUNITY_VARIANTS_HEADING = "Searches Google reported";
+export const OPPORTUNITY_MEMBER_PAGES_HEADING = "Google Search pages for these queries";
 export const OPPORTUNITY_ERROR_COPY = "Foundfy couldn’t load search demand right now.";
 
 export function opportunityPagePath(rawUrl: string): string {
@@ -36,7 +39,20 @@ export function formatOpportunityPosition(position: number): string {
 }
 
 export function opportunityMetricsCopy(card: QueryOpportunityCard): string {
-  return `${formatOpportunityCount(card.appearances)} appearances · ${formatOpportunityCount(card.visits)} visits · Avg position ${formatOpportunityPosition(card.position)}`;
+  const counts = `${formatOpportunityCount(card.appearances)} appearances · ${formatOpportunityCount(card.visits)} visits`;
+  if (card.position == null) {
+    return counts;
+  }
+
+  return `${counts} · Avg position ${formatOpportunityPosition(card.position)}`;
+}
+
+export function opportunityVariantMetricsCopy(variant: {
+  appearances: number;
+  visits: number;
+  position: number;
+}): string {
+  return `${formatOpportunityCount(variant.appearances)} appearances · ${formatOpportunityCount(variant.visits)} visits · Avg position ${formatOpportunityPosition(variant.position)}`;
 }
 
 export function opportunityAppearancesCopy(
