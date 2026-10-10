@@ -12,9 +12,9 @@ describe("public vs owner-private OBSERVE boundary", () => {
     const publicRoute = read("../../app/api/websites/[websiteId]/route.ts");
     const overviewTypes = read("../websites/types.ts");
 
-    expect(overviewLoader).not.toMatch(/google_identit|observeOwner|refresh_token|gsc_property|gsc_search|impressions|query_text|decision_runs|action_reviews|review_canonical|analysis_requests/i);
-    expect(publicRoute).not.toMatch(/from \"@\/lib\/gsc|from \"@\/lib\/decisions|observeOwner|propertyUri|search-analytics/i);
-    expect(overviewTypes).not.toMatch(/googleIdentity|refreshToken|observeOwner|searchAnalytics|DecisionView/i);
+    expect(overviewLoader).not.toMatch(/google_identit|observeOwner|refresh_token|gsc_property|gsc_search|impressions|query_text|decision_runs|action_reviews|review_canonical|analysis_requests|opportunities|loadQueryOpportunities/i);
+    expect(publicRoute).not.toMatch(/from \"@\/lib\/gsc|from \"@\/lib\/decisions|from \"@\/lib\/opportunities|observeOwner|propertyUri|search-analytics/i);
+    expect(overviewTypes).not.toMatch(/googleIdentity|refreshToken|observeOwner|searchAnalytics|DecisionView|QueryOpportunity/i);
   });
 
   it("keeps Search Analytics evidence in the owner-only observe UI", () => {
@@ -44,6 +44,16 @@ describe("public vs owner-private OBSERVE boundary", () => {
     expect(decisionsUi).toContain("/api/websites/${websiteId}/analysis-requests");
     expect(decisionsUi).toContain("SiteAnalyzePagePanel");
     expect(decisionsUi).not.toMatch(/Prepare this change|Approve|Apply this change|mutation_spec/);
+  });
+
+  it("keeps query opportunities in the owner-only site UI", () => {
+    const ui = read("../../components/site/SiteOpportunitiesSection.tsx");
+    expect(ui).toContain("OPPORTUNITY_SECTION_HEADING");
+    expect(ui).toContain("/api/websites/${websiteId}/opportunities");
+    expect(ui).toContain("OPPORTUNITY_REVIEW_LABEL");
+    expect(ui).toContain("<details");
+    expect(ui).not.toMatch(/Prepare this change|Approve|Apply this change|mutation_spec|Analyze this page/i);
+    expect(ui).not.toMatch(/CTR is too low|easy win|create a page|trending|cannibaliz|high-converting/i);
   });
 
   it("keeps canonical review UI review-only", () => {
