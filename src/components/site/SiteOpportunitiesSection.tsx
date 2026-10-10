@@ -5,8 +5,10 @@ import {
   OPPORTUNITY_CARD_COPY,
   OPPORTUNITY_EMPTY_COPY,
   OPPORTUNITY_ERROR_COPY,
+  OPPORTUNITY_GROUPED_COPY,
   OPPORTUNITY_LEADING_PAGE_COPY,
   OPPORTUNITY_LEADING_PAGE_LABEL,
+  OPPORTUNITY_MEMBER_PAGES_HEADING,
   OPPORTUNITY_NO_ELIGIBLE_COPY,
   OPPORTUNITY_REVIEW_LABEL,
   OPPORTUNITY_SECTION_COPY,
@@ -17,6 +19,7 @@ import {
   opportunityAppearancesCopy,
   opportunityMetricsCopy,
   opportunityPagePath,
+  opportunityVariantMetricsCopy,
 } from "@/lib/opportunities/display";
 import type { QueryOpportunitiesView, QueryOpportunityCard } from "@/lib/opportunities/types";
 import { OBSERVE_EVIDENCE_LAG_COPY } from "@/lib/gsc/display";
@@ -48,14 +51,36 @@ function OpportunityReview({
       <summary className={styles.evidenceSummary}>{OPPORTUNITY_REVIEW_LABEL}</summary>
       <div className={styles.decisionWhyBody}>
         <p className={styles.understandingCopy}>{opportunityAppearancesCopy(card, windowDays)}</p>
+        {card.variantEvidence.length > 1 ? (
+          <p className={styles.understandingCopy}>{OPPORTUNITY_GROUPED_COPY}</p>
+        ) : null}
         <p className={styles.understandingCopy}>{OPPORTUNITY_LEADING_PAGE_COPY}</p>
         {!card.mapped ? <p className={styles.sectionMeta}>{OPPORTUNITY_UNMAPPED_COPY}</p> : null}
-        {card.variants.length > 1 ? (
+        {card.variantEvidence.length > 1 ? (
           <div className={styles.decisionWhyBlock}>
             <p className={styles.decisionWhyLabel}>{OPPORTUNITY_VARIANTS_HEADING}</p>
             <ul className={styles.opportunityVariantList}>
-              {card.variants.map((variant) => (
-                <li key={variant}>{variant}</li>
+              {card.variantEvidence.map((variant) => (
+                <li key={variant.query}>
+                  <span>{variant.query}</span>
+                  <span className={styles.sectionMeta}> {opportunityVariantMetricsCopy(variant)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {card.memberPages.some((page) => page.pageUrl !== card.leadingPageUrl) ? (
+          <div className={styles.decisionWhyBlock}>
+            <p className={styles.decisionWhyLabel}>{OPPORTUNITY_MEMBER_PAGES_HEADING}</p>
+            <ul className={styles.opportunityVariantList}>
+              {card.memberPages.map((page) => (
+                <li key={`${page.query}\t${page.pageUrl}`}>
+                  <span>{page.query}</span>
+                  <span className={styles.sectionMeta}>
+                    {" "}
+                    {opportunityPagePath(page.pageUrl)} · {page.impressions} impressions
+                  </span>
+                </li>
               ))}
             </ul>
           </div>

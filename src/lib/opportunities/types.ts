@@ -12,17 +12,32 @@ export type OpportunityQueryPageInput = {
   impressions: number;
 };
 
+export type OpportunityVariantEvidence = {
+  query: string;
+  appearances: number;
+  visits: number;
+  position: number;
+};
+
+export type OpportunityMemberPageEvidence = {
+  query: string;
+  pageUrl: string;
+  impressions: number;
+};
+
 export type QueryOpportunityCard = {
   id: string;
   query: string;
   groupingKey: string;
   appearances: number;
   visits: number;
-  position: number;
+  position: number | null;
   leadingPageUrl: string;
   leadingPageId: string | null;
   mapped: boolean;
   variants: string[];
+  variantEvidence: OpportunityVariantEvidence[];
+  memberPages: OpportunityMemberPageEvidence[];
 };
 
 export type QueryOpportunitiesView = {

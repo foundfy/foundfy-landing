@@ -1,19 +1,25 @@
-/** Deterministic grouping key: case, accents, punctuation, whitespace. No stemming. */
+/**
+ * Mechanical query keys for Opportunity Grain v1.
+ * Lowercase, Unicode NFC, punctuation/whitespace normalization.
+ * Diacritics are preserved. No stemming, edit distance, or mark stripping.
+ */
 export function opportunityQueryKey(query: string): string {
-  const folded = query
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .replace(/ı/g, "i")
-    .replace(/ł/g, "l")
-    .toLowerCase();
+  return query
+    .normalize("NFC")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-  return folded.replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+export function opportunityCompactKey(query: string): string {
+  return opportunityQueryKey(query).replace(/\s+/g, "");
 }
 
 export function brandTokenFromHostname(hostname: string): string {
   const host = hostname.trim().toLowerCase().replace(/\.$/, "").replace(/^www\./, "");
   const label = host.split(".")[0] ?? "";
-  return opportunityQueryKey(label).replace(/\s+/g, "");
+  return opportunityCompactKey(label);
 }
 
 const VOWELS = new Set(["a", "e", "i", "o", "u"]);
@@ -45,6 +51,6 @@ export function isClearlyBrandedQuery(query: string, hostname: string): boolean 
     return false;
   }
 
-  const compact = opportunityQueryKey(query).replace(/\s+/g, "");
+  const compact = opportunityCompactKey(query);
   return compact.length > 0 && compactBrandForms(brand).includes(compact);
 }
