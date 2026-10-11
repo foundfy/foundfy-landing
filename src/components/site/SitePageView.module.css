@@ -623,6 +623,18 @@
   }
 }
 
+.researchBanner {
+  margin: 0 0 18px;
+  max-width: 46rem;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 176, 143, 0.28);
+  border-radius: 12px;
+  background: rgba(255, 74, 28, 0.08);
+  color: #ffb08f;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
 .opportunityList {
   display: grid;
   gap: 28px;
