@@ -1,22 +1,38 @@
 import { RESEARCH_MAX_REQUESTS_PER_RUN } from "./config";
 import {
+  isResearchRequestKey,
+  requestKeyMatchesPair,
+  researchRequestKey,
+} from "./request-key";
+import {
   RESEARCH_REQUEST_STATUSES,
   type ResearchRequestLedgerEntry,
   type ResearchRequestStatus,
 } from "./types";
 
 const LEDGER_KEYS = [
+  "requestKey",
   "seedOffering",
   "languageCode",
   "locationCode",
   "providerTaskId",
   "status",
   "requestedAt",
+  "attemptedAt",
   "retrievedAt",
   "ideaCount",
   "providerCost",
   "failureCode",
 ] as const;
+
+const ATTEMPTED_STATUSES: ResearchRequestStatus[] = [
+  "in_flight",
+  "succeeded",
+  "zero_results",
+  "failed",
+  "timeout",
+  "rate_limited",
+];
 
 function asTrimmedString(value: unknown, max: number): string | null {
   if (typeof value !== "string") {
@@ -85,13 +101,19 @@ export function parseRequestLedger(value: unknown): ResearchRequestLedgerEntry[]
         ? record.providerCost
         : null;
 
+    const requestKey = isResearchRequestKey(record.requestKey)
+      ? record.requestKey
+      : researchRequestKey(seedOffering, languageCode);
+
     entries.push({
+      requestKey,
       seedOffering,
       languageCode,
       locationCode,
       providerTaskId: asNullableString(record.providerTaskId, 80),
       status: status as ResearchRequestStatus,
       requestedAt,
+      attemptedAt: asNullableString(record.attemptedAt, 40),
       retrievedAt: asNullableString(record.retrievedAt, 40),
       ideaCount,
       providerCost,
@@ -107,12 +129,14 @@ export function serializeRequestLedger(
 ): ResearchRequestLedgerEntry[] {
   return entries.slice(0, RESEARCH_MAX_REQUESTS_PER_RUN).map((entry) => {
     const serialized: ResearchRequestLedgerEntry = {
+      requestKey: entry.requestKey,
       seedOffering: entry.seedOffering,
       languageCode: entry.languageCode,
       locationCode: entry.locationCode,
       providerTaskId: entry.providerTaskId,
       status: entry.status,
       requestedAt: entry.requestedAt,
+      attemptedAt: entry.attemptedAt,
       retrievedAt: entry.retrievedAt,
       ideaCount: entry.ideaCount,
       providerCost: entry.providerCost,
@@ -145,12 +169,127 @@ export function ledgerHasAmbiguousRequest(entries: ResearchRequestLedgerEntry[])
 }
 
 export function ledgerWasProviderAttempted(entries: ResearchRequestLedgerEntry[]): boolean {
-  return entries.some((entry) =>
-    entry.status === "in_flight" ||
-    entry.status === "succeeded" ||
-    entry.status === "zero_results" ||
-    entry.status === "failed" ||
-    entry.status === "timeout" ||
-    entry.status === "rate_limited"
+  return entries.some((entry) => ledgerEntryWasAttempted(entry));
+}
+
+export function ledgerEntryWasAttempted(entry: ResearchRequestLedgerEntry): boolean {
+  return entry.attemptedAt != null || ATTEMPTED_STATUSES.includes(entry.status);
+}
+
+export function ledgerEntrySafeToResume(entry: ResearchRequestLedgerEntry): boolean {
+  if (ledgerEntryWasAttempted(entry)) {
+    return false;
+  }
+
+  if (entry.status !== "pending" && entry.status !== "skipped") {
+    return false;
+  }
+
+  if (!isResearchRequestKey(entry.requestKey)) {
+    return false;
+  }
+
+  return requestKeyMatchesPair(entry.requestKey, entry.seedOffering, entry.languageCode);
+}
+
+export function safeUnattemptedEntries(
+  entries: ResearchRequestLedgerEntry[],
+): ResearchRequestLedgerEntry[] {
+  return entries.filter((entry) => ledgerEntrySafeToResume(entry));
+}
+
+export function classifyLedgerReplay(entries: ResearchRequestLedgerEntry[]): {
+  resumableKeys: string[];
+  blockedKeys: string[];
+} {
+  const resumableKeys: string[] = [];
+  const blockedKeys: string[] = [];
+  for (const entry of entries) {
+    if (ledgerEntrySafeToResume(entry)) {
+      resumableKeys.push(entry.requestKey);
+    } else {
+      blockedKeys.push(entry.requestKey);
+    }
+  }
+
+  return {
+    resumableKeys: [...resumableKeys].sort(),
+    blockedKeys: [...blockedKeys].sort(),
+  };
+}
+
+export function buildRequestPlan(input: {
+  offerings: string[];
+  languages: string[];
+  locationCode: number;
+  requestedAt: string;
+}): ResearchRequestLedgerEntry[] {
+  const entries: ResearchRequestLedgerEntry[] = [];
+  const keys = new Set<string>();
+  for (const offering of input.offerings) {
+    for (const language of input.languages) {
+      const requestKey = researchRequestKey(offering, language);
+      if (keys.has(requestKey)) {
+        throw new Error("Research request plan refused duplicate request identity.");
+      }
+      keys.add(requestKey);
+      entries.push({
+        requestKey,
+        seedOffering: offering,
+        languageCode: language,
+        locationCode: input.locationCode,
+        providerTaskId: null,
+        status: "pending",
+        requestedAt: input.requestedAt,
+        attemptedAt: null,
+        retrievedAt: null,
+        ideaCount: 0,
+        providerCost: null,
+        failureCode: null,
+      });
+    }
+  }
+
+  if (entries.length === 0) {
+    throw new Error("Research request plan requires at least one offering and language pair.");
+  }
+
+  if (entries.length > RESEARCH_MAX_REQUESTS_PER_RUN) {
+    throw new Error("Research request plan exceeds the maximum number of provider requests.");
+  }
+
+  if (ledgerHasSecrets(entries)) {
+    throw new Error("Research request ledger refused to persist secrets.");
+  }
+
+  return entries;
+}
+
+export function findLedgerEntryByRequestKey(
+  entries: ResearchRequestLedgerEntry[],
+  requestKey: string,
+): ResearchRequestLedgerEntry | null {
+  return entries.find((entry) => entry.requestKey === requestKey) ?? null;
+}
+
+export function requestKeyWasAttempted(
+  entries: ResearchRequestLedgerEntry[],
+  requestKey: string,
+): boolean {
+  return entries.some(
+    (entry) => entry.requestKey === requestKey && ledgerEntryWasAttempted(entry),
   );
+}
+
+export function uniquePlannedRequestKeys(entries: ResearchRequestLedgerEntry[]): string[] {
+  const keys: string[] = [];
+  const seen = new Set<string>();
+  for (const entry of entries) {
+    if (seen.has(entry.requestKey)) {
+      continue;
+    }
+    seen.add(entry.requestKey);
+    keys.push(entry.requestKey);
+  }
+  return keys;
 }

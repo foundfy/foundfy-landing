@@ -29,6 +29,7 @@ vi.mock("./repository", () => ({
 }));
 
 import { loadResearchForOwner } from "./load";
+import { researchRequestKey } from "./request-key";
 
 const originalEnv = { ...process.env };
 
@@ -63,6 +64,8 @@ describe("loadResearchForOwner", () => {
       gscQueriesTruncated: false,
       completedAt: "2026-10-10T00:00:00.000Z",
       createdAt: "2026-10-10T00:00:00.000Z",
+      lastProgressAt: "2026-10-10T00:00:00.000Z",
+      requestLedger: [],
     });
     listResearchIdeasForRunMock.mockResolvedValue([
       {
@@ -167,5 +170,84 @@ describe("loadResearchForOwner", () => {
       environment: "live",
     });
     expect(view.run?.providerEnvironment).toBe("live");
+  });
+
+  it("reports abandoned active runs as recovery-required without mutating them", async () => {
+    findLatestCompatibleResearchRunMock.mockResolvedValue({
+      id: "run-abandoned",
+      status: "running",
+      siteModelConfirmedAt: "2026-10-01T00:00:00.000Z",
+      offeringSeeds: ["silk paint"],
+      providerEnvironment: "fixture",
+      countryKey: "US",
+      countryName: "United States",
+      languageCodes: ["en"],
+      gscQueriesTruncated: false,
+      completedAt: null,
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-01T00:00:00.000Z",
+      lastProgressAt: "2026-09-01T00:00:00.000Z",
+      requestLedger: [
+        {
+          requestKey: researchRequestKey("silk paint", "en"),
+          seedOffering: "silk paint",
+          languageCode: "en",
+          locationCode: 2840,
+          providerTaskId: null,
+          status: "pending",
+          requestedAt: "2026-09-01T00:00:00.000Z",
+          attemptedAt: null,
+          retrievedAt: null,
+          ideaCount: 0,
+          providerCost: null,
+          failureCode: null,
+        },
+      ],
+    });
+    const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
+    expect(view.run?.recoveryRequired).toBe(true);
+    expect(view.run?.displayInterrupted).toBe(true);
+    expect(view.run?.canResumeUnattempted).toBe(true);
+    expect(findLatestCompatibleResearchRunMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows closed historical evidence as closed and eligible for a later new cycle", async () => {
+    findLatestCompatibleResearchRunMock.mockResolvedValue({
+      id: "run-closed",
+      status: "closed",
+      siteModelConfirmedAt: "2026-10-01T00:00:00.000Z",
+      offeringSeeds: ["silk paint"],
+      providerEnvironment: "fixture",
+      countryKey: "US",
+      countryName: "United States",
+      languageCodes: ["en"],
+      gscQueriesTruncated: false,
+      completedAt: null,
+      closedAt: "2026-10-11T00:00:00.000Z",
+      createdAt: "2026-10-10T00:00:00.000Z",
+      requestLedger: [
+        {
+          requestKey: researchRequestKey("silk paint", "en"),
+          seedOffering: "silk paint",
+          languageCode: "en",
+          locationCode: 2840,
+          providerTaskId: "task-1",
+          status: "in_flight",
+          requestedAt: "2026-10-10T00:00:00.000Z",
+          attemptedAt: "2026-10-10T00:00:01.000Z",
+          retrievedAt: null,
+          ideaCount: 0,
+          providerCost: null,
+          failureCode: null,
+        },
+      ],
+    });
+    const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
+    expect(view.run?.displayClosed).toBe(true);
+    expect(view.run?.canStartNewCycle).toBe(true);
+    expect(view.run?.displayInterrupted).toBe(false);
+    expect(view.run?.canClose).toBe(false);
+    expect(view.run?.incomplete).toBe(true);
+    expect(view.run?.ideas[0]?.keyword).toBe("fixture related term one");
   });
 });

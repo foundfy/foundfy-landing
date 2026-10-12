@@ -5,8 +5,11 @@ const findLatestConfirmedSiteModelForWebsiteMock = vi.fn();
 const listCompletedSearchSyncsForWebsiteMock = vi.fn();
 const listEvidenceForSyncMock = vi.fn();
 const claimResearchRunMock = vi.fn();
-const updateResearchRunMock = vi.fn();
-const insertResearchIdeasMock = vi.fn();
+const persistResearchRequestPlanMock = vi.fn();
+const claimResearchRequestMock = vi.fn();
+const persistResearchRequestResultMock = vi.fn();
+const skipUnattemptedResearchRequestsMock = vi.fn();
+const finalizeFencedResearchRunMock = vi.fn();
 const listResearchRunsForFingerprintMock = vi.fn();
 const loadResearchForOwnerMock = vi.fn();
 
@@ -27,8 +30,12 @@ vi.mock("@/lib/gsc/db-search", () => ({
 
 vi.mock("./repository", () => ({
   claimResearchRun: (...args: unknown[]) => claimResearchRunMock(...args),
-  updateResearchRun: (...args: unknown[]) => updateResearchRunMock(...args),
-  insertResearchIdeas: (...args: unknown[]) => insertResearchIdeasMock(...args),
+  persistResearchRequestPlan: (...args: unknown[]) => persistResearchRequestPlanMock(...args),
+  claimResearchRequest: (...args: unknown[]) => claimResearchRequestMock(...args),
+  persistResearchRequestResult: (...args: unknown[]) => persistResearchRequestResultMock(...args),
+  skipUnattemptedResearchRequests: (...args: unknown[]) =>
+    skipUnattemptedResearchRequestsMock(...args),
+  finalizeFencedResearchRun: (...args: unknown[]) => finalizeFencedResearchRunMock(...args),
   listResearchRunsForFingerprint: (...args: unknown[]) =>
     listResearchRunsForFingerprintMock(...args),
 }));
@@ -38,9 +45,10 @@ vi.mock("./load", () => ({
 }));
 
 import { createSerializedResearchClaim } from "./claim";
+import { createFencedResearchStore, type FencedResearchStore } from "./fence";
 import { FixtureResearchProvider } from "./provider/fixture";
 import { startResearchForOwner } from "./start";
-import type { ResearchRunRecord } from "./types";
+import type { ResearchIdeaRecord, ResearchRunRecord } from "./types";
 
 const confirmedModel = {
   id: "model-1",
@@ -55,13 +63,75 @@ const confirmedModel = {
   },
 };
 
-function claimedRun(id = "run-1"): { kind: "claimed"; run: { id: string } } {
-  return { kind: "claimed", run: { id } };
+function claimedRunFromInput(input: {
+  websiteId: string;
+  offeringSeeds: string[];
+  languageCodes: string[];
+  locationCode: number;
+  countryKey: string;
+  countryName: string;
+  siteModelId: string;
+  siteModelConfirmedAt: string;
+  requestedBy: string;
+  gscSyncId: string;
+  gscQueriesTruncated: boolean;
+  provider: "fixture" | "dataforseo";
+  providerEnvironment: "fixture" | "sandbox" | "live";
+  requestFingerprint: string;
+}): { kind: "claimed"; run: ResearchRunRecord } {
+  const timestamp = new Date().toISOString();
+  return {
+    kind: "claimed",
+    run: {
+      id: "run-1",
+      websiteId: input.websiteId,
+      siteModelId: input.siteModelId,
+      siteModelConfirmedAt: input.siteModelConfirmedAt,
+      requestedBy: input.requestedBy,
+      gscSyncId: input.gscSyncId,
+      gscQueriesTruncated: input.gscQueriesTruncated,
+      countryKey: input.countryKey,
+      countryName: input.countryName,
+      locationCode: input.locationCode,
+      languageCodes: input.languageCodes,
+      offeringSeeds: input.offeringSeeds,
+      provider: input.provider,
+      providerEnvironment: input.providerEnvironment,
+      status: "requested",
+      requestFingerprint: input.requestFingerprint,
+      requestLedger: [],
+      providerCost: null,
+      failureCode: null,
+      failureMessage: null,
+      createdAt: timestamp,
+      startedAt: null,
+      completedAt: null,
+      updatedAt: timestamp,
+      lastProgressAt: timestamp,
+      executionGeneration: 1,
+      closedAt: null,
+    },
+  };
+}
+
+const ownedRuns: ResearchRunRecord[] = [];
+const ownedIdeas: ResearchIdeaRecord[] = [];
+let fence: FencedResearchStore;
+
+function bindFenceStore() {
+  persistResearchRequestPlanMock.mockImplementation((input) => fence.persistPlan(input));
+  claimResearchRequestMock.mockImplementation((input) => fence.claimRequest(input));
+  persistResearchRequestResultMock.mockImplementation((input) => fence.persistResult(input));
+  skipUnattemptedResearchRequestsMock.mockImplementation((input) => fence.skipUnattempted(input));
+  finalizeFencedResearchRunMock.mockImplementation((input) => fence.finalize(input));
 }
 
 describe("startResearchForOwner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    ownedRuns.length = 0;
+    ownedIdeas.length = 0;
+    fence = createFencedResearchStore({ runs: ownedRuns, ideas: ownedIdeas });
     requireObserveOwnerMock.mockResolvedValue({
       website: { id: "site-1", hostname: "example.com" },
       owner: { id: "owner-1" },
@@ -74,9 +144,12 @@ describe("startResearchForOwner", () => {
       { evidenceType: "query", queryText: "cianotipo" },
     ]);
     listResearchRunsForFingerprintMock.mockResolvedValue([]);
-    claimResearchRunMock.mockResolvedValue(claimedRun());
-    updateResearchRunMock.mockResolvedValue({ id: "run-1" });
-    insertResearchIdeasMock.mockResolvedValue([]);
+    claimResearchRunMock.mockImplementation(async (input: Parameters<typeof claimedRunFromInput>[0]) => {
+      const result = claimedRunFromInput(input);
+      ownedRuns.push(result.run);
+      return result;
+    });
+    bindFenceStore();
     loadResearchForOwnerMock.mockResolvedValue({ readiness: { gate: null }, run: { id: "run-1" } });
   });
 
@@ -91,19 +164,57 @@ describe("startResearchForOwner", () => {
     });
 
     expect(claimResearchRunMock).toHaveBeenCalled();
-    const ideas = insertResearchIdeasMock.mock.calls.flatMap(
-      (call) => call[0] as Array<{ keyword: string; initialGscSampleStatus: string }>,
-    );
-    expect(ideas.some((idea) => idea.keyword === "silk paint")).toBe(false);
-    expect(ideas.every((idea) => idea.initialGscSampleStatus === "not_in_current_gsc_sample")).toBe(
-      true,
-    );
-    const update = updateResearchRunMock.mock.calls.at(-1)?.[0] as {
-      status: string;
-      requestLedger: Array<{ status: string }>;
-    };
-    expect(update.status).toBe("completed");
-    expect(update.requestLedger).toHaveLength(2);
+    expect(ownedIdeas.some((idea) => idea.keyword === "silk paint")).toBe(false);
+    expect(
+      ownedIdeas.every((idea) => idea.initialGscSampleStatus === "not_in_current_gsc_sample"),
+    ).toBe(true);
+    expect(ownedRuns[0]?.status).toBe("completed");
+    expect(ownedRuns[0]?.requestLedger).toHaveLength(2);
+  });
+
+  it("persists the full pending request plan before the first provider network request", async () => {
+    const order: string[] = [];
+    const provider = new FixtureResearchProvider();
+    vi.spyOn(provider, "relatedKeywordIdeas").mockImplementation(async (input) => {
+      order.push("network");
+      return new FixtureResearchProvider().relatedKeywordIdeas(input);
+    });
+    persistResearchRequestPlanMock.mockImplementation((input) => {
+      order.push("plan");
+      return fence.persistPlan(input);
+    });
+
+    await startResearchForOwner({
+      websiteId: "site-1",
+      sessionToken: "session",
+      countryKey: "US",
+      languages: ["en"],
+      selectedOfferings: ["silk paint"],
+      provider,
+    });
+
+    expect(order[0]).toBe("plan");
+    expect(order.indexOf("plan")).toBeLessThan(order.indexOf("network"));
+  });
+
+  it("does not call the provider if the request plan cannot be persisted", async () => {
+    const provider = new FixtureResearchProvider();
+    const related = vi.spyOn(provider, "relatedKeywordIdeas");
+    persistResearchRequestPlanMock.mockImplementation(() => {
+      throw new Error("plan persist failed");
+    });
+
+    await expect(
+      startResearchForOwner({
+        websiteId: "site-1",
+        sessionToken: "session",
+        countryKey: "US",
+        languages: ["en"],
+        selectedOfferings: ["silk paint"],
+        provider,
+      }),
+    ).rejects.toThrow(/plan persist failed/);
+    expect(related).not.toHaveBeenCalled();
   });
 
   it("persists in_flight before the provider network request", async () => {
@@ -113,12 +224,12 @@ describe("startResearchForOwner", () => {
       order.push("network");
       return new FixtureResearchProvider().relatedKeywordIdeas(input);
     });
-    updateResearchRunMock.mockImplementation(async (input: { requestLedger?: Array<{ status: string }> }) => {
-      const last = input.requestLedger?.at(-1);
-      if (last?.status === "in_flight") {
+    claimResearchRequestMock.mockImplementation((input) => {
+      const result = fence.claimRequest(input);
+      if (result.outcome === "claimed") {
         order.push("in_flight");
       }
-      return { id: "run-1" };
+      return result;
     });
 
     await startResearchForOwner({
@@ -138,12 +249,8 @@ describe("startResearchForOwner", () => {
   it("does not call the provider if the durable in_flight write fails", async () => {
     const provider = new FixtureResearchProvider();
     const related = vi.spyOn(provider, "relatedKeywordIdeas");
-    updateResearchRunMock.mockImplementation(async (input: { requestLedger?: Array<{ status: string }> }) => {
-      const last = input.requestLedger?.at(-1);
-      if (last?.status === "in_flight") {
-        throw new Error("database unavailable");
-      }
-      return { id: "run-1" };
+    claimResearchRequestMock.mockImplementation(() => {
+      throw new Error("database unavailable");
     });
 
     await expect(
@@ -162,15 +269,11 @@ describe("startResearchForOwner", () => {
   it("keeps the first successful request after a later interruption", async () => {
     const provider = new FixtureResearchProvider();
     provider.setBehavior("gutta resist", "en", "timeout");
-    let succeededPersisted = false;
-    updateResearchRunMock.mockImplementation(async (input: { requestLedger?: Array<{ status: string }> }) => {
-      if (input.requestLedger?.some((entry) => entry.status === "succeeded")) {
-        succeededPersisted = true;
-      }
-      if (succeededPersisted && input.requestLedger?.some((entry) => entry.status === "timeout")) {
+    persistResearchRequestResultMock.mockImplementation((input) => {
+      if (input.status === "timeout") {
         throw new Error("crash after first success");
       }
-      return { id: "run-1" };
+      return fence.persistResult(input);
     });
 
     await expect(
@@ -182,14 +285,16 @@ describe("startResearchForOwner", () => {
         provider,
       }),
     ).rejects.toThrow(/crash after first success/);
-    expect(insertResearchIdeasMock).toHaveBeenCalled();
-    expect(succeededPersisted).toBe(true);
+    expect(ownedIdeas.length).toBeGreaterThan(0);
+    expect(ownedRuns[0]?.requestLedger.some((entry) => entry.status === "succeeded")).toBe(true);
   });
 
   it("does not retry after the provider accepts a request but ideas are not persisted", async () => {
     const provider = new FixtureResearchProvider();
     const related = vi.spyOn(provider, "relatedKeywordIdeas");
-    insertResearchIdeasMock.mockRejectedValue(new Error("crash before idea persistence"));
+    persistResearchRequestResultMock.mockImplementation(() => {
+      throw new Error("crash before idea persistence");
+    });
 
     await expect(
       startResearchForOwner({
@@ -202,12 +307,10 @@ describe("startResearchForOwner", () => {
       }),
     ).rejects.toThrow(/crash before idea persistence/);
     expect(related).toHaveBeenCalledTimes(1);
-    const inFlight = updateResearchRunMock.mock.calls.some((call) => {
-      const ledger = (call[0] as { requestLedger?: Array<{ status: string; providerTaskId: string | null }> })
-        .requestLedger;
-      return ledger?.some((entry) => entry.status === "in_flight" && entry.providerTaskId);
-    });
-    expect(inFlight).toBe(true);
+    expect(ownedRuns[0]?.requestLedger.some((entry) => entry.status === "in_flight" && entry.attemptedAt)).toBe(
+      true,
+    );
+    expect(ownedIdeas).toHaveLength(0);
   });
 
   it("does not automatically retry an ambiguous in-flight run", async () => {
@@ -263,7 +366,34 @@ describe("startResearchForOwner", () => {
     expect(claimResearchRunMock).not.toHaveBeenCalled();
   });
 
-  it("blocks retry of a recent failed or partial run", async () => {
+  it("treats a closed historical run as eligible for a later explicit new cycle, not recovery", async () => {
+    const provider = new FixtureResearchProvider();
+    const related = vi.spyOn(provider, "relatedKeywordIdeas");
+    listResearchRunsForFingerprintMock.mockResolvedValue([
+      {
+        id: "closed-run",
+        status: "closed",
+        createdAt: new Date().toISOString(),
+        closedAt: new Date().toISOString(),
+        requestLedger: [{ status: "in_flight", attemptedAt: "2026-10-11T00:00:01.000Z" }],
+      },
+    ]);
+
+    await startResearchForOwner({
+      websiteId: "site-1",
+      sessionToken: "session",
+      countryKey: "ES",
+      languages: ["en"],
+      provider,
+    });
+
+    expect(claimResearchRunMock).toHaveBeenCalled();
+    expect(related).toHaveBeenCalled();
+    expect(ownedRuns).toHaveLength(1);
+    expect(ownedRuns[0]?.id).not.toBe("closed-run");
+  });
+
+  it("does not start a fresh run when recovery is required for a failed or partial run", async () => {
     const provider = new FixtureResearchProvider();
     const related = vi.spyOn(provider, "relatedKeywordIdeas");
     listResearchRunsForFingerprintMock.mockResolvedValue([
@@ -275,16 +405,16 @@ describe("startResearchForOwner", () => {
       },
     ]);
 
-    await expect(
-      startResearchForOwner({
-        websiteId: "site-1",
-        sessionToken: "session",
-        countryKey: "ES",
-        languages: ["en"],
-        provider,
-      }),
-    ).rejects.toThrow(/cannot safely run it again/i);
+    await startResearchForOwner({
+      websiteId: "site-1",
+      sessionToken: "session",
+      countryKey: "ES",
+      languages: ["en"],
+      provider,
+    });
     expect(related).not.toHaveBeenCalled();
+    expect(claimResearchRunMock).not.toHaveBeenCalled();
+    expect(loadResearchForOwnerMock).toHaveBeenCalled();
   });
 
   it("keeps zero-result and failed request provenance and can settle partial", async () => {
@@ -298,13 +428,9 @@ describe("startResearchForOwner", () => {
       languages: ["en"],
       provider,
     });
-    const update = updateResearchRunMock.mock.calls.at(-1)?.[0] as {
-      status: string;
-      requestLedger: Array<{ status: string; ideaCount: number; providerTaskId: string | null }>;
-    };
-    expect(update.requestLedger.map((entry) => entry.status)).toEqual(["zero_results", "timeout"]);
-    expect(update.requestLedger[0]?.providerTaskId).toBe("fixture-task-empty");
-    expect(update.status).toBe("partial");
+    expect(ownedRuns[0]?.requestLedger.map((entry) => entry.status)).toEqual(["zero_results", "timeout"]);
+    expect(ownedRuns[0]?.requestLedger[0]?.providerTaskId).toBe("fixture-task-empty");
+    expect(ownedRuns[0]?.status).toBe("partial");
   });
 
   it("skips remaining requests after a rate limit and does not call AI", async () => {
@@ -318,12 +444,8 @@ describe("startResearchForOwner", () => {
       selectedOfferings: ["silk paint", "gutta resist"],
       provider,
     });
-    const update = updateResearchRunMock.mock.calls.at(-1)?.[0] as {
-      status: string;
-      requestLedger: Array<{ status: string }>;
-    };
-    expect(update.requestLedger.map((entry) => entry.status)).toEqual(["rate_limited", "skipped"]);
-    expect(update.status).toBe("failed");
+    expect(ownedRuns[0]?.requestLedger.map((entry) => entry.status)).toEqual(["rate_limited", "skipped"]);
+    expect(ownedRuns[0]?.status).toBe("interrupted");
   });
 
   it("does not fetch provider metadata when a cheap local gate fails", async () => {
@@ -401,24 +523,8 @@ describe("startResearchForOwner", () => {
         },
       }),
     );
-    updateResearchRunMock.mockImplementation(async (input: {
-      id: string;
-      status: ResearchRunRecord["status"];
-      requestLedger?: ResearchRunRecord["requestLedger"];
-      completedAt?: string | null;
-    }) => {
-      const current = runs.find((run) => run.id === input.id);
-      if (current) {
-        current.status = input.status;
-        if (input.requestLedger) {
-          current.requestLedger = input.requestLedger;
-        }
-        if (input.completedAt !== undefined) {
-          current.completedAt = input.completedAt;
-        }
-      }
-      return current ?? { id: input.id };
-    });
+    fence = createFencedResearchStore({ runs, ideas: ownedIdeas });
+    bindFenceStore();
 
     const provider = new FixtureResearchProvider();
     const related = vi.spyOn(provider, "relatedKeywordIdeas");
@@ -494,24 +600,8 @@ describe("startResearchForOwner", () => {
         },
       }),
     );
-    updateResearchRunMock.mockImplementation(async (input: {
-      id: string;
-      status: ResearchRunRecord["status"];
-      requestLedger?: ResearchRunRecord["requestLedger"];
-      completedAt?: string | null;
-    }) => {
-      const current = runs.find((run) => run.id === input.id);
-      if (current) {
-        current.status = input.status;
-        if (input.requestLedger) {
-          current.requestLedger = input.requestLedger;
-        }
-        if (input.completedAt !== undefined) {
-          current.completedAt = input.completedAt;
-        }
-      }
-      return current ?? { id: input.id };
-    });
+    fence = createFencedResearchStore({ runs, ideas: ownedIdeas });
+    bindFenceStore();
 
     const provider = new FixtureResearchProvider();
     const related = vi.spyOn(provider, "relatedKeywordIdeas");
@@ -579,13 +669,8 @@ describe("startResearchForOwner", () => {
         },
       }),
     );
-    updateResearchRunMock.mockImplementation(async (input: { id: string; status: ResearchRunRecord["status"] }) => {
-      const current = runs.find((run) => run.id === input.id);
-      if (current) {
-        current.status = input.status;
-      }
-      return current ?? { id: input.id };
-    });
+    fence = createFencedResearchStore({ runs, ideas: ownedIdeas });
+    bindFenceStore();
 
     const provider = new FixtureResearchProvider();
     const related = vi.spyOn(provider, "relatedKeywordIdeas");
@@ -609,5 +694,44 @@ describe("startResearchForOwner", () => {
     ]);
     expect(related.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(runs).toHaveLength(2);
+  });
+
+  it("does not execute the provider while the claim lock is held", async () => {
+    const runs: ResearchRunRecord[] = [];
+    const order: string[] = [];
+    const serialized = createSerializedResearchClaim({
+      runs,
+      afterAcquire: async () => {
+        order.push("lock");
+      },
+    });
+    fence = createFencedResearchStore({ runs, ideas: ownedIdeas });
+    bindFenceStore();
+    claimResearchRunMock.mockImplementation(async (input: Parameters<typeof claimedRunFromInput>[0]) => {
+      const result = await serialized.claim({
+        websiteId: input.websiteId,
+        requestFingerprint: input.requestFingerprint,
+        insert: { ...input, requestFingerprint: input.requestFingerprint },
+      });
+      order.push("claimed");
+      return result;
+    });
+    const provider = new FixtureResearchProvider();
+    vi.spyOn(provider, "relatedKeywordIdeas").mockImplementation(async (input) => {
+      order.push("network");
+      return new FixtureResearchProvider().relatedKeywordIdeas(input);
+    });
+
+    await startResearchForOwner({
+      websiteId: "site-1",
+      sessionToken: "session",
+      countryKey: "ES",
+      languages: ["en"],
+      selectedOfferings: ["silk paint"],
+      provider,
+    });
+
+    expect(order.indexOf("lock")).toBeLessThan(order.indexOf("claimed"));
+    expect(order.indexOf("claimed")).toBeLessThan(order.indexOf("network"));
   });
 });

@@ -17,6 +17,19 @@ export const RESEARCH_LANGUAGE_LABEL = "Language";
 export const RESEARCH_RETRIEVED_LABEL = "Retrieved";
 export const RESEARCH_EVIDENCE_LABEL = "Why Foundfy is showing this";
 export const RESEARCH_PARTIAL_COPY = "Some related-demand requests did not finish, so this list may be incomplete.";
+export const RESEARCH_INTERRUPTED_COPY = "This research run was interrupted.";
+export const RESEARCH_NO_REPLAY_COPY =
+  "Foundfy will not automatically repeat requests that may already have been sent.";
+export const RESEARCH_RESUME_UNATTEMPTED_LABEL = "Resume unattempted requests";
+export const RESEARCH_NO_SAFE_RETRY_COPY =
+  "There are no requests Foundfy can safely repeat automatically.";
+export const RESEARCH_CLOSED_COPY = "This research run was closed.";
+export const RESEARCH_CLOSE_LABEL = "Close this research run";
+export const RESEARCH_CLOSE_HELP_COPY =
+  "Closing keeps this evidence and stops recovery for this run. You can start a new research cycle later if you choose.";
+export const RESEARCH_NEW_CYCLE_LABEL = "Start a new research cycle";
+export const RESEARCH_NEW_CYCLE_HELP_COPY =
+  "This starts new external research. It is not a retry of the closed run.";
 export const RESEARCH_EMPTY_COPY = "Foundfy did not keep related searches for this run.";
 export const RESEARCH_ERROR_COPY = "Foundfy couldn’t research related demand right now.";
 export const RESEARCH_DISABLED_COPY = "Research is not available right now.";
@@ -49,6 +62,11 @@ export const RESEARCH_GATE_COPY: Record<ResearchGateCode, string> = {
   credentials_missing: RESEARCH_DISABLED_COPY,
   request_cap_exceeded: "Foundfy can research a limited number of offerings and languages at a time.",
   retry_not_safe: RESEARCH_RETRY_NOT_SAFE_COPY,
+  recovery_busy: "Foundfy is already continuing this research run.",
+  not_recoverable: "Foundfy cannot recover this research run automatically.",
+  execution_superseded: "Foundfy is already continuing this research run.",
+  already_closed: "This research run is already closed.",
+  not_closeable: "Foundfy cannot close this research run right now.",
 };
 
 export function researchGate(code: ResearchGateCode, message?: string): ResearchGate {

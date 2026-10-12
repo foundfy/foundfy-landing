@@ -1,16 +1,23 @@
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
 import { parseRequestLedger, serializeRequestLedger } from "./ledger";
+import { ResearchExecutionSupersededError } from "./errors";
 import type {
   InitialGscSampleStatus,
   ResearchClaimOutcome,
   ResearchClaimResult,
+  ResearchCloseOutcome,
+  ResearchFenceOutcome,
   ResearchIdeaRecord,
   ResearchProviderEnvironment,
   ResearchProviderId,
+  ResearchRecoveryOutcome,
+  ResearchRecoveryResult,
   ResearchRequestLedgerEntry,
+  ResearchRequestStatus,
   ResearchRunRecord,
   ResearchRunStatus,
 } from "./types";
+import type { FencedIdeaInsert } from "./fence";
 
 type ResearchRunRow = {
   id: string;
@@ -37,6 +44,9 @@ type ResearchRunRow = {
   started_at: string | null;
   completed_at: string | null;
   updated_at: string;
+  last_progress_at: string | null;
+  execution_generation: number | string | null;
+  closed_at: string | null;
 };
 
 type ResearchIdeaRow = {
@@ -51,14 +61,25 @@ type ResearchIdeaRow = {
   estimated_monthly_searches: number | null;
   provider_result_order: number;
   initial_gsc_sample_status: InitialGscSampleStatus;
+  request_key: string | null;
   created_at: string;
 };
 
 const RUN_COLUMNS =
-  "id, website_id, site_model_id, site_model_confirmed_at, requested_by, gsc_sync_id, gsc_queries_truncated, country_key, country_name, location_code, language_codes, offering_seeds, provider, provider_environment, status, request_fingerprint, request_ledger, provider_cost, failure_code, failure_message, created_at, started_at, completed_at, updated_at";
+  "id, website_id, site_model_id, site_model_confirmed_at, requested_by, gsc_sync_id, gsc_queries_truncated, country_key, country_name, location_code, language_codes, offering_seeds, provider, provider_environment, status, request_fingerprint, request_ledger, provider_cost, failure_code, failure_message, created_at, started_at, completed_at, updated_at, last_progress_at, execution_generation, closed_at";
 
 const IDEA_COLUMNS =
-  "id, run_id, website_id, seed_offering, language_code, provider_task_id, keyword, compact_key, estimated_monthly_searches, provider_result_order, initial_gsc_sample_status, created_at";
+  "id, run_id, website_id, seed_offering, language_code, provider_task_id, keyword, compact_key, estimated_monthly_searches, provider_result_order, initial_gsc_sample_status, request_key, created_at";
+
+const FENCE_OUTCOMES: ResearchFenceOutcome[] = [
+  "claimed",
+  "persisted",
+  "finalized",
+  "superseded",
+  "already_attempted",
+  "missing_request",
+  "invalid_state",
+];
 
 function mapRun(row: ResearchRunRow): ResearchRunRecord {
   return {
@@ -86,6 +107,9 @@ function mapRun(row: ResearchRunRow): ResearchRunRecord {
     startedAt: row.started_at,
     completedAt: row.completed_at,
     updatedAt: row.updated_at,
+    lastProgressAt: row.last_progress_at ?? row.updated_at,
+    executionGeneration: Number(row.execution_generation ?? 1),
+    closedAt: row.closed_at ?? null,
   };
 }
 
@@ -102,110 +126,179 @@ function mapIdea(row: ResearchIdeaRow): ResearchIdeaRecord {
     estimatedMonthlySearches: row.estimated_monthly_searches,
     providerResultOrder: row.provider_result_order,
     initialGscSampleStatus: row.initial_gsc_sample_status,
+    requestKey: row.request_key ?? "",
     createdAt: row.created_at,
   };
 }
 
-export async function updateResearchRun(input: {
-  id: string;
-  status: ResearchRunStatus;
-  requestLedger?: ResearchRequestLedgerEntry[];
-  providerCost?: number | null;
-  failureCode?: string | null;
-  failureMessage?: string | null;
-  startedAt?: string | null;
-  completedAt?: string | null;
-}): Promise<ResearchRunRecord> {
-  const supabase = getSupabaseAdmin();
-  const now = new Date().toISOString();
-  const patch: Record<string, unknown> = {
-    status: input.status,
-    updated_at: now,
-  };
-  if (input.requestLedger) {
-    patch.request_ledger = serializeRequestLedger(input.requestLedger);
+function mapFenceOutcome(value: unknown): ResearchFenceOutcome {
+  if (typeof value === "string" && FENCE_OUTCOMES.includes(value as ResearchFenceOutcome)) {
+    return value as ResearchFenceOutcome;
   }
-  if (input.providerCost !== undefined) {
-    patch.provider_cost = input.providerCost;
-  }
-  if (input.failureCode !== undefined) {
-    patch.failure_code = input.failureCode;
-  }
-  if (input.failureMessage !== undefined) {
-    patch.failure_message = input.failureMessage;
-  }
-  if (input.startedAt !== undefined) {
-    patch.started_at = input.startedAt;
-  }
-  if (input.completedAt !== undefined) {
-    patch.completed_at = input.completedAt;
-  }
-
-  const { data, error } = await supabase
-    .from("research_runs")
-    .update(patch)
-    .eq("id", input.id)
-    .select(RUN_COLUMNS)
-    .maybeSingle();
-
-  if (error || !data) {
-    throw new Error(`Failed to update research run: ${error?.message ?? "unknown error"}`);
-  }
-
-  return mapRun(data as ResearchRunRow);
+  throw new Error("Failed to parse research fence outcome.");
 }
 
-export async function insertResearchIdeas(
-  ideas: Array<Omit<ResearchIdeaRecord, "id" | "createdAt">>,
-): Promise<ResearchIdeaRecord[]> {
-  if (ideas.length === 0) {
-    return [];
+function mapRunFromPayload(run: unknown): ResearchRunRecord | null {
+  if (!run || typeof run !== "object") {
+    return null;
   }
-
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("research_ideas")
-    .insert(
-      ideas.map((idea) => ({
-        run_id: idea.runId,
-        website_id: idea.websiteId,
-        seed_offering: idea.seedOffering,
-        language_code: idea.languageCode,
-        provider_task_id: idea.providerTaskId,
-        keyword: idea.keyword,
-        compact_key: idea.compactKey,
-        estimated_monthly_searches: idea.estimatedMonthlySearches,
-        provider_result_order: idea.providerResultOrder,
-        initial_gsc_sample_status: idea.initialGscSampleStatus,
-      })),
-    )
-    .select(IDEA_COLUMNS);
-
-  if (error) {
-    throw new Error(`Failed to store research ideas: ${error.message}`);
-  }
-
-  return (data ?? []).map((row) => mapIdea(row as ResearchIdeaRow));
+  return mapRun(run as ResearchRunRow);
 }
 
-export async function listResearchRunsForFingerprint(input: {
+function rejectIfSuperseded(outcome: ResearchFenceOutcome): void {
+  if (outcome === "superseded") {
+    throw new ResearchExecutionSupersededError();
+  }
+}
+
+async function callFenceRpc(
+  name: string,
+  args: Record<string, unknown>,
+): Promise<{ outcome: ResearchFenceOutcome; run: ResearchRunRecord | null }> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.rpc(name, args);
+  if (error || !data || typeof data !== "object") {
+    throw new Error(`Failed to ${name}: ${error?.message ?? "unknown error"}`);
+  }
+  const payload = data as { outcome?: unknown; run?: unknown };
+  const outcome = mapFenceOutcome(payload.outcome);
+  rejectIfSuperseded(outcome);
+  return { outcome, run: mapRunFromPayload(payload.run) };
+}
+
+export async function persistResearchRequestPlan(input: {
+  runId: string;
   websiteId: string;
-  fingerprint: string;
-}): Promise<ResearchRunRecord[]> {
+  executionGeneration: number;
+  ledger: ResearchRequestLedgerEntry[];
+}): Promise<{ outcome: ResearchFenceOutcome; run: ResearchRunRecord | null }> {
+  return callFenceRpc("persist_research_request_plan", {
+    p_run_id: input.runId,
+    p_website_id: input.websiteId,
+    p_execution_generation: input.executionGeneration,
+    p_request_ledger: serializeRequestLedger(input.ledger),
+  });
+}
+
+export async function claimResearchRequest(input: {
+  runId: string;
+  websiteId: string;
+  executionGeneration: number;
+  requestKey: string;
+}): Promise<{ outcome: ResearchFenceOutcome; run: ResearchRunRecord | null }> {
+  return callFenceRpc("claim_research_request", {
+    p_run_id: input.runId,
+    p_website_id: input.websiteId,
+    p_execution_generation: input.executionGeneration,
+    p_request_key: input.requestKey,
+  });
+}
+
+export async function persistResearchRequestResult(input: {
+  runId: string;
+  websiteId: string;
+  executionGeneration: number;
+  requestKey: string;
+  status: Extract<
+    ResearchRequestStatus,
+    "succeeded" | "zero_results" | "failed" | "timeout" | "rate_limited"
+  >;
+  providerTaskId: string | null;
+  ideaCount: number;
+  providerCost: number | null;
+  failureCode: string | null;
+  ideas: FencedIdeaInsert[];
+}): Promise<{ outcome: ResearchFenceOutcome; run: ResearchRunRecord | null; ideas: ResearchIdeaRecord[] }> {
+  const result = await callFenceRpc("persist_research_request_result", {
+    p_run_id: input.runId,
+    p_website_id: input.websiteId,
+    p_execution_generation: input.executionGeneration,
+    p_request_key: input.requestKey,
+    p_status: input.status,
+    p_provider_task_id: input.providerTaskId,
+    p_idea_count: input.ideaCount,
+    p_provider_cost: input.providerCost,
+    p_failure_code: input.failureCode,
+    p_ideas: input.ideas.map((idea) => ({
+      seedOffering: idea.seedOffering,
+      languageCode: idea.languageCode,
+      providerTaskId: idea.providerTaskId,
+      keyword: idea.keyword,
+      compactKey: idea.compactKey,
+      estimatedMonthlySearches: idea.estimatedMonthlySearches,
+      providerResultOrder: idea.providerResultOrder,
+      initialGscSampleStatus: idea.initialGscSampleStatus,
+    })),
+  });
+  return { ...result, ideas: [] };
+}
+
+export async function skipUnattemptedResearchRequests(input: {
+  runId: string;
+  websiteId: string;
+  executionGeneration: number;
+  failureCode: string | null;
+}): Promise<{ outcome: ResearchFenceOutcome; run: ResearchRunRecord | null }> {
+  return callFenceRpc("skip_unattempted_research_requests", {
+    p_run_id: input.runId,
+    p_website_id: input.websiteId,
+    p_execution_generation: input.executionGeneration,
+    p_failure_code: input.failureCode,
+  });
+}
+
+export async function finalizeFencedResearchRun(input: {
+  runId: string;
+  websiteId: string;
+  executionGeneration: number;
+  status: Extract<ResearchRunStatus, "completed" | "partial" | "failed" | "interrupted">;
+  providerCost: number | null;
+  failureCode: string | null;
+  failureMessage: string | null;
+  completedAt: string | null;
+}): Promise<{ outcome: ResearchFenceOutcome; run: ResearchRunRecord | null }> {
+  return callFenceRpc("finalize_research_run", {
+    p_run_id: input.runId,
+    p_website_id: input.websiteId,
+    p_execution_generation: input.executionGeneration,
+    p_status: input.status,
+    p_provider_cost: input.providerCost,
+    p_failure_code: input.failureCode,
+    p_failure_message: input.failureMessage,
+    p_completed_at: input.completedAt,
+  });
+}
+
+export async function closeResearchRun(input: {
+  runId: string;
+  websiteId: string;
+}): Promise<{ outcome: ResearchCloseOutcome; run: ResearchRunRecord | null }> {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("research_runs")
-    .select(RUN_COLUMNS)
-    .eq("website_id", input.websiteId)
-    .eq("request_fingerprint", input.fingerprint)
-    .order("created_at", { ascending: false })
-    .limit(30);
-
-  if (error) {
-    throw new Error(`Failed to load research runs for fingerprint: ${error.message}`);
+  const { data, error } = await supabase.rpc("close_research_run", {
+    p_run_id: input.runId,
+    p_website_id: input.websiteId,
+  });
+  if (error || !data || typeof data !== "object") {
+    throw new Error(`Failed to close research run: ${error?.message ?? "unknown error"}`);
   }
-
-  return (data ?? []).map((row) => mapRun(row as ResearchRunRow));
+  const payload = data as { outcome?: unknown; run?: unknown };
+  const outcome = payload.outcome;
+  if (
+    outcome !== "closed" &&
+    outcome !== "already_closed" &&
+    outcome !== "not_closeable" &&
+    outcome !== "recovery_busy" &&
+    outcome !== "not_found"
+  ) {
+    throw new Error("Failed to close research run: unexpected outcome.");
+  }
+  if (outcome === "not_found") {
+    return { outcome, run: null };
+  }
+  return {
+    outcome,
+    run: mapRunFromPayload(payload.run),
+  };
 }
 
 export async function claimResearchRun(input: {
@@ -256,6 +349,7 @@ export async function claimResearchRun(input: {
     outcome !== "reuse_completed" &&
     outcome !== "reuse_active" &&
     outcome !== "block_retry" &&
+    outcome !== "recovery_required" &&
     outcome !== "claimed"
   ) {
     throw new Error("Failed to claim research run: unexpected outcome.");
@@ -267,6 +361,84 @@ export async function claimResearchRun(input: {
 
   return {
     kind: outcome as ResearchClaimOutcome,
+    run: mapRun(payload.run as ResearchRunRow),
+  };
+}
+
+export async function listResearchRunsForFingerprint(input: {
+  websiteId: string;
+  fingerprint: string;
+}): Promise<ResearchRunRecord[]> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("research_runs")
+    .select(RUN_COLUMNS)
+    .eq("website_id", input.websiteId)
+    .eq("request_fingerprint", input.fingerprint)
+    .order("created_at", { ascending: false })
+    .limit(30);
+
+  if (error) {
+    throw new Error(`Failed to load research runs for fingerprint: ${error.message}`);
+  }
+
+  return (data ?? []).map((row) => mapRun(row as ResearchRunRow));
+}
+
+export async function findResearchRunForWebsite(input: {
+  runId: string;
+  websiteId: string;
+}): Promise<ResearchRunRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("research_runs")
+    .select(RUN_COLUMNS)
+    .eq("id", input.runId)
+    .eq("website_id", input.websiteId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load research run: ${error.message}`);
+  }
+
+  return data ? mapRun(data as ResearchRunRow) : null;
+}
+
+export async function claimResearchRecovery(input: {
+  runId: string;
+  websiteId: string;
+}): Promise<ResearchRecoveryResult> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.rpc("claim_research_recovery", {
+    p_run_id: input.runId,
+    p_website_id: input.websiteId,
+  });
+
+  if (error || !data || typeof data !== "object") {
+    throw new Error(`Failed to claim research recovery: ${error?.message ?? "unknown error"}`);
+  }
+
+  const payload = data as { outcome?: unknown; run?: unknown };
+  const outcome = payload.outcome;
+  if (
+    outcome !== "claimed_recovery" &&
+    outcome !== "recovery_busy" &&
+    outcome !== "not_recoverable" &&
+    outcome !== "not_found"
+  ) {
+    throw new Error("Failed to claim research recovery: unexpected outcome.");
+  }
+
+  if (outcome === "not_found") {
+    return { kind: outcome, run: null };
+  }
+
+  if (!payload.run || typeof payload.run !== "object") {
+    throw new Error("Failed to claim research recovery: missing run.");
+  }
+
+  return {
+    kind: outcome as ResearchRecoveryOutcome,
     run: mapRun(payload.run as ResearchRunRow),
   };
 }

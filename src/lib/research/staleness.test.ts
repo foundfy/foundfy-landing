@@ -28,6 +28,9 @@ function run(overrides: Partial<ResearchRunRecord> = {}): ResearchRunRecord {
     startedAt: "2026-10-10T00:00:00.000Z",
     completedAt: "2026-10-10T00:00:01.000Z",
     updatedAt: "2026-10-10T00:00:01.000Z",
+    lastProgressAt: "2026-10-10T00:00:01.000Z",
+    executionGeneration: 1,
+    closedAt: null,
     ...overrides,
   };
 }

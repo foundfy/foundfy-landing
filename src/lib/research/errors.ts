@@ -26,6 +26,15 @@ export const RESEARCH_PROVIDER_ERROR_CODES = [
 
 export type ResearchProviderErrorCode = (typeof RESEARCH_PROVIDER_ERROR_CODES)[number];
 
+export class ResearchExecutionSupersededError extends Error {
+  readonly code = "execution_superseded" as const;
+
+  constructor(message = "This research execution is no longer current.") {
+    super(message);
+    this.name = "ResearchExecutionSupersededError";
+  }
+}
+
 export class ResearchProviderError extends Error {
   readonly code: ResearchProviderErrorCode;
   readonly retryable: boolean;

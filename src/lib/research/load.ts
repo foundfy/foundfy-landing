@@ -13,6 +13,7 @@ import {
   findLatestCompatibleResearchRun,
   listResearchIdeasForRun,
 } from "./repository";
+import { researchRunRecoveryState } from "./recovery";
 import { researchStaleReasons } from "./staleness";
 import type {
   ResearchIdeaView,
@@ -50,6 +51,7 @@ function toRunView(input: {
   staleReasons: ResearchRunView["staleReasons"];
   currentGscQueriesTruncated: boolean;
 }): ResearchRunView {
+  const recovery = researchRunRecoveryState(input.run);
   return {
     id: input.run.id,
     status: input.run.status,
@@ -65,10 +67,20 @@ function toRunView(input: {
     gscQueriesTruncatedAtRetrieval: input.run.gscQueriesTruncated,
     currentGscQueriesTruncated: input.currentGscQueriesTruncated,
     incomplete:
+      recovery.displayInterrupted ||
       input.run.status === "partial" ||
       input.run.status === "requested" ||
       input.run.status === "running" ||
-      input.run.status === "failed",
+      input.run.status === "failed" ||
+      input.run.status === "interrupted" ||
+      input.run.status === "closed",
+    recoveryRequired: recovery.recoveryRequired,
+    canResumeUnattempted: recovery.canResumeUnattempted,
+    safeUnattemptedCount: recovery.safeUnattemptedCount,
+    displayInterrupted: recovery.displayInterrupted,
+    displayClosed: recovery.displayClosed,
+    canClose: recovery.canClose,
+    canStartNewCycle: recovery.canStartNewCycle,
     ideas: input.ideas,
   };
 }

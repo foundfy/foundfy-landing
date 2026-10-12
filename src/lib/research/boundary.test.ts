@@ -11,10 +11,17 @@ describe("RESEARCH v0 source boundary", () => {
     const files = [
       read("./start.ts"),
       read("./load.ts"),
+      read("./recover.ts"),
+      read("./execute.ts"),
+      read("./recovery.ts"),
+      read("./request-key.ts"),
       read("./display.ts"),
       read("./filter.ts"),
       read("./gsc-join.ts"),
       read("../../app/api/websites/[websiteId]/research/route.ts"),
+      read("../../app/api/websites/[websiteId]/research/[runId]/recover/route.ts"),
+      read("../../app/api/websites/[websiteId]/research/[runId]/close/route.ts"),
+      read("./close.ts"),
       read("../../components/site/SiteResearchSection.tsx"),
     ].join("\n");
 
@@ -32,6 +39,13 @@ describe("RESEARCH v0 source boundary", () => {
     expect(display).toContain("Test data — this is not real market demand.");
     expect(ui).toContain("run.isTestData");
     expect(ui).toContain("readiness?.surfaceVisible");
+    expect(ui).toContain("RESEARCH_RESUME_UNATTEMPTED_LABEL");
+    expect(ui).toContain("RESEARCH_CLOSE_LABEL");
+    expect(ui).toContain("RESEARCH_NEW_CYCLE_LABEL");
+    expect(ui).toContain("run.displayInterrupted");
+    expect(ui).toContain("recoveryOwnsCta");
+    expect(ui).not.toMatch(/Retry all/);
+    expect(ui).not.toMatch(/Close and retry|Start again/);
     expect(display).toContain("Estimated monthly searches");
     expect(display).not.toMatch(/people searching every month|easy win|you should create a page/);
   });
@@ -39,8 +53,10 @@ describe("RESEARCH v0 source boundary", () => {
   it("keeps GET from invoking the provider", () => {
     const load = read("./load.ts");
     const route = read("../../app/api/websites/[websiteId]/research/route.ts");
-    expect(load).not.toMatch(/relatedKeywordIdeas|resolveResearchProvider/);
+    expect(load).not.toMatch(/relatedKeywordIdeas|resolveResearchProvider|updateResearchRun|claimResearchRecovery/);
     expect(route).toMatch(/export async function GET/);
     expect(route).toMatch(/loadResearchForOwner/);
+    expect(route).not.toMatch(/recoverResearchForOwner|executeResearchLedger|closeResearchForOwner/);
+    expect(read("./close.ts")).not.toMatch(/relatedKeywordIdeas|resolveResearchProvider|claimResearchRecovery|executeResearchLedger|claimResearchRun/);
   });
 });
