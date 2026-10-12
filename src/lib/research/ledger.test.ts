@@ -1,23 +1,33 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildRequestPlan,
+  classifyLedgerReplay,
+  ledgerEntrySafeToResume,
   ledgerHasAmbiguousRequest,
   ledgerHasSecrets,
   parseRequestLedger,
   serializeRequestLedger,
 } from "./ledger";
+import { researchRequestKey } from "./request-key";
 import type { ResearchRequestLedgerEntry } from "./types";
 
-const entry = (status: ResearchRequestLedgerEntry["status"]): ResearchRequestLedgerEntry => ({
+const entry = (
+  status: ResearchRequestLedgerEntry["status"],
+  overrides: Partial<ResearchRequestLedgerEntry> = {},
+): ResearchRequestLedgerEntry => ({
+  requestKey: researchRequestKey(overrides.seedOffering ?? "silk paint", overrides.languageCode ?? "ca"),
   seedOffering: "silk paint",
   languageCode: "ca",
   locationCode: 2724,
   providerTaskId: status === "succeeded" ? "task-1" : null,
   status,
   requestedAt: "2026-10-11T00:00:00.000Z",
-  retrievedAt: status === "skipped" ? null : "2026-10-11T00:00:01.000Z",
+  attemptedAt: status === "pending" || status === "skipped" ? null : "2026-10-11T00:00:00.500Z",
+  retrievedAt: status === "skipped" || status === "pending" ? null : "2026-10-11T00:00:01.000Z",
   ideaCount: status === "succeeded" ? 3 : 0,
   providerCost: status === "succeeded" ? 0.09 : null,
   failureCode: status === "failed" || status === "timeout" || status === "rate_limited" ? status : null,
+  ...overrides,
 });
 
 describe("RESEARCH request ledger", () => {
@@ -43,7 +53,13 @@ describe("RESEARCH request ledger", () => {
       "rate_limited",
       "skipped",
     ]);
+    expect(ledger.every((item) => item.requestKey === researchRequestKey("silk paint", "ca"))).toBe(
+      true,
+    );
     expect(parseRequestLedger(ledger).find((item) => item.status === "failed")?.ideaCount).toBe(0);
+    expect(parseRequestLedger(ledger).find((item) => item.status === "in_flight")?.attemptedAt).toBe(
+      "2026-10-11T00:00:00.500Z",
+    );
   });
 
   it("bounds the ledger to 15 entries and refuses secret-like payloads", () => {
@@ -61,5 +77,46 @@ describe("RESEARCH request ledger", () => {
     expect(ledgerHasAmbiguousRequest([entry("in_flight")])).toBe(true);
     expect(ledgerHasAmbiguousRequest([entry("succeeded")])).toBe(false);
     expect(parseRequestLedger([{ ...entry("succeeded"), providerCost: -1 }])[0]?.providerCost).toBeNull();
+  });
+
+  it("pre-seeds a full pending plan with stable identities independent of later order", () => {
+    const plan = buildRequestPlan({
+      offerings: ["silk paint", "gutta resist"],
+      languages: ["en", "es"],
+      locationCode: 2724,
+      requestedAt: "2026-10-11T00:00:00.000Z",
+    });
+    expect(plan).toHaveLength(4);
+    expect(plan.every((item) => item.status === "pending" && item.attemptedAt == null)).toBe(true);
+    expect(new Set(plan.map((item) => item.requestKey)).size).toBe(4);
+    expect(plan[0]?.requestKey).toBe(researchRequestKey("silk paint", "en"));
+  });
+
+  it("rejects duplicate request identities inside one plan", () => {
+    expect(() =>
+      buildRequestPlan({
+        offerings: ["silk paint", "silk paint"],
+        languages: ["en"],
+        locationCode: 2724,
+        requestedAt: "2026-10-11T00:00:00.000Z",
+      }),
+    ).toThrow(/duplicate request identity/);
+  });
+
+  it("classifies replay safety by request identity, not array position", () => {
+    const ledger = [
+      entry("in_flight", { seedOffering: "silk paint", languageCode: "en" }),
+      entry("pending", { seedOffering: "gutta resist", languageCode: "en" }),
+    ];
+    const reordered = [...ledger].reverse();
+    expect(classifyLedgerReplay(ledger)).toEqual(classifyLedgerReplay(reordered));
+    expect(classifyLedgerReplay(reordered).blockedKeys).toContain(
+      researchRequestKey("silk paint", "en"),
+    );
+    expect(classifyLedgerReplay(reordered).resumableKeys).toContain(
+      researchRequestKey("gutta resist", "en"),
+    );
+    expect(ledgerEntrySafeToResume(ledger[0]!)).toBe(false);
+    expect(ledgerEntrySafeToResume(ledger[1]!)).toBe(true);
   });
 });

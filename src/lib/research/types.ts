@@ -13,6 +13,8 @@ export const RESEARCH_RUN_STATUSES = [
   "completed",
   "partial",
   "failed",
+  "interrupted",
+  "closed",
 ] as const;
 export type ResearchRunStatus = (typeof RESEARCH_RUN_STATUSES)[number];
 
@@ -61,12 +63,14 @@ export type ResearchLanguage = {
 };
 
 export type ResearchRequestLedgerEntry = {
+  requestKey: string;
   seedOffering: string;
   languageCode: string;
   locationCode: number;
   providerTaskId: string | null;
   status: ResearchRequestStatus;
   requestedAt: string;
+  attemptedAt: string | null;
   retrievedAt: string | null;
   ideaCount: number;
   providerCost: number | null;
@@ -85,6 +89,7 @@ export type ResearchIdeaRecord = {
   estimatedMonthlySearches: number | null;
   providerResultOrder: number;
   initialGscSampleStatus: InitialGscSampleStatus;
+  requestKey: string;
   createdAt: string;
 };
 
@@ -92,7 +97,30 @@ export type ResearchClaimOutcome =
   | "reuse_completed"
   | "reuse_active"
   | "block_retry"
+  | "recovery_required"
   | "claimed";
+
+export type ResearchRecoveryOutcome =
+  | "claimed_recovery"
+  | "recovery_busy"
+  | "not_recoverable"
+  | "not_found";
+
+export type ResearchFenceOutcome =
+  | "claimed"
+  | "persisted"
+  | "finalized"
+  | "superseded"
+  | "already_attempted"
+  | "missing_request"
+  | "invalid_state";
+
+export type ResearchCloseOutcome =
+  | "closed"
+  | "already_closed"
+  | "not_closeable"
+  | "recovery_busy"
+  | "not_found";
 
 export type ResearchClaimResult = {
   kind: ResearchClaimOutcome;
@@ -124,6 +152,14 @@ export type ResearchRunRecord = {
   startedAt: string | null;
   completedAt: string | null;
   updatedAt: string;
+  lastProgressAt: string | null;
+  executionGeneration: number;
+  closedAt: string | null;
+};
+
+export type ResearchRecoveryResult = {
+  kind: ResearchRecoveryOutcome;
+  run: ResearchRunRecord | null;
 };
 
 export type ResearchIdeaView = {
@@ -154,6 +190,13 @@ export type ResearchRunView = {
   gscQueriesTruncatedAtRetrieval: boolean;
   currentGscQueriesTruncated: boolean;
   incomplete: boolean;
+  recoveryRequired: boolean;
+  canResumeUnattempted: boolean;
+  safeUnattemptedCount: number;
+  displayInterrupted: boolean;
+  displayClosed: boolean;
+  canClose: boolean;
+  canStartNewCycle: boolean;
   ideas: ResearchIdeaView[];
 };
 
@@ -171,7 +214,12 @@ export type ResearchGateCode =
   | "live_not_enabled"
   | "credentials_missing"
   | "request_cap_exceeded"
-  | "retry_not_safe";
+  | "retry_not_safe"
+  | "recovery_busy"
+  | "not_recoverable"
+  | "execution_superseded"
+  | "already_closed"
+  | "not_closeable";
 
 export type ResearchGate = {
   code: ResearchGateCode;

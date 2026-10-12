@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  RESEARCH_CLOSE_HELP_COPY,
+  RESEARCH_CLOSE_LABEL,
+  RESEARCH_CLOSED_COPY,
   RESEARCH_COUNTRY_LABEL,
   RESEARCH_CTA_LABEL,
   RESEARCH_DISABLED_COPY,
@@ -9,9 +12,15 @@ import {
   RESEARCH_ERROR_COPY,
   RESEARCH_EVIDENCE_LABEL,
   RESEARCH_IN_SAMPLE_COPY,
+  RESEARCH_INTERRUPTED_COPY,
   RESEARCH_LANGUAGE_LABEL,
+  RESEARCH_NEW_CYCLE_HELP_COPY,
+  RESEARCH_NEW_CYCLE_LABEL,
+  RESEARCH_NO_REPLAY_COPY,
+  RESEARCH_NO_SAFE_RETRY_COPY,
   RESEARCH_NOT_IN_SAMPLE_COPY,
   RESEARCH_PARTIAL_COPY,
+  RESEARCH_RESUME_UNATTEMPTED_LABEL,
   RESEARCH_RETRIEVED_LABEL,
   RESEARCH_SECTION_COPY,
   RESEARCH_SECTION_HEADING,
@@ -143,6 +152,62 @@ export default function SiteResearchSection({
     }
   };
 
+  const closeRun = async () => {
+    if (!view?.run?.canClose) {
+      return;
+    }
+
+    setIsSaving(true);
+    setErrorMessage(null);
+    try {
+      const response = await fetch(
+        `/api/websites/${websiteId}/research/${view.run.id}/close`,
+        { method: "POST" },
+      );
+      const payload = (await response.json()) as ResearchOwnerView & {
+        error?: string;
+      };
+      if (!response.ok) {
+        setErrorMessage(payload.error ?? RESEARCH_ERROR_COPY);
+        return;
+      }
+
+      setView(payload);
+    } catch {
+      setErrorMessage(RESEARCH_ERROR_COPY);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const recover = async () => {
+    if (!view?.run?.canResumeUnattempted) {
+      return;
+    }
+
+    setIsSaving(true);
+    setErrorMessage(null);
+    try {
+      const response = await fetch(
+        `/api/websites/${websiteId}/research/${view.run.id}/recover`,
+        { method: "POST" },
+      );
+      const payload = (await response.json()) as ResearchOwnerView & {
+        error?: string;
+      };
+      if (!response.ok) {
+        setErrorMessage(payload.error ?? RESEARCH_ERROR_COPY);
+        return;
+      }
+
+      setView(payload);
+    } catch {
+      setErrorMessage(RESEARCH_ERROR_COPY);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (!visible) {
     return null;
   }
@@ -166,12 +231,15 @@ export default function SiteResearchSection({
 
   const gate = view.readiness.gate;
   const run = view.run;
+  const recoveryOwnsCta = Boolean(run?.displayInterrupted);
   const showForm =
-    !gate ||
-    gate.code === "no_research_country" ||
-    gate.code === "no_research_language" ||
-    gate.code === "offering_selection_required" ||
-    view.readiness.executionAvailable;
+    !recoveryOwnsCta &&
+    (!gate ||
+      gate.code === "no_research_country" ||
+      gate.code === "no_research_language" ||
+      gate.code === "offering_selection_required" ||
+      view.readiness.executionAvailable);
+  const startLabel = run?.canStartNewCycle ? RESEARCH_NEW_CYCLE_LABEL : RESEARCH_CTA_LABEL;
 
   return (
     <section className={styles.section} aria-labelledby="site-research">
@@ -273,13 +341,16 @@ export default function SiteResearchSection({
             ))}
           </fieldset>
 
+          {run?.canStartNewCycle ? (
+            <p className={styles.sectionMeta}>{RESEARCH_NEW_CYCLE_HELP_COPY}</p>
+          ) : null}
           <div className={styles.interpretationActions}>
             <button
               className={styles.scanButton}
               type="submit"
               disabled={isSaving || !canSubmit}
             >
-              {isSaving ? "Researching…" : RESEARCH_CTA_LABEL}
+              {isSaving ? "Researching…" : startLabel}
             </button>
           </div>
         </form>
@@ -295,7 +366,52 @@ export default function SiteResearchSection({
         <div className={styles.understandingBlock}>
           {run.isTestData ? <p className={styles.researchBanner}>{RESEARCH_TEST_DATA_COPY}</p> : null}
           {run.stale ? <p className={styles.sectionMeta}>{RESEARCH_STALE_COPY}</p> : null}
-          {run.incomplete ? <p className={styles.sectionMeta}>{RESEARCH_PARTIAL_COPY}</p> : null}
+          {run.displayClosed ? (
+            <div className={styles.understandingBlock}>
+              <p className={styles.researchBanner}>{RESEARCH_CLOSED_COPY}</p>
+              {run.incomplete ? (
+                <p className={styles.sectionMeta}>{RESEARCH_PARTIAL_COPY}</p>
+              ) : null}
+            </div>
+          ) : run.displayInterrupted ? (
+            <div className={styles.understandingBlock}>
+              <p className={styles.researchBanner}>{RESEARCH_INTERRUPTED_COPY}</p>
+              <p className={styles.sectionMeta}>{RESEARCH_NO_REPLAY_COPY}</p>
+              {run.canResumeUnattempted ? (
+                <div className={styles.interpretationActions}>
+                  <button
+                    className={styles.scanButton}
+                    type="button"
+                    disabled={isSaving}
+                    onClick={() => {
+                      void recover();
+                    }}
+                  >
+                    {isSaving ? "Resuming…" : RESEARCH_RESUME_UNATTEMPTED_LABEL}
+                  </button>
+                </div>
+              ) : (
+                <p className={styles.sectionMeta}>{RESEARCH_NO_SAFE_RETRY_COPY}</p>
+              )}
+              {run.canClose ? (
+                <div className={styles.interpretationActions}>
+                  <p className={styles.sectionMeta}>{RESEARCH_CLOSE_HELP_COPY}</p>
+                  <button
+                    className={styles.scanButton}
+                    type="button"
+                    disabled={isSaving}
+                    onClick={() => {
+                      void closeRun();
+                    }}
+                  >
+                    {isSaving ? "Closing…" : RESEARCH_CLOSE_LABEL}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : run.incomplete ? (
+            <p className={styles.sectionMeta}>{RESEARCH_PARTIAL_COPY}</p>
+          ) : null}
           {run.ideas.length === 0 ? (
             <p className={styles.understandingCopy}>{RESEARCH_EMPTY_COPY}</p>
           ) : (

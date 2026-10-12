@@ -30,4 +30,14 @@ describe("RESEARCH privacy lifecycle", () => {
     expect(overview).not.toMatch(/from \"@\/lib\/research|research_runs/);
     expect(publicRoute).not.toMatch(/from \"@\/lib\/research|loadResearchForOwner/);
   });
+
+  it("keeps migration 021 RPCs off anon and authenticated", () => {
+    const migration021 = read("../../../supabase/migrations/021_research_live_safety_hardening.sql");
+    expect(migration021).toMatch(/revoke all on function public\.claim_research_recovery\(uuid, uuid\) from public/);
+    expect(migration021).toMatch(/revoke all on function public\.claim_research_run\(uuid, text, timestamptz, jsonb\) from anon/);
+    expect(migration021).not.toMatch(/grant execute on function public\.finalize_research_run.*to anon/);
+    expect(migration021).toMatch(/revoke all on function public\.claim_research_request\(uuid, uuid, bigint, text\) from anon/);
+    expect(migration021).toMatch(/revoke all on function public\.close_research_run\(uuid, uuid\) from authenticated/);
+    expect(migration021).not.toMatch(/clicks|impressions|ctr|position/);
+  });
 });

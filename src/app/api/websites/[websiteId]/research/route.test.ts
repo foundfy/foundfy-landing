@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const loadResearchForOwnerMock = vi.fn();
 const startResearchForOwnerMock = vi.fn();
+const recoverResearchForOwnerMock = vi.fn();
 
 vi.mock("@/lib/research/load", () => ({
   loadResearchForOwner: (...args: unknown[]) => loadResearchForOwnerMock(...args),
@@ -9,6 +10,10 @@ vi.mock("@/lib/research/load", () => ({
 
 vi.mock("@/lib/research/start", () => ({
   startResearchForOwner: (...args: unknown[]) => startResearchForOwnerMock(...args),
+}));
+
+vi.mock("@/lib/research/recover", () => ({
+  recoverResearchForOwner: (...args: unknown[]) => recoverResearchForOwnerMock(...args),
 }));
 
 import { ObserveAuthError } from "@/lib/gsc/types";
@@ -48,5 +53,7 @@ describe("/api/websites/[websiteId]/research", () => {
       params: Promise.resolve({ websiteId: WEBSITE_ID }),
     });
     expect(startResearchForOwnerMock).not.toHaveBeenCalled();
+    expect(recoverResearchForOwnerMock).not.toHaveBeenCalled();
   });
 });
+
