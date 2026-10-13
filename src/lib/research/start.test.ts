@@ -809,8 +809,10 @@ describe("startResearchForOwner", () => {
   });
 
   it("resolves US and en from valid live metadata and continues to the claim path", async () => {
-    const fetchImpl = vi.fn(async (url: string) => {
+    const fetchImpl = vi.fn(async (url: string, init: RequestInit) => {
       if (url.includes("/locations")) {
+        expect(init.method).toBe("GET");
+        expect(init.body).toBeUndefined();
         return new Response(
           JSON.stringify({
             status_code: 20000,
@@ -838,6 +840,8 @@ describe("startResearchForOwner", () => {
         );
       }
       if (url.includes("/languages")) {
+        expect(init.method).toBe("GET");
+        expect(init.body).toBeUndefined();
         return new Response(
           JSON.stringify({
             status_code: 20000,
@@ -851,6 +855,8 @@ describe("startResearchForOwner", () => {
           { status: 200 },
         );
       }
+      expect(init.method).toBe("POST");
+      expect(init.body).toBeDefined();
       return new Response(
         JSON.stringify({
           tasks: [

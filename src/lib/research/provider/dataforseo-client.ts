@@ -12,8 +12,15 @@ export type DataForSeoFetch = (
   init: RequestInit,
 ) => Promise<Response>;
 
+export type DataForSeoRequestInput = {
+  method: "GET" | "POST";
+  path: string;
+  body?: unknown;
+};
+
 export type DataForSeoClient = {
   origin: DataForSeoOrigin;
+  request: (input: DataForSeoRequestInput) => Promise<unknown>;
   post: (path: string, body: unknown) => Promise<unknown>;
 };
 
@@ -31,23 +38,28 @@ export function createDataForSeoClient(input: {
   const fetchImpl = input.fetchImpl ?? fetch;
   const authorization = basicAuthHeader(input.login, input.password);
 
-  return {
+  const client: DataForSeoClient = {
     origin,
-    async post(path: string, body: unknown): Promise<unknown> {
-      const url = `${origin}${path}`;
+    async request(requestInput): Promise<unknown> {
+      const url = `${origin}${requestInput.path}`;
+      const headers: Record<string, string> = {
+        Authorization: authorization,
+      };
+      const init: RequestInit = {
+        method: requestInput.method,
+        headers,
+        signal: AbortSignal.timeout(RESEARCH_PROVIDER_TIMEOUT_MS),
+      };
+      if (requestInput.method === "POST") {
+        headers["Content-Type"] = "application/json";
+        init.body = JSON.stringify(requestInput.body);
+      }
+
       let response: Response;
       try {
-        response = await fetchImpl(url, {
-          method: "POST",
-          headers: {
-            Authorization: authorization,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(RESEARCH_PROVIDER_TIMEOUT_MS),
-        });
+        response = await fetchImpl(url, init);
       } catch (error) {
-        const category = dataForSeoRequestCategory(path);
+        const category = dataForSeoRequestCategory(requestInput.path);
         if (error instanceof DOMException && error.name === "TimeoutError") {
           logDataForSeoHttp({ category, errorCode: "timeout" });
           throw new ResearchProviderError("timeout", "DataForSEO request timed out.", true);
@@ -57,7 +69,7 @@ export function createDataForSeoClient(input: {
         throw new ResearchProviderError("server_error", "DataForSEO request failed.", true);
       }
 
-      const category = dataForSeoRequestCategory(path);
+      const category = dataForSeoRequestCategory(requestInput.path);
 
       if (response.status === 401 || response.status === 403) {
         logDataForSeoHttp({ category, httpStatus: response.status, errorCode: "unauthorized" });
@@ -96,5 +108,10 @@ export function createDataForSeoClient(input: {
         throw new ResearchProviderError("invalid_response", "DataForSEO returned invalid JSON.");
       }
     },
+    async post(path, body): Promise<unknown> {
+      return client.request({ method: "POST", path, body });
+    },
   };
+
+  return client;
 }

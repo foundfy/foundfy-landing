@@ -56,7 +56,7 @@ export class DataForSeoLiveResearchProvider implements ResearchProvider {
   async listCountries(): Promise<ResearchCountry[]> {
     return loadDataForSeoMetadata({
       category: "locations",
-      request: () => this.client.post(DATAFORSEO_LOCATIONS_PATH, []),
+      request: () => this.client.request({ method: "GET", path: DATAFORSEO_LOCATIONS_PATH }),
       parse: parseLocationsResponse,
     });
   }
@@ -64,7 +64,7 @@ export class DataForSeoLiveResearchProvider implements ResearchProvider {
   async listLanguages(): Promise<ResearchLanguage[]> {
     return loadDataForSeoMetadata({
       category: "languages",
-      request: () => this.client.post(DATAFORSEO_LANGUAGES_PATH, []),
+      request: () => this.client.request({ method: "GET", path: DATAFORSEO_LANGUAGES_PATH }),
       parse: parseLanguagesResponse,
     });
   }

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ResearchProviderError } from "../errors";
 import { DataForSeoLiveResearchProvider } from "./dataforseo-live";
 import {
+  DATAFORSEO_KEYWORDS_FOR_KEYWORDS_PATH,
   DATAFORSEO_LANGUAGES_PATH,
   DATAFORSEO_LIVE_ORIGIN,
   DATAFORSEO_LOCATIONS_PATH,
@@ -21,9 +22,19 @@ describe("DataForSEO live provider", () => {
   });
 
   it("uses the fixed live host through a mocked HTTP boundary", async () => {
-    const fetchImpl = vi.fn(async (url: string) => {
-      expect(url.startsWith(DATAFORSEO_LIVE_ORIGIN)).toBe(true);
+    const fetchImpl = vi.fn(async (url: string, init: RequestInit) => {
+      expect(url).toBe(`${DATAFORSEO_LIVE_ORIGIN}${DATAFORSEO_KEYWORDS_FOR_KEYWORDS_PATH}`);
       expect(url).not.toContain("sandbox.dataforseo.com");
+      expect(init.method).toBe("POST");
+      expect(JSON.parse(String(init.body))).toEqual([
+        {
+          keywords: ["silk paint"],
+          location_code: 2724,
+          language_code: "ca",
+          search_partners: false,
+          sort_by: "search_volume",
+        },
+      ]);
       return new Response(
         JSON.stringify({
           tasks: [
@@ -57,9 +68,10 @@ describe("DataForSEO live provider", () => {
   });
 
   it("resolves US Country metadata from a production-shaped locations envelope", async () => {
-    const fetchImpl = vi.fn(async (url: string) => {
-      expect(url.startsWith(DATAFORSEO_LIVE_ORIGIN)).toBe(true);
-      expect(url.endsWith(DATAFORSEO_LOCATIONS_PATH)).toBe(true);
+    const fetchImpl = vi.fn(async (url: string, init: RequestInit) => {
+      expect(url).toBe(`${DATAFORSEO_LIVE_ORIGIN}${DATAFORSEO_LOCATIONS_PATH}`);
+      expect(init.method).toBe("GET");
+      expect(init.body).toBeUndefined();
       return new Response(
         JSON.stringify({
           status_code: 20000,
@@ -95,6 +107,91 @@ describe("DataForSEO live provider", () => {
     await expect(provider.listCountries()).resolves.toEqual([
       { key: "US", name: "United States", locationCode: 2840 },
     ]);
+  });
+
+  it("GETs languages metadata with no body and parses en", async () => {
+    const fetchImpl = vi.fn(async (url: string, init: RequestInit) => {
+      expect(url).toBe(`${DATAFORSEO_LIVE_ORIGIN}${DATAFORSEO_LANGUAGES_PATH}`);
+      expect(init.method).toBe("GET");
+      expect(init.body).toBeUndefined();
+      return new Response(
+        JSON.stringify({
+          status_code: 20000,
+          tasks: [
+            {
+              status_code: 20000,
+              result: [
+                { language_code: "es", language_name: "Spanish" },
+                { language_code: "en", language_name: "English" },
+              ],
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    });
+    const provider = new DataForSeoLiveResearchProvider({
+      login: "login",
+      password: "password",
+      liveEnabled: true,
+      fetchImpl,
+    });
+    await expect(provider.listLanguages()).resolves.toEqual([
+      { code: "es", name: "Spanish" },
+      { code: "en", name: "English" },
+    ]);
+  });
+
+  it("does not POST empty metadata bodies that DataForSEO rejects as 40502", async () => {
+    const fetchImpl = vi.fn(async (url: string, init: RequestInit) => {
+      expect(init.method).toBe("GET");
+      expect(init.body).toBeUndefined();
+      expect(JSON.stringify(init)).not.toMatch(/\[\]/);
+      if (url.endsWith(DATAFORSEO_LANGUAGES_PATH)) {
+        return new Response(
+          JSON.stringify({
+            status_code: 20000,
+            tasks: [
+              {
+                status_code: 20000,
+                result: [{ language_code: "en", language_name: "English" }],
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          status_code: 20000,
+          tasks: [
+            {
+              status_code: 20000,
+              result: [
+                {
+                  location_code: 2840,
+                  location_name: "United States",
+                  country_iso_code: "US",
+                  location_type: "Country",
+                },
+              ],
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    });
+    const provider = new DataForSeoLiveResearchProvider({
+      login: "login",
+      password: "password",
+      liveEnabled: true,
+      fetchImpl,
+    });
+    await provider.listCountries();
+    await provider.listLanguages();
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(fetchImpl.mock.calls.every(([, init]) => init?.method === "GET")).toBe(true);
+    expect(fetchImpl.mock.calls.every(([, init]) => init?.body == null)).toBe(true);
   });
 
   it.each([
