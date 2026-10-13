@@ -1,6 +1,7 @@
 import { RESEARCH_MAX_PARSE_ROWS } from "../config";
 import { ResearchProviderError } from "../errors";
 import type { ResearchCountry, ResearchLanguage } from "../types";
+import { logDataForSeoMetadata } from "./dataforseo-diagnostics";
 import type { RelatedKeywordIdeasResult } from "./types";
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -17,13 +18,7 @@ function firstTask(payload: unknown): Record<string, unknown> | null {
   return asRecord(tasks[0]);
 }
 
-export function parseKeywordsForKeywordsResponse(payload: unknown): RelatedKeywordIdeasResult {
-  const task = firstTask(payload);
-  if (!task) {
-    throw new ResearchProviderError("invalid_response", "DataForSEO task was missing.");
-  }
-
-  const statusCode = task.status_code;
+function throwIfDataForSeoStatus(statusCode: unknown): void {
   if (statusCode === 40202 || statusCode === 40204) {
     throw new ResearchProviderError("rate_limited", "DataForSEO quota or rate limit.", true);
   }
@@ -31,6 +26,142 @@ export function parseKeywordsForKeywordsResponse(payload: unknown): RelatedKeywo
   if (typeof statusCode === "number" && statusCode >= 40000) {
     throw new ResearchProviderError("invalid_response", "DataForSEO task failed.");
   }
+}
+
+function numericStatus(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function failMetadata(
+  category: "locations" | "languages",
+  error: ResearchProviderError,
+  extra?: {
+    topLevelStatusCode?: number | null;
+    taskStatusCode?: number | null;
+    resultCount?: number;
+    parsedCount?: number;
+  },
+): never {
+  logDataForSeoMetadata({
+    category,
+    stage: "failed",
+    errorCode: error.code,
+    ...extra,
+  });
+  throw error;
+}
+
+function readDataForSeoMetadataResult(
+  payload: unknown,
+  category: "locations" | "languages",
+): {
+  topLevelStatusCode: number | null;
+  taskStatusCode: number | null;
+  result: unknown[];
+} {
+  const root = asRecord(payload);
+  if (!root) {
+    failMetadata(
+      category,
+      new ResearchProviderError("invalid_response", "DataForSEO metadata response was invalid."),
+    );
+  }
+
+  const topLevelStatusCode = numericStatus(root.status_code);
+  try {
+    throwIfDataForSeoStatus(root.status_code);
+  } catch (error) {
+    if (error instanceof ResearchProviderError) {
+      failMetadata(category, error, { topLevelStatusCode });
+    }
+    throw error;
+  }
+
+  if (!("tasks" in root) || root.tasks == null) {
+    failMetadata(
+      category,
+      new ResearchProviderError("invalid_response", "DataForSEO task was missing."),
+      { topLevelStatusCode },
+    );
+  }
+
+  if (!Array.isArray(root.tasks)) {
+    failMetadata(
+      category,
+      new ResearchProviderError("invalid_response", "DataForSEO metadata response was invalid."),
+      { topLevelStatusCode },
+    );
+  }
+
+  if (root.tasks.length === 0) {
+    failMetadata(
+      category,
+      new ResearchProviderError("invalid_response", "DataForSEO task was missing."),
+      { topLevelStatusCode },
+    );
+  }
+
+  const task = asRecord(root.tasks[0]);
+  if (!task) {
+    failMetadata(
+      category,
+      new ResearchProviderError("invalid_response", "DataForSEO task was missing."),
+      { topLevelStatusCode },
+    );
+  }
+
+  const taskStatusCode = numericStatus(task.status_code);
+  try {
+    throwIfDataForSeoStatus(task.status_code);
+  } catch (error) {
+    if (error instanceof ResearchProviderError) {
+      failMetadata(category, error, { topLevelStatusCode, taskStatusCode });
+    }
+    throw error;
+  }
+
+  if (!("result" in task) || task.result == null) {
+    failMetadata(
+      category,
+      new ResearchProviderError("invalid_response", "DataForSEO metadata result was missing."),
+      { topLevelStatusCode, taskStatusCode },
+    );
+  }
+
+  if (!Array.isArray(task.result)) {
+    failMetadata(
+      category,
+      new ResearchProviderError("invalid_response", "DataForSEO metadata result was invalid."),
+      { topLevelStatusCode, taskStatusCode },
+    );
+  }
+
+  if (task.result.length === 0) {
+    failMetadata(
+      category,
+      new ResearchProviderError("invalid_response", "DataForSEO metadata result was empty."),
+      { topLevelStatusCode, taskStatusCode, resultCount: 0 },
+    );
+  }
+
+  return {
+    topLevelStatusCode,
+    taskStatusCode,
+    result: task.result,
+  };
+}
+
+function isCountryLocationType(value: unknown): boolean {
+  return typeof value === "string" && value.trim().toLowerCase() === "country";
+}
+
+export function parseKeywordsForKeywordsResponse(payload: unknown): RelatedKeywordIdeasResult {
+  const task = firstTask(payload);
+  if (!task) {
+    throw new ResearchProviderError("invalid_response", "DataForSEO task was missing.");
+  }
+
+  throwIfDataForSeoStatus(task.status_code);
 
   const taskId = typeof task.id === "string" && task.id.trim() ? task.id.trim() : null;
   const providerCost =
@@ -62,19 +193,17 @@ export function parseKeywordsForKeywordsResponse(payload: unknown): RelatedKeywo
 }
 
 export function parseLocationsResponse(payload: unknown): ResearchCountry[] {
-  const task = firstTask(payload);
-  const result = Array.isArray(task?.result) ? task.result : [];
+  const envelope = readDataForSeoMetadataResult(payload, "locations");
   const countries: ResearchCountry[] = [];
   const seen = new Set<string>();
 
-  for (const row of result) {
+  for (const row of envelope.result) {
     const record = asRecord(row);
     if (!record) {
       continue;
     }
 
-    const locationType = typeof record.location_type === "string" ? record.location_type : "";
-    if (locationType && locationType !== "Country") {
+    if (!isCountryLocationType(record.location_type)) {
       continue;
     }
 
@@ -84,7 +213,9 @@ export function parseLocationsResponse(payload: unknown): ResearchCountry[] {
         : "";
     const name = typeof record.location_name === "string" ? record.location_name.trim() : "";
     const locationCode =
-      typeof record.location_code === "number" && Number.isInteger(record.location_code)
+      typeof record.location_code === "number" &&
+      Number.isInteger(record.location_code) &&
+      record.location_code > 0
         ? record.location_code
         : null;
     if (!iso || iso.length !== 2 || !name || locationCode == null) {
@@ -99,16 +230,37 @@ export function parseLocationsResponse(payload: unknown): ResearchCountry[] {
     countries.push({ key: iso, name, locationCode });
   }
 
+  if (countries.length === 0) {
+    failMetadata(
+      "locations",
+      new ResearchProviderError("invalid_response", "DataForSEO location metadata was unusable."),
+      {
+        topLevelStatusCode: envelope.topLevelStatusCode,
+        taskStatusCode: envelope.taskStatusCode,
+        resultCount: envelope.result.length,
+        parsedCount: 0,
+      },
+    );
+  }
+
+  logDataForSeoMetadata({
+    category: "locations",
+    stage: "parsed",
+    topLevelStatusCode: envelope.topLevelStatusCode,
+    taskStatusCode: envelope.taskStatusCode,
+    resultCount: envelope.result.length,
+    parsedCount: countries.length,
+  });
+
   return countries.sort((left, right) => left.name.localeCompare(right.name, "en"));
 }
 
 export function parseLanguagesResponse(payload: unknown): ResearchLanguage[] {
-  const task = firstTask(payload);
-  const result = Array.isArray(task?.result) ? task.result : [];
+  const envelope = readDataForSeoMetadataResult(payload, "languages");
   const languages: ResearchLanguage[] = [];
   const seen = new Set<string>();
 
-  for (const row of result) {
+  for (const row of envelope.result) {
     const record = asRecord(row);
     if (!record) {
       continue;
@@ -124,6 +276,28 @@ export function parseLanguagesResponse(payload: unknown): ResearchLanguage[] {
     seen.add(code);
     languages.push({ code, name: name || code });
   }
+
+  if (languages.length === 0) {
+    failMetadata(
+      "languages",
+      new ResearchProviderError("invalid_response", "DataForSEO language metadata was unusable."),
+      {
+        topLevelStatusCode: envelope.topLevelStatusCode,
+        taskStatusCode: envelope.taskStatusCode,
+        resultCount: envelope.result.length,
+        parsedCount: 0,
+      },
+    );
+  }
+
+  logDataForSeoMetadata({
+    category: "languages",
+    stage: "parsed",
+    topLevelStatusCode: envelope.topLevelStatusCode,
+    taskStatusCode: envelope.taskStatusCode,
+    resultCount: envelope.result.length,
+    parsedCount: languages.length,
+  });
 
   return languages;
 }

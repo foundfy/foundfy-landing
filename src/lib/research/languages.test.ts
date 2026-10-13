@@ -52,4 +52,13 @@ describe("RESEARCH languages", () => {
       }),
     ).toThrow(/up to 3/);
   });
+
+  it("accepts en from a valid provider language list", () => {
+    expect(
+      selectResearchLanguages({
+        selected: ["en"],
+        candidates: FIXTURE_RESEARCH_LANGUAGES.filter((item) => item.code === "en"),
+      }),
+    ).toEqual(["en"]);
+  });
 });

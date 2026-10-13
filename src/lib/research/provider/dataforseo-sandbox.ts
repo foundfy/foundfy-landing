@@ -1,6 +1,7 @@
 import { ResearchProviderError } from "../errors";
 import type { ResearchCountry, ResearchLanguage } from "../types";
 import { createDataForSeoClient, type DataForSeoFetch } from "./dataforseo-client";
+import { loadDataForSeoMetadata } from "./dataforseo-diagnostics";
 import {
   buildKeywordsForKeywordsTask,
   parseKeywordsForKeywordsResponse,
@@ -41,13 +42,19 @@ export class DataForSeoSandboxResearchProvider implements ResearchProvider {
   }
 
   async listCountries(): Promise<ResearchCountry[]> {
-    const payload = await this.client.post(DATAFORSEO_LOCATIONS_PATH, []);
-    return parseLocationsResponse(payload);
+    return loadDataForSeoMetadata({
+      category: "locations",
+      request: () => this.client.post(DATAFORSEO_LOCATIONS_PATH, []),
+      parse: parseLocationsResponse,
+    });
   }
 
   async listLanguages(): Promise<ResearchLanguage[]> {
-    const payload = await this.client.post(DATAFORSEO_LANGUAGES_PATH, []);
-    return parseLanguagesResponse(payload);
+    return loadDataForSeoMetadata({
+      category: "languages",
+      request: () => this.client.post(DATAFORSEO_LANGUAGES_PATH, []),
+      parse: parseLanguagesResponse,
+    });
   }
 
   async relatedKeywordIdeas(input: RelatedKeywordIdeasInput): Promise<RelatedKeywordIdeasResult> {
