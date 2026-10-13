@@ -1,4 +1,4 @@
-import { ResearchGateError } from "./errors";
+import { ResearchGateError, ResearchProviderError } from "./errors";
 import type { ResearchCountry } from "./types";
 
 export function selectResearchCountry(input: {
@@ -11,6 +11,13 @@ export function selectResearchCountry(input: {
       "no_research_country",
       "Choose the country you want Foundfy to research.",
       400,
+    );
+  }
+
+  if (input.countries.length === 0) {
+    throw new ResearchProviderError(
+      "invalid_response",
+      "Research country metadata was unusable.",
     );
   }
 

@@ -45,9 +45,12 @@ vi.mock("./load", () => ({
 }));
 
 import { createSerializedResearchClaim } from "./claim";
+import { ResearchGateError, ResearchProviderError } from "./errors";
 import { createFencedResearchStore, type FencedResearchStore } from "./fence";
+import { DataForSeoLiveResearchProvider } from "./provider/dataforseo-live";
 import { FixtureResearchProvider } from "./provider/fixture";
 import { startResearchForOwner } from "./start";
+import type { ResearchProvider } from "./provider/types";
 import type { ResearchIdeaRecord, ResearchRunRecord } from "./types";
 
 const confirmedModel = {
@@ -733,5 +736,261 @@ describe("startResearchForOwner", () => {
 
     expect(order.indexOf("lock")).toBeLessThan(order.indexOf("claimed"));
     expect(order.indexOf("claimed")).toBeLessThan(order.indexOf("network"));
+  });
+
+  it("maps live metadata task failure to a provider error, not invalid_country, and never claims or pays", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.includes("/keywords_for_keywords/")) {
+        throw new Error("keywords_for_keywords must not run");
+      }
+      if (url.includes("/languages")) {
+        return new Response(
+          JSON.stringify({
+            status_code: 20000,
+            tasks: [
+              {
+                status_code: 20000,
+                result: [{ language_code: "en", language_name: "English" }],
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          status_code: 20000,
+          tasks: [{ status_code: 40100, status_message: "Unauthorized.", result: null }],
+        }),
+        { status: 200 },
+      );
+    });
+    const provider = new DataForSeoLiveResearchProvider({
+      login: "login",
+      password: "password",
+      liveEnabled: true,
+      fetchImpl,
+    });
+
+    await expect(
+      startResearchForOwner({
+        websiteId: "site-1",
+        sessionToken: "session",
+        countryKey: "US",
+        languages: ["en"],
+        selectedOfferings: ["silk paint"],
+        provider,
+      }),
+    ).rejects.toBeInstanceOf(ResearchProviderError);
+
+    try {
+      await startResearchForOwner({
+        websiteId: "site-1",
+        sessionToken: "session",
+        countryKey: "US",
+        languages: ["en"],
+        selectedOfferings: ["silk paint"],
+        provider,
+      });
+    } catch (error) {
+      expect(error).toBeInstanceOf(ResearchProviderError);
+      expect(error).not.toBeInstanceOf(ResearchGateError);
+      expect((error as ResearchProviderError).code).toBe("invalid_response");
+    }
+
+    expect(claimResearchRunMock).not.toHaveBeenCalled();
+    expect(persistResearchRequestPlanMock).not.toHaveBeenCalled();
+    expect(claimResearchRequestMock).not.toHaveBeenCalled();
+    expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("/keywords_for_keywords/"))).toBe(
+      false,
+    );
+    expect(ownedRuns).toHaveLength(0);
+    expect(ownedIdeas).toHaveLength(0);
+  });
+
+  it("resolves US and en from valid live metadata and continues to the claim path", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.includes("/locations")) {
+        return new Response(
+          JSON.stringify({
+            status_code: 20000,
+            tasks: [
+              {
+                status_code: 20000,
+                result: [
+                  {
+                    location_code: 1014221,
+                    location_name: "New York,New York,United States",
+                    country_iso_code: "US",
+                    location_type: "City",
+                  },
+                  {
+                    location_code: 2840,
+                    location_name: "United States",
+                    country_iso_code: "US",
+                    location_type: "Country",
+                  },
+                ],
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.includes("/languages")) {
+        return new Response(
+          JSON.stringify({
+            status_code: 20000,
+            tasks: [
+              {
+                status_code: 20000,
+                result: [{ language_code: "en", language_name: "English" }],
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          tasks: [
+            {
+              id: "live-task",
+              status_code: 20000,
+              result: [{ keyword: "seo audit", search_volume: 10 }],
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    });
+    const provider = new DataForSeoLiveResearchProvider({
+      login: "login",
+      password: "password",
+      liveEnabled: true,
+      fetchImpl,
+    });
+
+    await startResearchForOwner({
+      websiteId: "site-1",
+      sessionToken: "session",
+      countryKey: "US",
+      languages: ["en"],
+      selectedOfferings: ["silk paint"],
+      provider,
+    });
+
+    expect(claimResearchRunMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        countryKey: "US",
+        countryName: "United States",
+        locationCode: 2840,
+        languageCodes: ["en"],
+      }),
+    );
+    expect(persistResearchRequestPlanMock).toHaveBeenCalled();
+    expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("/keywords_for_keywords/"))).toBe(
+      true,
+    );
+  });
+
+  it("maps live language metadata failure to a provider error, not unsupported_language", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.includes("/keywords_for_keywords/")) {
+        throw new Error("keywords_for_keywords must not run");
+      }
+      if (url.includes("/languages")) {
+        return new Response(
+          JSON.stringify({
+            status_code: 20000,
+            tasks: [{ status_code: 40100, result: null }],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          status_code: 20000,
+          tasks: [
+            {
+              status_code: 20000,
+              result: [
+                {
+                  location_code: 2840,
+                  location_name: "United States",
+                  country_iso_code: "US",
+                  location_type: "Country",
+                },
+              ],
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    });
+    const provider = new DataForSeoLiveResearchProvider({
+      login: "login",
+      password: "password",
+      liveEnabled: true,
+      fetchImpl,
+    });
+
+    await expect(
+      startResearchForOwner({
+        websiteId: "site-1",
+        sessionToken: "session",
+        countryKey: "US",
+        languages: ["en"],
+        selectedOfferings: ["silk paint"],
+        provider,
+      }),
+    ).rejects.toMatchObject({ name: "ResearchProviderError", code: "invalid_response" });
+    expect(claimResearchRunMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps HTTP 401 locations metadata as unauthorized, not invalid_country", async () => {
+    const fetchImpl = vi.fn(async () => new Response("{}", { status: 401 }));
+    const provider = new DataForSeoLiveResearchProvider({
+      login: "login",
+      password: "password",
+      liveEnabled: true,
+      fetchImpl,
+    });
+
+    await expect(
+      startResearchForOwner({
+        websiteId: "site-1",
+        sessionToken: "session",
+        countryKey: "US",
+        languages: ["en"],
+        selectedOfferings: ["silk paint"],
+        provider,
+      }),
+    ).rejects.toMatchObject({ name: "ResearchProviderError", code: "unauthorized" });
+    expect(claimResearchRunMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps invalid_country when valid live Country metadata genuinely lacks US", async () => {
+    const provider: ResearchProvider = {
+      id: "dataforseo",
+      environment: "live",
+      listCountries: async () => [{ key: "ES", name: "Spain", locationCode: 2724 }],
+      listLanguages: async () => [{ code: "en", name: "English" }],
+      relatedKeywordIdeas: async () => {
+        throw new Error("keywords_for_keywords must not run");
+      },
+    };
+
+    await expect(
+      startResearchForOwner({
+        websiteId: "site-1",
+        sessionToken: "session",
+        countryKey: "US",
+        languages: ["en"],
+        selectedOfferings: ["silk paint"],
+        provider,
+      }),
+    ).rejects.toMatchObject({ name: "ResearchGateError", code: "invalid_country" });
+    expect(claimResearchRunMock).not.toHaveBeenCalled();
   });
 });
