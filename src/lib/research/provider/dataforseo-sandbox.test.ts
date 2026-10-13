@@ -10,6 +10,7 @@ describe("DataForSEO sandbox provider", () => {
       expect(url).not.toContain("api.dataforseo.com");
       const headers = init.headers as Record<string, string>;
       expect(headers.Authorization).toMatch(/^Basic /);
+      expect(init.method).toBe("POST");
       const body = JSON.parse(String(init.body));
       if (url.includes("keywords_for_keywords")) {
         expect(body[0]).toMatchObject({
