@@ -205,6 +205,7 @@ export async function persistResearchRequestResult(input: {
   >;
   providerTaskId: string | null;
   ideaCount: number;
+  providerResultCount?: number | null;
   providerCost: number | null;
   failureCode: string | null;
   ideas: FencedIdeaInsert[];
@@ -217,6 +218,7 @@ export async function persistResearchRequestResult(input: {
     p_status: input.status,
     p_provider_task_id: input.providerTaskId,
     p_idea_count: input.ideaCount,
+    p_provider_result_count: input.providerResultCount ?? null,
     p_provider_cost: input.providerCost,
     p_failure_code: input.failureCode,
     p_ideas: input.ideas.map((idea) => ({

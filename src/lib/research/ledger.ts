@@ -21,6 +21,7 @@ const LEDGER_KEYS = [
   "attemptedAt",
   "retrievedAt",
   "ideaCount",
+  "providerResultCount",
   "providerCost",
   "failureCode",
 ] as const;
@@ -94,6 +95,12 @@ export function parseRequestLedger(value: unknown): ResearchRequestLedgerEntry[]
       typeof record.ideaCount === "number" && Number.isInteger(record.ideaCount) && record.ideaCount >= 0
         ? record.ideaCount
         : 0;
+    const providerResultCount =
+      typeof record.providerResultCount === "number" &&
+      Number.isInteger(record.providerResultCount) &&
+      record.providerResultCount >= 0
+        ? record.providerResultCount
+        : null;
     const providerCost =
       typeof record.providerCost === "number" &&
       Number.isFinite(record.providerCost) &&
@@ -116,6 +123,7 @@ export function parseRequestLedger(value: unknown): ResearchRequestLedgerEntry[]
       attemptedAt: asNullableString(record.attemptedAt, 40),
       retrievedAt: asNullableString(record.retrievedAt, 40),
       ideaCount,
+      providerResultCount,
       providerCost,
       failureCode: asNullableString(record.failureCode, 80),
     });
@@ -139,6 +147,7 @@ export function serializeRequestLedger(
       attemptedAt: entry.attemptedAt,
       retrievedAt: entry.retrievedAt,
       ideaCount: entry.ideaCount,
+      providerResultCount: entry.providerResultCount,
       providerCost: entry.providerCost,
       failureCode: entry.failureCode,
     };
@@ -244,6 +253,7 @@ export function buildRequestPlan(input: {
         attemptedAt: null,
         retrievedAt: null,
         ideaCount: 0,
+        providerResultCount: null,
         providerCost: null,
         failureCode: null,
       });

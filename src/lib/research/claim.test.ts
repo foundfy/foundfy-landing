@@ -68,6 +68,23 @@ describe("selectClaimDecision", () => {
     expect(decision.run?.id).toBe("done");
   });
 
+  it("reuses a completed fingerprint inside 30 days even when stored confirmedAt uses an equivalent offset", () => {
+    const decision = selectClaimDecision({
+      now,
+      runs: [
+        run({
+          id: "done",
+          status: "completed",
+          siteModelConfirmedAt: "2026-10-13T09:52:17.945+00:00",
+          requestFingerprint: "a".repeat(64),
+          completedAt: "2026-10-10T00:01:00.000Z",
+        }),
+      ],
+    });
+    expect(decision.kind).toBe("reuse_completed");
+    expect(decision.run?.id).toBe("done");
+  });
+
   it("reuses an active requested or running run that still has recent progress", () => {
     const decision = selectClaimDecision({
       now,

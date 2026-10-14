@@ -64,6 +64,7 @@ describe("DataForSEO live provider", () => {
       limit: 20,
     });
     expect(result.taskId).toBe("live-task");
+    expect(result.providerResultCount).toBe(1);
     expect(fetchImpl).toHaveBeenCalledOnce();
   });
 

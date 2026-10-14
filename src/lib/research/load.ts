@@ -5,7 +5,7 @@ import {
 import { requireObserveOwner } from "@/lib/gsc/observe";
 import { findLatestConfirmedSiteModelForWebsite } from "@/lib/site-model/repository";
 import { researchReadEnvironment } from "./config";
-import { isResearchTestData } from "./display";
+import { isResearchTestData, researchEmptyOutcome } from "./display";
 import { currentGscSampleStatus, gscQueryCompactSet } from "./gsc-join";
 import { validConfirmedOfferings } from "./offerings";
 import { evaluateResearchReadiness } from "./readiness";
@@ -81,6 +81,10 @@ function toRunView(input: {
     displayClosed: recovery.displayClosed,
     canClose: recovery.canClose,
     canStartNewCycle: recovery.canStartNewCycle,
+    emptyOutcome: researchEmptyOutcome({
+      ideaCount: input.ideas.length,
+      ledger: input.run.requestLedger ?? [],
+    }),
     ideas: input.ideas,
   };
 }

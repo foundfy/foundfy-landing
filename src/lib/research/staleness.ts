@@ -1,6 +1,36 @@
 import { RESEARCH_REUSE_WINDOW_MS } from "./config";
 import type { ResearchRunRecord, ResearchStaleReason } from "./types";
 
+const UTC_INSTANT =
+  /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+
+export function parseResearchUtcMs(value: string | null | undefined): number | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!UTC_INSTANT.test(trimmed)) {
+    return null;
+  }
+
+  const ms = Date.parse(trimmed);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+export function sameResearchUtcInstant(
+  left: string | null | undefined,
+  right: string | null | undefined,
+): boolean {
+  const leftMs = parseResearchUtcMs(left);
+  const rightMs = parseResearchUtcMs(right);
+  if (leftMs == null || rightMs == null) {
+    return false;
+  }
+
+  return leftMs === rightMs;
+}
+
 export function researchStaleReasons(input: {
   run: ResearchRunRecord;
   confirmedAt: string | null;
@@ -15,7 +45,7 @@ export function researchStaleReasons(input: {
     reasons.push("older_than_30_days");
   }
 
-  if (!input.confirmedAt || input.confirmedAt !== input.run.siteModelConfirmedAt) {
+  if (!sameResearchUtcInstant(input.confirmedAt, input.run.siteModelConfirmedAt)) {
     reasons.push("business_context_changed");
   }
 

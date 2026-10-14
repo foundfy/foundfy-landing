@@ -13,6 +13,7 @@ export type FixtureRelatedBehavior =
   | "duplicates"
   | "brand"
   | "seed_duplicate"
+  | "seed_only"
   | "empty"
   | "malformed"
   | "rate_limit"
@@ -58,7 +59,7 @@ export class FixtureResearchProvider implements ResearchProvider {
     }
 
     if (behavior === "empty") {
-      return { taskId: "fixture-task-empty", ideas: [], providerCost: 0 };
+      return { taskId: "fixture-task-empty", ideas: [], providerCost: 0, providerResultCount: 0 };
     }
 
     const ideas = fixtureIdeas(input, behavior);
@@ -66,6 +67,7 @@ export class FixtureResearchProvider implements ResearchProvider {
       taskId: `fixture-task-${input.languageCode}`,
       ideas,
       providerCost: 0,
+      providerResultCount: ideas.length,
     };
   }
 }
@@ -106,6 +108,10 @@ function fixtureIdeas(
       { keyword: seed, searchVolume: 100, providerOrder: 0 },
       { keyword: "fixture related term", searchVolume: 25, providerOrder: 1 },
     ];
+  }
+
+  if (behavior === "seed_only") {
+    return [{ keyword: seed, searchVolume: 100, providerOrder: 0 }];
   }
 
   return [

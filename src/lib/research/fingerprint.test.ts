@@ -39,6 +39,26 @@ describe("RESEARCH request fingerprint", () => {
     );
   });
 
+  it("keeps fingerprint tied to the exact confirmedAt string from JSON, not the stored column format", () => {
+    expect(researchRequestFingerprint(base)).not.toBe(
+      researchRequestFingerprint({
+        ...base,
+        confirmedAt: "2026-10-01T00:00:00.000+00:00",
+      }),
+    );
+    expect(
+      researchRequestFingerprint({
+        ...base,
+        confirmedAt: "2026-10-13T09:52:17.945Z",
+      }),
+    ).toBe(
+      researchRequestFingerprint({
+        ...base,
+        confirmedAt: "2026-10-13T09:52:17.945Z",
+      }),
+    );
+  });
+
   it("does not include GSC sync identity", () => {
     const hashed = researchRequestFingerprint(base);
     expect(hashed).toBe(
