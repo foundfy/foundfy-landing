@@ -25,6 +25,7 @@ const entry = (
   attemptedAt: status === "pending" || status === "skipped" ? null : "2026-10-11T00:00:00.500Z",
   retrievedAt: status === "skipped" || status === "pending" ? null : "2026-10-11T00:00:01.000Z",
   ideaCount: status === "succeeded" ? 3 : 0,
+  providerResultCount: status === "succeeded" ? 4 : status === "zero_results" ? 0 : null,
   providerCost: status === "succeeded" ? 0.09 : null,
   failureCode: status === "failed" || status === "timeout" || status === "rate_limited" ? status : null,
   ...overrides,
@@ -57,6 +58,24 @@ describe("RESEARCH request ledger", () => {
       true,
     );
     expect(parseRequestLedger(ledger).find((item) => item.status === "failed")?.ideaCount).toBe(0);
+    expect(parseRequestLedger([{ ...entry("zero_results"), ideaCount: 0 }])[0]?.providerResultCount).toBe(
+      0,
+    );
+    const withoutCount = { ...entry("succeeded") } as Record<string, unknown>;
+    delete withoutCount.providerResultCount;
+    expect(parseRequestLedger([withoutCount])[0]?.providerResultCount).toBeNull();
+    expect(
+      parseRequestLedger([
+        {
+          status: "zero_results",
+          seedOffering: "silk paint",
+          languageCode: "ca",
+          locationCode: 2724,
+          requestedAt: "2026-10-11T00:00:00.000Z",
+          ideaCount: 0,
+        },
+      ])[0]?.providerResultCount,
+    ).toBeNull();
     expect(parseRequestLedger(ledger).find((item) => item.status === "in_flight")?.attemptedAt).toBe(
       "2026-10-11T00:00:00.500Z",
     );

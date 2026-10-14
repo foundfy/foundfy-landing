@@ -193,6 +193,7 @@ export async function executeResearchLedger(input: {
       >;
       let ideas: FencedIdeaInsert[] = [];
       let ideaCount = 0;
+      let providerResultCount: number | null = null;
       let providerTaskId: string | null = null;
       let providerCost: number | null = null;
       let failureCode: string | null = null;
@@ -207,6 +208,12 @@ export async function executeResearchLedger(input: {
         providerTaskId = result.taskId;
         providerCost =
           result.providerCost != null && result.providerCost >= 0 ? result.providerCost : null;
+        providerResultCount =
+          typeof result.providerResultCount === "number" &&
+          Number.isInteger(result.providerResultCount) &&
+          result.providerResultCount >= 0
+            ? result.providerResultCount
+            : result.ideas.length;
         const filtered = filterRelatedIdeas({
           ideas: result.ideas,
           seedOffering: current.seedOffering,
@@ -250,6 +257,7 @@ export async function executeResearchLedger(input: {
           status: terminalStatus,
           providerTaskId,
           ideaCount,
+          providerResultCount,
           providerCost,
           failureCode,
           ideas,

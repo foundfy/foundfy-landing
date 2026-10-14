@@ -199,6 +199,7 @@ describe("loadResearchForOwner", () => {
           attemptedAt: null,
           retrievedAt: null,
           ideaCount: 0,
+          providerResultCount: null,
           providerCost: null,
           failureCode: null,
         },
@@ -237,6 +238,7 @@ describe("loadResearchForOwner", () => {
           attemptedAt: "2026-10-10T00:00:01.000Z",
           retrievedAt: null,
           ideaCount: 0,
+          providerResultCount: null,
           providerCost: null,
           failureCode: null,
         },
@@ -249,5 +251,60 @@ describe("loadResearchForOwner", () => {
     expect(view.run?.canClose).toBe(false);
     expect(view.run?.incomplete).toBe(true);
     expect(view.run?.ideas[0]?.keyword).toBe("fixture related term one");
+  });
+
+  it("does not mark the first live production timestamp pair stale and keeps historical empty unknown", async () => {
+    listResearchIdeasForRunMock.mockResolvedValue([]);
+    findLatestConfirmedSiteModelForWebsiteMock.mockResolvedValue({
+      id: "42dce699-616d-44e2-90e0-0e14163b82f3",
+      status: "stale",
+      understanding: { hostname: "foundfy.me", languages: { htmlLangs: ["en"] } },
+      confirmed: {
+        confirmedAt: "2026-10-13T09:52:17.945Z",
+        offers: ["SEO audit for small businesses"],
+      },
+    });
+    findLatestCompatibleResearchRunMock.mockResolvedValue({
+      id: "105f3d46-5bb9-4825-bf0d-f1b1a50c8ea2",
+      status: "completed",
+      siteModelId: "42dce699-616d-44e2-90e0-0e14163b82f3",
+      siteModelConfirmedAt: "2026-10-13T09:52:17.945+00:00",
+      offeringSeeds: ["SEO audit for small businesses"],
+      providerEnvironment: "live",
+      countryKey: "US",
+      countryName: "United States",
+      languageCodes: ["en"],
+      gscQueriesTruncated: false,
+      completedAt: "2026-10-13T22:59:14.62+00:00",
+      createdAt: "2026-10-13T22:59:09.499191+00:00",
+      lastProgressAt: "2026-10-13T22:59:14.902166+00:00",
+      requestLedger: [
+        {
+          requestKey: researchRequestKey("SEO audit for small businesses", "en"),
+          seedOffering: "SEO audit for small businesses",
+          languageCode: "en",
+          locationCode: 2840,
+          providerTaskId: "10132259-2775-0368-0000-fceca571f57f",
+          status: "zero_results",
+          requestedAt: "2026-10-13T22:59:09.633Z",
+          attemptedAt: "2026-10-13T22:59:10.051Z",
+          retrievedAt: "2026-10-13T22:59:14.556Z",
+          ideaCount: 0,
+          providerCost: 0.09,
+          failureCode: null,
+        },
+      ],
+    });
+    process.env.RESEARCH_PROVIDER_MODE = "live";
+    process.env.RESEARCH_LIVE_ENABLED = "true";
+    process.env.DATAFORSEO_LOGIN = "login";
+    process.env.DATAFORSEO_PASSWORD = "password";
+    process.env.NODE_ENV = "production";
+
+    const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
+    expect(view.run?.stale).toBe(false);
+    expect(view.run?.staleReasons).toEqual([]);
+    expect(view.run?.emptyOutcome).toBe("unknown");
+    expect(view.run?.ideas).toEqual([]);
   });
 });

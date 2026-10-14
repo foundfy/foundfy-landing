@@ -43,6 +43,7 @@ export type FencedResearchStore = {
     >;
     providerTaskId: string | null;
     ideaCount: number;
+    providerResultCount?: number | null;
     providerCost: number | null;
     failureCode: string | null;
     ideas: FencedIdeaInsert[];
@@ -194,6 +195,9 @@ export function createFencedResearchStore(input: {
       entry.providerTaskId = args.providerTaskId;
       entry.retrievedAt = new Date().toISOString();
       entry.ideaCount = args.ideaCount;
+      if (args.providerResultCount !== undefined) {
+        entry.providerResultCount = args.providerResultCount;
+      }
       entry.providerCost = args.providerCost;
       entry.failureCode = args.failureCode;
       touch(rec, new Date());

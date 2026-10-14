@@ -42,6 +42,7 @@ describe("RESEARCH v0 source boundary", () => {
     expect(ui).toContain("RESEARCH_RESUME_UNATTEMPTED_LABEL");
     expect(ui).toContain("RESEARCH_CLOSE_LABEL");
     expect(ui).toContain("RESEARCH_NEW_CYCLE_LABEL");
+    expect(ui).toContain("researchEmptyCopy");
     expect(ui).toContain("run.displayInterrupted");
     expect(ui).toContain("recoveryOwnsCta");
     expect(ui).not.toMatch(/Retry all/);

@@ -8,7 +8,7 @@ import {
   RESEARCH_COUNTRY_LABEL,
   RESEARCH_CTA_LABEL,
   RESEARCH_DISABLED_COPY,
-  RESEARCH_EMPTY_COPY,
+  researchEmptyCopy,
   RESEARCH_ERROR_COPY,
   RESEARCH_EVIDENCE_LABEL,
   RESEARCH_IN_SAMPLE_COPY,
@@ -413,7 +413,7 @@ export default function SiteResearchSection({
             <p className={styles.sectionMeta}>{RESEARCH_PARTIAL_COPY}</p>
           ) : null}
           {run.ideas.length === 0 ? (
-            <p className={styles.understandingCopy}>{RESEARCH_EMPTY_COPY}</p>
+            <p className={styles.understandingCopy}>{researchEmptyCopy(run.emptyOutcome)}</p>
           ) : (
             <ol className={styles.opportunityList}>
               {run.ideas.map((idea) => {

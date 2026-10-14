@@ -125,3 +125,66 @@ describe("RESEARCH migration 021 live-safety hardening", () => {
     expect(migration021).not.toMatch(/grant execute on function public\.close_research_run.*to anon/);
   });
 });
+
+const migration022 = readFileSync(
+  path.join(__dirname, "../../../supabase/migrations/022_research_result_provenance.sql"),
+  "utf8",
+);
+
+describe("RESEARCH migration 022 result provenance", () => {
+  it("does not recreate tables or rewrite 020/021", () => {
+    expect(migration022).not.toMatch(/create table if not exists public\.research_runs/);
+    expect(migration022).not.toMatch(/create table if not exists public\.research_ideas/);
+    expect(migration022).not.toMatch(/drop table/i);
+    expect(migration).not.toMatch(/providerResultCount/);
+    expect(migration021).not.toMatch(/p_provider_result_count/);
+  });
+
+  it("keeps both persist_research_request_result signatures without dropping the 10-arg RPC", () => {
+    expect(migration022).toMatch(/create or replace function public\.persist_research_request_result/);
+    expect(migration022).toMatch(/p_provider_result_count integer/);
+    expect(migration022).not.toMatch(/p_provider_result_count integer default/i);
+    expect(migration022).toMatch(/providerResultCount/);
+    expect(migration022).not.toMatch(
+      /drop function if exists public\.persist_research_request_result\(uuid, uuid, bigint, text, text, text, integer, numeric, text, jsonb\)/,
+    );
+    expect(migration022).toMatch(/null::integer/);
+  });
+
+  it("rejects negative providerResultCount before writing provenance", () => {
+    expect(migration022).toMatch(/p_provider_result_count is not null and p_provider_result_count < 0/);
+    expect(migration022).toMatch(/p_provider_result_count < p_idea_count/);
+  });
+
+  it("reloads the PostgREST schema cache", () => {
+    expect(migration022).toMatch(/notify pgrst, 'reload schema'/);
+  });
+
+  it("keeps both persist RPC signatures service_role only", () => {
+    expect(migration022).toMatch(
+      /revoke all on function public\.persist_research_request_result\(uuid, uuid, bigint, text, text, text, integer, numeric, text, jsonb\) from public/,
+    );
+    expect(migration022).toMatch(
+      /revoke all on function public\.persist_research_request_result\(uuid, uuid, bigint, text, text, text, integer, numeric, text, jsonb\) from anon/,
+    );
+    expect(migration022).toMatch(
+      /revoke all on function public\.persist_research_request_result\(uuid, uuid, bigint, text, text, text, integer, numeric, text, jsonb\) from authenticated/,
+    );
+    expect(migration022).toMatch(
+      /grant execute on function public\.persist_research_request_result\(uuid, uuid, bigint, text, text, text, integer, numeric, text, jsonb\) to service_role/,
+    );
+    expect(migration022).toMatch(
+      /revoke all on function public\.persist_research_request_result\(uuid, uuid, bigint, text, text, text, integer, numeric, text, jsonb, integer\) from public/,
+    );
+    expect(migration022).toMatch(
+      /revoke all on function public\.persist_research_request_result\(uuid, uuid, bigint, text, text, text, integer, numeric, text, jsonb, integer\) from anon/,
+    );
+    expect(migration022).toMatch(
+      /revoke all on function public\.persist_research_request_result\(uuid, uuid, bigint, text, text, text, integer, numeric, text, jsonb, integer\) from authenticated/,
+    );
+    expect(migration022).toMatch(
+      /grant execute on function public\.persist_research_request_result\(uuid, uuid, bigint, text, text, text, integer, numeric, text, jsonb, integer\) to service_role/,
+    );
+    expect(migration022).not.toMatch(/grant execute on function public\.persist_research_request_result.*to anon/);
+  });
+});

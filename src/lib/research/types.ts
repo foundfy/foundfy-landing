@@ -62,6 +62,8 @@ export type ResearchLanguage = {
   name: string;
 };
 
+export type ResearchEmptyOutcome = "unknown" | "provider_empty" | "filtered_all";
+
 export type ResearchRequestLedgerEntry = {
   requestKey: string;
   seedOffering: string;
@@ -73,6 +75,7 @@ export type ResearchRequestLedgerEntry = {
   attemptedAt: string | null;
   retrievedAt: string | null;
   ideaCount: number;
+  providerResultCount: number | null;
   providerCost: number | null;
   failureCode: string | null;
 };
@@ -197,6 +200,7 @@ export type ResearchRunView = {
   displayClosed: boolean;
   canClose: boolean;
   canStartNewCycle: boolean;
+  emptyOutcome: ResearchEmptyOutcome | null;
   ideas: ResearchIdeaView[];
 };
 

@@ -15,6 +15,7 @@ export type RelatedKeywordIdeasResult = {
   taskId: string | null;
   ideas: RelatedKeywordIdea[];
   providerCost: number | null;
+  providerResultCount: number;
 };
 
 export type RelatedKeywordIdeasInput = {

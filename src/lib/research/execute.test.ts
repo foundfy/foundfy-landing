@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { executeResearchLedger } from "./execute";
+import { ResearchProviderError } from "./errors";
 import { createFencedResearchStore } from "./fence";
 import { buildRequestPlan, classifyLedgerReplay } from "./ledger";
 import { FixtureResearchProvider } from "./provider/fixture";
@@ -390,5 +391,83 @@ describe("execution generation fencing", () => {
         completedAt: new Date().toISOString(),
       }).outcome,
     ).toBe("superseded");
+  });
+
+  it("records genuine provider-empty as zero_results with providerResultCount 0", async () => {
+    const provider = new FixtureResearchProvider();
+    provider.setBehavior("silk paint", "en", "empty");
+    const { run } = await execute(
+      baseRun(
+        buildRequestPlan({
+          offerings: ["silk paint"],
+          languages: ["en"],
+          locationCode: 2840,
+          requestedAt: "2026-10-11T00:00:00.000Z",
+        }),
+      ),
+      provider,
+    );
+    expect(run.status).toBe("completed");
+    expect(run.requestLedger[0]?.status).toBe("zero_results");
+    expect(run.requestLedger[0]?.providerResultCount).toBe(0);
+    expect(run.requestLedger[0]?.ideaCount).toBe(0);
+  });
+
+  it("keeps seed-only provider rows distinguishable from genuine empty", async () => {
+    const provider = new FixtureResearchProvider();
+    provider.setBehavior("SEO audit for small businesses", "en", "seed_only");
+    const { run } = await execute(
+      baseRun(
+        buildRequestPlan({
+          offerings: ["SEO audit for small businesses"],
+          languages: ["en"],
+          locationCode: 2840,
+          requestedAt: "2026-10-11T00:00:00.000Z",
+        }),
+      ),
+      provider,
+    );
+    expect(run.requestLedger[0]?.status).toBe("zero_results");
+    expect(run.requestLedger[0]?.providerResultCount).toBe(1);
+    expect(run.requestLedger[0]?.ideaCount).toBe(0);
+  });
+
+  it("records useful rows as succeeded with providerResultCount >= ideaCount", async () => {
+    const { run } = await execute(
+      baseRun(
+        buildRequestPlan({
+          offerings: ["silk paint"],
+          languages: ["en"],
+          locationCode: 2840,
+          requestedAt: "2026-10-11T00:00:00.000Z",
+        }),
+      ),
+    );
+    const entry = run.requestLedger[0];
+    expect(entry?.status).toBe("succeeded");
+    expect(entry?.ideaCount).toBeGreaterThan(0);
+    expect(entry?.providerResultCount).toBeGreaterThanOrEqual(entry?.ideaCount ?? 0);
+  });
+
+  it("does not persist zero_results when the provider throws invalid_response", async () => {
+    const provider = new FixtureResearchProvider();
+    vi.spyOn(provider, "relatedKeywordIdeas").mockRejectedValue(
+      new ResearchProviderError("invalid_response", "DataForSEO keyword result was missing."),
+    );
+    const { run } = await execute(
+      baseRun(
+        buildRequestPlan({
+          offerings: ["silk paint"],
+          languages: ["en"],
+          locationCode: 2840,
+          requestedAt: "2026-10-11T00:00:00.000Z",
+        }),
+      ),
+      provider,
+    );
+    expect(run.requestLedger[0]?.status).toBe("failed");
+    expect(run.requestLedger[0]?.failureCode).toBe("invalid_response");
+    expect(run.requestLedger[0]?.ideaCount).toBe(0);
+    expect(run.requestLedger[0]?.providerResultCount).toBeNull();
   });
 });

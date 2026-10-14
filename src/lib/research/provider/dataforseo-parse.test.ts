@@ -93,7 +93,85 @@ describe("DataForSEO RESEARCH parser", () => {
       providerOrder: 0,
     });
     expect(parsed.ideas[1]?.searchVolume).toBeNull();
+    expect(parsed.providerResultCount).toBe(2);
     expect(JSON.stringify(parsed)).not.toMatch(/cpc|competition/i);
+  });
+
+  it("treats a valid empty result as genuine provider empty", () => {
+    const parsed = parseKeywordsForKeywordsResponse({
+      status_code: 20000,
+      tasks: [
+        {
+          id: "empty-task",
+          status_code: 20000,
+          cost: 0.09,
+          result: [],
+        },
+      ],
+    });
+    expect(parsed.ideas).toEqual([]);
+    expect(parsed.providerResultCount).toBe(0);
+    expect(parsed.taskId).toBe("empty-task");
+    expect(parsed.providerCost).toBe(0.09);
+  });
+
+  it("keeps a seed-only row so filtering can distinguish it from genuine empty", () => {
+    const parsed = parseKeywordsForKeywordsResponse({
+      status_code: 20000,
+      tasks: [
+        {
+          id: "10132259-2775-0368-0000-fceca571f57f",
+          status_code: 20000,
+          cost: 0.09,
+          result: [{ keyword: "SEO audit for small businesses", search_volume: 10 }],
+        },
+      ],
+    });
+    expect(parsed.providerResultCount).toBe(1);
+    expect(parsed.ideas).toEqual([
+      {
+        keyword: "SEO audit for small businesses",
+        searchVolume: 10,
+        providerOrder: 0,
+      },
+    ]);
+  });
+
+  it.each([
+    ["missing result", { status_code: 20000, tasks: [{ id: "t", status_code: 20000 }] }],
+    ["null result", { status_code: 20000, tasks: [{ id: "t", status_code: 20000, result: null }] }],
+    [
+      "non-array result",
+      { status_code: 20000, tasks: [{ id: "t", status_code: 20000, result: { keyword: "x" } }] },
+    ],
+    [
+      "malformed keyword row",
+      { status_code: 20000, tasks: [{ id: "t", status_code: 20000, result: [{ search_volume: 10 }] }] },
+    ],
+    [
+      "non-object keyword row",
+      { status_code: 20000, tasks: [{ id: "t", status_code: 20000, result: ["seo audit"] }] },
+    ],
+    ["missing tasks", { status_code: 20000 }],
+    ["empty tasks", { status_code: 20000, tasks: [] }],
+    ["top-level provider error", { status_code: 40100, status_message: "Unauthorized.", tasks: [] }],
+    [
+      "task provider error",
+      { status_code: 20000, tasks: [{ id: "t", status_code: 40100, result: [] }] },
+    ],
+    [
+      "task rate limit",
+      { status_code: 20000, tasks: [{ id: "t", status_code: 40202, result: [] }] },
+    ],
+  ])("throws a provider error for %s and does not become empty ideas", (_label, payload) => {
+    expect(() => parseKeywordsForKeywordsResponse(payload)).toThrow(ResearchProviderError);
+    try {
+      parseKeywordsForKeywordsResponse(payload);
+    } catch (error) {
+      expect(error).toBeInstanceOf(ResearchProviderError);
+      expect((error as ResearchProviderError).code).not.toBe("live_not_enabled");
+      expect(JSON.stringify(error)).not.toMatch(/zero_results/);
+    }
   });
 });
 

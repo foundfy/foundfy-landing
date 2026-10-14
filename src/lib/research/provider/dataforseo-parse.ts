@@ -8,16 +8,6 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }
 
-function firstTask(payload: unknown): Record<string, unknown> | null {
-  const root = asRecord(payload);
-  const tasks = root?.tasks;
-  if (!Array.isArray(tasks) || tasks.length === 0) {
-    return null;
-  }
-
-  return asRecord(tasks[0]);
-}
-
 function throwIfDataForSeoStatus(statusCode: unknown): void {
   if (statusCode === 40202 || statusCode === 40204) {
     throw new ResearchProviderError("rate_limited", "DataForSEO quota or rate limit.", true);
@@ -155,41 +145,78 @@ function isCountryLocationType(value: unknown): boolean {
   return typeof value === "string" && value.trim().toLowerCase() === "country";
 }
 
-export function parseKeywordsForKeywordsResponse(payload: unknown): RelatedKeywordIdeasResult {
-  const task = firstTask(payload);
+function readKeywordsForKeywordsResult(payload: unknown): {
+  task: Record<string, unknown>;
+  result: unknown[];
+} {
+  const root = asRecord(payload);
+  if (!root) {
+    throw new ResearchProviderError("invalid_response", "DataForSEO keyword response was invalid.");
+  }
+
+  throwIfDataForSeoStatus(root.status_code);
+
+  if (!("tasks" in root) || root.tasks == null) {
+    throw new ResearchProviderError("invalid_response", "DataForSEO task was missing.");
+  }
+
+  if (!Array.isArray(root.tasks)) {
+    throw new ResearchProviderError("invalid_response", "DataForSEO keyword response was invalid.");
+  }
+
+  if (root.tasks.length === 0) {
+    throw new ResearchProviderError("invalid_response", "DataForSEO task was missing.");
+  }
+
+  const task = asRecord(root.tasks[0]);
   if (!task) {
     throw new ResearchProviderError("invalid_response", "DataForSEO task was missing.");
   }
 
   throwIfDataForSeoStatus(task.status_code);
 
-  const taskId = typeof task.id === "string" && task.id.trim() ? task.id.trim() : null;
+  if (!("result" in task) || task.result == null) {
+    throw new ResearchProviderError("invalid_response", "DataForSEO keyword result was missing.");
+  }
+
+  if (!Array.isArray(task.result)) {
+    throw new ResearchProviderError("invalid_response", "DataForSEO keyword result was invalid.");
+  }
+
+  return { task, result: task.result };
+}
+
+export function parseKeywordsForKeywordsResponse(payload: unknown): RelatedKeywordIdeasResult {
+  const envelope = readKeywordsForKeywordsResult(payload);
+  const taskId =
+    typeof envelope.task.id === "string" && envelope.task.id.trim() ? envelope.task.id.trim() : null;
   const providerCost =
-    typeof task.cost === "number" && Number.isFinite(task.cost) ? task.cost : null;
-  const result = Array.isArray(task.result) ? task.result : [];
+    typeof envelope.task.cost === "number" && Number.isFinite(envelope.task.cost)
+      ? envelope.task.cost
+      : null;
   const ideas: RelatedKeywordIdeasResult["ideas"] = [];
 
-  for (const [index, row] of result.slice(0, RESEARCH_MAX_PARSE_ROWS).entries()) {
+  for (const [index, row] of envelope.result.slice(0, RESEARCH_MAX_PARSE_ROWS).entries()) {
     const record = asRecord(row);
-    if (!record) {
-      continue;
+    if (!record || typeof record.keyword !== "string") {
+      throw new ResearchProviderError(
+        "invalid_response",
+        "DataForSEO keyword result was invalid.",
+      );
     }
 
-    const keyword = typeof record.keyword === "string" ? record.keyword : "";
     const searchVolume =
       typeof record.search_volume === "number" && Number.isFinite(record.search_volume)
         ? Math.round(record.search_volume)
-        : record.search_volume == null
-          ? null
-          : null;
+        : null;
     ideas.push({
-      keyword,
+      keyword: record.keyword,
       searchVolume,
       providerOrder: index,
     });
   }
 
-  return { taskId, ideas, providerCost };
+  return { taskId, ideas, providerCost, providerResultCount: ideas.length };
 }
 
 export function parseLocationsResponse(payload: unknown): ResearchCountry[] {

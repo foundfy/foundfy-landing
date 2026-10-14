@@ -1,8 +1,10 @@
 import type {
   CurrentGscSampleStatus,
+  ResearchEmptyOutcome,
   ResearchGate,
   ResearchGateCode,
   ResearchProviderEnvironment,
+  ResearchRequestLedgerEntry,
 } from "./types";
 
 export const RESEARCH_SECTION_HEADING = "Search demand to explore";
@@ -31,6 +33,10 @@ export const RESEARCH_NEW_CYCLE_LABEL = "Start a new research cycle";
 export const RESEARCH_NEW_CYCLE_HELP_COPY =
   "This starts new external research. It is not a retry of the closed run.";
 export const RESEARCH_EMPTY_COPY = "Foundfy did not keep related searches for this run.";
+export const RESEARCH_PROVIDER_EMPTY_COPY =
+  "The provider returned no related searches for this run.";
+export const RESEARCH_FILTERED_EMPTY_COPY =
+  "Foundfy did not keep any of the returned searches after applying its filters.";
 export const RESEARCH_ERROR_COPY = "Foundfy couldn’t research related demand right now.";
 export const RESEARCH_DISABLED_COPY = "Research is not available right now.";
 export const RESEARCH_RETRY_NOT_SAFE_COPY =
@@ -83,6 +89,40 @@ export function currentGscSampleCopy(status: CurrentGscSampleStatus): string {
   }
 
   return RESEARCH_NOT_IN_SAMPLE_COPY;
+}
+
+export function researchEmptyOutcome(input: {
+  ideaCount: number;
+  ledger: ResearchRequestLedgerEntry[];
+}): ResearchEmptyOutcome | null {
+  if (input.ideaCount > 0) {
+    return null;
+  }
+
+  const counts = input.ledger
+    .filter((entry) => entry.status === "succeeded" || entry.status === "zero_results")
+    .map((entry) => entry.providerResultCount);
+  if (counts.length === 0 || counts.some((count) => count == null)) {
+    return "unknown";
+  }
+
+  if (counts.some((count) => (count ?? 0) > 0)) {
+    return "filtered_all";
+  }
+
+  return "provider_empty";
+}
+
+export function researchEmptyCopy(outcome: ResearchEmptyOutcome | null): string {
+  if (outcome === "provider_empty") {
+    return RESEARCH_PROVIDER_EMPTY_COPY;
+  }
+
+  if (outcome === "filtered_all") {
+    return RESEARCH_FILTERED_EMPTY_COPY;
+  }
+
+  return RESEARCH_EMPTY_COPY;
 }
 
 export function isResearchTestData(environment: ResearchProviderEnvironment): boolean {

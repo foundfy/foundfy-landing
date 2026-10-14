@@ -51,6 +51,7 @@ describe("DataForSEO sandbox provider", () => {
       limit: 20,
     });
     expect(ideas.taskId).toBe("sandbox-task");
+    expect(ideas.providerResultCount).toBe(1);
     expect(ideas.ideas[0]?.keyword).toBe("fixture related term");
   });
 
