@@ -4,6 +4,7 @@ import {
   requestKeyMatchesPair,
   researchRequestKey,
 } from "./request-key";
+import { parseFilterReasonCounts } from "./filter-reasons";
 import {
   RESEARCH_REQUEST_STATUSES,
   type ResearchRequestLedgerEntry,
@@ -22,6 +23,7 @@ const LEDGER_KEYS = [
   "retrievedAt",
   "ideaCount",
   "providerResultCount",
+  "filterReasonCounts",
   "providerCost",
   "failureCode",
 ] as const;
@@ -124,6 +126,7 @@ export function parseRequestLedger(value: unknown): ResearchRequestLedgerEntry[]
       retrievedAt: asNullableString(record.retrievedAt, 40),
       ideaCount,
       providerResultCount,
+      filterReasonCounts: parseFilterReasonCounts(record.filterReasonCounts),
       providerCost,
       failureCode: asNullableString(record.failureCode, 80),
     });
@@ -148,6 +151,7 @@ export function serializeRequestLedger(
       retrievedAt: entry.retrievedAt,
       ideaCount: entry.ideaCount,
       providerResultCount: entry.providerResultCount,
+      filterReasonCounts: entry.filterReasonCounts,
       providerCost: entry.providerCost,
       failureCode: entry.failureCode,
     };
@@ -254,6 +258,7 @@ export function buildRequestPlan(input: {
         retrievedAt: null,
         ideaCount: 0,
         providerResultCount: null,
+        filterReasonCounts: null,
         providerCost: null,
         failureCode: null,
       });

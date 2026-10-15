@@ -5,7 +5,13 @@ import {
 import { requireObserveOwner } from "@/lib/gsc/observe";
 import { findLatestConfirmedSiteModelForWebsite } from "@/lib/site-model/repository";
 import { researchReadEnvironment } from "./config";
-import { isResearchTestData, researchEmptyOutcome } from "./display";
+import {
+  isResearchTestData,
+  researchEmptyOutcome,
+  researchFilterReasonDetails,
+  researchReviewedKeptCopy,
+  researchRunFilterProvenance,
+} from "./display";
 import { currentGscSampleStatus, gscQueryCompactSet } from "./gsc-join";
 import { validConfirmedOfferings } from "./offerings";
 import { evaluateResearchReadiness } from "./readiness";
@@ -52,6 +58,10 @@ function toRunView(input: {
   currentGscQueriesTruncated: boolean;
 }): ResearchRunView {
   const recovery = researchRunRecoveryState(input.run);
+  const provenance = researchRunFilterProvenance({
+    ideaCount: input.ideas.length,
+    ledger: input.run.requestLedger ?? [],
+  });
   return {
     id: input.run.id,
     status: input.run.status,
@@ -85,6 +95,11 @@ function toRunView(input: {
       ideaCount: input.ideas.length,
       ledger: input.run.requestLedger ?? [],
     }),
+    reviewedKeptCopy: researchReviewedKeptCopy(
+      provenance.providerResultCount,
+      input.ideas.length,
+    ),
+    filterReasonDetails: researchFilterReasonDetails(provenance.filterReasonCounts),
     ideas: input.ideas,
   };
 }

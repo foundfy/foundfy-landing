@@ -188,3 +188,57 @@ describe("RESEARCH migration 022 result provenance", () => {
     expect(migration022).not.toMatch(/grant execute on function public\.persist_research_request_result.*to anon/);
   });
 });
+
+const migration023 = readFileSync(
+  path.join(__dirname, "../../../supabase/migrations/023_research_filter_provenance.sql"),
+  "utf8",
+);
+
+describe("RESEARCH migration 023 filter provenance", () => {
+  it("does not recreate tables or rewrite 020/021/022", () => {
+    expect(migration023).not.toMatch(/create table if not exists public\.research_runs/);
+    expect(migration023).not.toMatch(/create table if not exists public\.research_ideas/);
+    expect(migration023).not.toMatch(/drop table/i);
+    expect(migration023).not.toMatch(
+      /drop function if exists public\.persist_research_request_result/,
+    );
+    expect(migration).not.toMatch(/filterReasonCounts/);
+    expect(migration021).not.toMatch(/p_filter_reason_counts/);
+    expect(migration022).not.toMatch(/p_filter_reason_counts/);
+  });
+
+  it("validates canonical keys, integer counts, and the accounting invariant before mutation", () => {
+    expect(migration023).toMatch(/jsonb_typeof\(p_filter_reason_counts\) is distinct from 'object'/);
+    expect(migration023).toMatch(/emptyCount/);
+    expect(migration023).toMatch(/invalidCount/);
+    expect(migration023).toMatch(/brandOnlyCount/);
+    expect(migration023).toMatch(/seedDuplicateCount/);
+    expect(migration023).toMatch(/compactDuplicateCount/);
+    expect(migration023).toMatch(/cappedCount/);
+    expect(migration023).toMatch(/\(reason_value #>> '\{\}'\) !~ '\^\[0-9\]\+\$'/);
+    expect(migration023).toMatch(/reason_sum \+ p_idea_count <> p_provider_result_count/);
+    expect(migration023.indexOf("reason_sum + p_idea_count")).toBeLessThan(
+      migration023.indexOf("insert into public.research_ideas"),
+    );
+  });
+
+  it("reloads the PostgREST schema cache", () => {
+    expect(migration023).toMatch(/notify pgrst, 'reload schema'/);
+  });
+
+  it("keeps 10-arg, 11-arg, and 12-arg persist RPC signatures service_role only", () => {
+    expect(migration023).toMatch(
+      /revoke all on function public\.persist_research_request_result\(uuid, uuid, bigint, text, text, text, integer, numeric, text, jsonb\) from anon/,
+    );
+    expect(migration023).toMatch(
+      /revoke all on function public\.persist_research_request_result\(uuid, uuid, bigint, text, text, text, integer, numeric, text, jsonb, integer\) from authenticated/,
+    );
+    expect(migration023).toMatch(
+      /revoke all on function public\.persist_research_request_result\(uuid, uuid, bigint, text, text, text, integer, numeric, text, jsonb, integer, jsonb\) from public/,
+    );
+    expect(migration023).toMatch(
+      /grant execute on function public\.persist_research_request_result\(uuid, uuid, bigint, text, text, text, integer, numeric, text, jsonb, integer, jsonb\) to service_role/,
+    );
+    expect(migration023).not.toMatch(/grant execute on function public\.persist_research_request_result.*to anon/);
+  });
+});

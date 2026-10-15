@@ -8,6 +8,7 @@ import {
   type FencedResearchStore,
 } from "./fence";
 import { filterRelatedIdeas } from "./filter";
+import type { ResearchFilterReasonCounts } from "./filter-reasons";
 import { classifyGscSampleStatus } from "./gsc-join";
 import {
   buildRequestPlan,
@@ -194,6 +195,7 @@ export async function executeResearchLedger(input: {
       let ideas: FencedIdeaInsert[] = [];
       let ideaCount = 0;
       let providerResultCount: number | null = null;
+      let filterReasonCounts: ResearchFilterReasonCounts | null = null;
       let providerTaskId: string | null = null;
       let providerCost: number | null = null;
       let failureCode: string | null = null;
@@ -219,7 +221,7 @@ export async function executeResearchLedger(input: {
           seedOffering: current.seedOffering,
           hostname: input.hostname,
         });
-        ideas = filtered.map((idea) => ({
+        ideas = filtered.ideas.map((idea) => ({
           runId: input.run.id,
           websiteId: input.websiteId,
           seedOffering: current.seedOffering,
@@ -233,8 +235,9 @@ export async function executeResearchLedger(input: {
           initialGscSampleStatus: classifyGscSampleStatus(idea.keyword, input.queryKeys),
           requestKey,
         }));
-        ideaCount = filtered.length;
-        terminalStatus = filtered.length === 0 ? "zero_results" : "succeeded";
+        ideaCount = filtered.ideas.length;
+        filterReasonCounts = filtered.filterReasonCounts;
+        terminalStatus = filtered.ideas.length === 0 ? "zero_results" : "succeeded";
       } catch (error) {
         const providerError =
           error instanceof ResearchProviderError
@@ -242,6 +245,10 @@ export async function executeResearchLedger(input: {
             : new ResearchProviderError("server_error", "Provider request failed.", true);
         terminalStatus = ledgerStatusForError(providerError);
         failureCode = providerError.code;
+        providerResultCount = null;
+        filterReasonCounts = null;
+        ideas = [];
+        ideaCount = 0;
         if (terminalStatus === "rate_limited" || providerError.code === "unauthorized") {
           stopRemaining = true;
           stopCode = providerError.code;
@@ -258,6 +265,7 @@ export async function executeResearchLedger(input: {
           providerTaskId,
           ideaCount,
           providerResultCount,
+          filterReasonCounts,
           providerCost,
           failureCode,
           ideas,

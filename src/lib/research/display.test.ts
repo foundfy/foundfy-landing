@@ -17,6 +17,9 @@ import {
   formatEstimatedMonthlySearches,
   researchEmptyCopy,
   researchEmptyOutcome,
+  researchFilterReasonDetails,
+  researchReviewedKeptCopy,
+  researchRunFilterProvenance,
 } from "./display";
 import { researchRequestKey } from "./request-key";
 import type { ResearchRequestLedgerEntry } from "./types";
@@ -58,6 +61,7 @@ describe("RESEARCH wording", () => {
         retrievedAt: "2026-10-13T22:59:14.556Z",
         ideaCount: 0,
         providerResultCount: null,
+        filterReasonCounts: null,
         providerCost: 0.09,
         failureCode: null,
         ...overrides,
@@ -79,5 +83,61 @@ describe("RESEARCH wording", () => {
     expect(researchEmptyCopy("filtered_all")).toBe(RESEARCH_FILTERED_EMPTY_COPY);
     expect(RESEARCH_PROVIDER_EMPTY_COPY).not.toMatch(/no demand|no one searches|no volume|Google has no/i);
     expect(RESEARCH_FILTERED_EMPTY_COPY).not.toMatch(/no demand|keyword has no volume/i);
+    expect(RESEARCH_FILTERED_EMPTY_COPY).toMatch(/research criteria/);
+    expect(RESEARCH_FILTERED_EMPTY_COPY).not.toMatch(/after applying its filters/);
+  });
+
+  it("shows generic kept-of-reviewed copy without inventing historical reasons", () => {
+    expect(researchReviewedKeptCopy(3, 1)).toBe(
+      "Foundfy reviewed 3 related searches and kept 1 that met its research criteria.",
+    );
+    expect(researchReviewedKeptCopy(2, 1)).toBe(
+      "Foundfy reviewed 2 related searches and kept 1 that met its research criteria.",
+    );
+    expect(researchReviewedKeptCopy(5, 3)).toBe(
+      "Foundfy reviewed 5 related searches and kept 3 that met its research criteria.",
+    );
+    expect(researchReviewedKeptCopy(3, 3)).toBeNull();
+    expect(researchReviewedKeptCopy(3, 0)).toBeNull();
+    expect(researchReviewedKeptCopy(null, 1)).toBeNull();
+
+    const dbhobby = researchRunFilterProvenance({
+      ideaCount: 1,
+      ledger: [
+        {
+          requestKey: researchRequestKey("Materiales para pintura sobre seda", "es"),
+          seedOffering: "Materiales para pintura sobre seda",
+          languageCode: "es",
+          locationCode: 2724,
+          providerTaskId: "10151254-2775-0368-0000-6c3fca93a594",
+          status: "succeeded",
+          requestedAt: "2026-10-15T12:54:32.939Z",
+          attemptedAt: "2026-10-15T12:54:33.385Z",
+          retrievedAt: "2026-10-15T12:54:36.812Z",
+          ideaCount: 1,
+          providerResultCount: 3,
+          filterReasonCounts: null,
+          providerCost: 0.09,
+          failureCode: null,
+        },
+      ],
+    });
+    expect(dbhobby.providerResultCount).toBe(3);
+    expect(dbhobby.filterReasonCounts).toBeNull();
+    expect(researchReviewedKeptCopy(dbhobby.providerResultCount, 1)).toBe(
+      "Foundfy reviewed 3 related searches and kept 1 that met its research criteria.",
+    );
+    expect(researchFilterReasonDetails(dbhobby.filterReasonCounts)).toEqual([]);
+    expect(researchFilterReasonDetails({
+      emptyCount: 0,
+      invalidCount: 0,
+      brandOnlyCount: 1,
+      seedDuplicateCount: 1,
+      compactDuplicateCount: 0,
+      cappedCount: 0,
+    })).toEqual([
+      "1 was only a brand search.",
+      "1 matched the confirmed offering itself.",
+    ]);
   });
 });
