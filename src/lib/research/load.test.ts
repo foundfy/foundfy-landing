@@ -200,6 +200,7 @@ describe("loadResearchForOwner", () => {
           retrievedAt: null,
           ideaCount: 0,
           providerResultCount: null,
+          filterReasonCounts: null,
           providerCost: null,
           failureCode: null,
         },
@@ -239,6 +240,7 @@ describe("loadResearchForOwner", () => {
           retrievedAt: null,
           ideaCount: 0,
           providerResultCount: null,
+          filterReasonCounts: null,
           providerCost: null,
           failureCode: null,
         },
@@ -292,6 +294,7 @@ describe("loadResearchForOwner", () => {
           ideaCount: 0,
           providerCost: 0.09,
           failureCode: null,
+          filterReasonCounts: null,
         },
       ],
     });
@@ -306,5 +309,81 @@ describe("loadResearchForOwner", () => {
     expect(view.run?.staleReasons).toEqual([]);
     expect(view.run?.emptyOutcome).toBe("unknown");
     expect(view.run?.ideas).toEqual([]);
+    expect(view.run?.reviewedKeptCopy).toBeNull();
+    expect(view.run?.filterReasonDetails).toEqual([]);
+  });
+
+  it("loads the historical DBHobby 3-to-1 run with generic provenance and no invented reasons", async () => {
+    listResearchIdeasForRunMock.mockResolvedValue([
+      {
+        id: "477889f4-ce3e-401b-88f6-57fd25e30df2",
+        keyword: "como pintar en seda",
+        estimatedMonthlySearches: 20,
+        seedOffering: "Materiales para pintura sobre seda",
+        languageCode: "es",
+        createdAt: "2026-10-15T12:54:36.812882+00:00",
+        initialGscSampleStatus: "not_in_current_gsc_sample",
+      },
+    ]);
+    findLatestConfirmedSiteModelForWebsiteMock.mockResolvedValue({
+      id: "011f7a71-ebc0-4938-ba04-af8ddbe674bd",
+      status: "stale",
+      understanding: { hostname: "dbhobby.com", languages: { htmlLangs: ["ca", "es", "en"] } },
+      confirmed: {
+        confirmedAt: "2026-10-15T12:37:56.457+00:00",
+        offers: ["Materiales para pintura sobre seda"],
+      },
+    });
+    findLatestCompatibleResearchRunMock.mockResolvedValue({
+      id: "6a99b0dd-91c5-43df-9b65-8443331ed4a6",
+      status: "completed",
+      siteModelId: "011f7a71-ebc0-4938-ba04-af8ddbe674bd",
+      siteModelConfirmedAt: "2026-10-15T12:37:56.457+00:00",
+      offeringSeeds: ["Materiales para pintura sobre seda"],
+      providerEnvironment: "live",
+      countryKey: "ES",
+      countryName: "Spain",
+      languageCodes: ["es"],
+      gscQueriesTruncated: true,
+      completedAt: "2026-10-15T12:54:36.952+00:00",
+      createdAt: "2026-10-15T12:54:32.80692+00:00",
+      requestLedger: [
+        {
+          requestKey: researchRequestKey("Materiales para pintura sobre seda", "es"),
+          seedOffering: "Materiales para pintura sobre seda",
+          languageCode: "es",
+          locationCode: 2724,
+          providerTaskId: "10151254-2775-0368-0000-6c3fca93a594",
+          status: "succeeded",
+          requestedAt: "2026-10-15T12:54:32.939Z",
+          attemptedAt: "2026-10-15T12:54:33.385Z",
+          retrievedAt: "2026-10-15T12:54:36.812Z",
+          ideaCount: 1,
+          providerResultCount: 3,
+          filterReasonCounts: null,
+          providerCost: 0.09,
+          failureCode: null,
+        },
+      ],
+    });
+    listCompletedSearchSyncsForWebsiteMock.mockResolvedValue([
+      { id: "c2048065-dfe4-404f-a680-4e24e4c4200e", queriesTruncated: true },
+    ]);
+    listEvidenceForSyncMock.mockResolvedValue([]);
+    process.env.RESEARCH_PROVIDER_MODE = "live";
+    process.env.RESEARCH_LIVE_ENABLED = "true";
+    process.env.DATAFORSEO_LOGIN = "login";
+    process.env.DATAFORSEO_PASSWORD = "password";
+    process.env.NODE_ENV = "production";
+
+    const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
+    expect(view.run?.ideas).toHaveLength(1);
+    expect(view.run?.ideas[0]?.keyword).toBe("como pintar en seda");
+    expect(view.run?.ideas[0]?.currentGscSampleStatus).toBe("not_in_current_gsc_sample");
+    expect(view.run?.reviewedKeptCopy).toBe(
+      "Foundfy reviewed 3 related searches and kept 1 that met its research criteria.",
+    );
+    expect(view.run?.filterReasonDetails).toEqual([]);
+    expect(view.run?.stale).toBe(false);
   });
 });

@@ -1,5 +1,10 @@
 import { isAbandonedActiveRun } from "./recovery";
 import {
+  filterReasonCountsReconcile,
+  isCanonicalFilterReasonCounts,
+  type ResearchFilterReasonCounts,
+} from "./filter-reasons";
+import {
   ledgerEntrySafeToResume,
   ledgerEntryWasAttempted,
   serializeRequestLedger,
@@ -44,6 +49,7 @@ export type FencedResearchStore = {
     providerTaskId: string | null;
     ideaCount: number;
     providerResultCount?: number | null;
+    filterReasonCounts?: ResearchFilterReasonCounts | null;
     providerCost: number | null;
     failureCode: string | null;
     ideas: FencedIdeaInsert[];
@@ -169,6 +175,21 @@ export function createFencedResearchStore(input: {
       if (!ledgerEntryWasAttempted(entry)) {
         return { outcome: "invalid_state", run: rec, ideas: [] };
       }
+      if (args.filterReasonCounts != null) {
+        if (!isCanonicalFilterReasonCounts(args.filterReasonCounts)) {
+          return { outcome: "invalid_state", run: rec, ideas: [] };
+        }
+        if (
+          args.providerResultCount != null &&
+          !filterReasonCountsReconcile({
+            providerResultCount: args.providerResultCount,
+            ideaCount: args.ideaCount,
+            filterReasonCounts: args.filterReasonCounts,
+          })
+        ) {
+          return { outcome: "invalid_state", run: rec, ideas: [] };
+        }
+      }
       const persisted: ResearchIdeaRecord[] = [];
       if (args.status === "succeeded" || args.status === "zero_results") {
         for (const idea of args.ideas) {
@@ -197,6 +218,9 @@ export function createFencedResearchStore(input: {
       entry.ideaCount = args.ideaCount;
       if (args.providerResultCount !== undefined) {
         entry.providerResultCount = args.providerResultCount;
+      }
+      if (args.filterReasonCounts !== undefined) {
+        entry.filterReasonCounts = args.filterReasonCounts;
       }
       entry.providerCost = args.providerCost;
       entry.failureCode = args.failureCode;

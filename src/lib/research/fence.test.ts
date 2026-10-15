@@ -183,6 +183,43 @@ describe("fenced result persistence", () => {
     expect(rec.requestLedger[0]?.status).toBe("succeeded");
     expect(rec.requestLedger[0]?.providerTaskId).toBe("task-ok");
 
+    const recInvalid = run({ id: "run-invalid" });
+    const ideasInvalid: ResearchIdeaRecord[] = [];
+    const storeInvalid = createFencedResearchStore({ runs: [recInvalid], ideas: ideasInvalid });
+    const invalidKey = recInvalid.requestLedger[0]!.requestKey;
+    storeInvalid.claimRequest({
+      runId: recInvalid.id,
+      websiteId: recInvalid.websiteId,
+      executionGeneration: 1,
+      requestKey: invalidKey,
+    });
+    const beforeStatus = recInvalid.requestLedger[0]?.status;
+    expect(
+      storeInvalid.persistResult({
+        runId: recInvalid.id,
+        websiteId: recInvalid.websiteId,
+        executionGeneration: 1,
+        requestKey: invalidKey,
+        status: "succeeded",
+        providerTaskId: "task-bad",
+        ideaCount: 1,
+        providerResultCount: 3,
+        filterReasonCounts: {
+          emptyCount: 0,
+          invalidCount: 0,
+          brandOnlyCount: 0,
+          seedDuplicateCount: 0,
+          compactDuplicateCount: 0,
+          cappedCount: 0,
+        },
+        providerCost: 0.09,
+        failureCode: null,
+        ideas: [ideaInsert({ run: recInvalid, requestKey: invalidKey, keyword: "related silk" })],
+      }).outcome,
+    ).toBe("invalid_state");
+    expect(recInvalid.requestLedger[0]?.status).toBe(beforeStatus);
+    expect(ideasInvalid).toHaveLength(0);
+
     const emptyKey = rec.requestLedger[1]!.requestKey;
     store.claimRequest({
       runId: rec.id,

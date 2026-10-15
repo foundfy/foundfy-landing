@@ -1,3 +1,7 @@
+import type { ResearchFilterReasonCounts } from "./filter-reasons";
+
+export type { ResearchFilterReasonCounts };
+
 export const RESEARCH_PROVIDER_MODES = ["disabled", "fixture", "sandbox", "live"] as const;
 export type ResearchProviderMode = (typeof RESEARCH_PROVIDER_MODES)[number];
 
@@ -76,6 +80,7 @@ export type ResearchRequestLedgerEntry = {
   retrievedAt: string | null;
   ideaCount: number;
   providerResultCount: number | null;
+  filterReasonCounts: ResearchFilterReasonCounts | null;
   providerCost: number | null;
   failureCode: string | null;
 };
@@ -201,6 +206,8 @@ export type ResearchRunView = {
   canClose: boolean;
   canStartNewCycle: boolean;
   emptyOutcome: ResearchEmptyOutcome | null;
+  reviewedKeptCopy: string | null;
+  filterReasonDetails: string[];
   ideas: ResearchIdeaView[];
 };
 

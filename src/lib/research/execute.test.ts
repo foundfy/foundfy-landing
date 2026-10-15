@@ -411,6 +411,14 @@ describe("execution generation fencing", () => {
     expect(run.requestLedger[0]?.status).toBe("zero_results");
     expect(run.requestLedger[0]?.providerResultCount).toBe(0);
     expect(run.requestLedger[0]?.ideaCount).toBe(0);
+    expect(run.requestLedger[0]?.filterReasonCounts).toEqual({
+      emptyCount: 0,
+      invalidCount: 0,
+      brandOnlyCount: 0,
+      seedDuplicateCount: 0,
+      compactDuplicateCount: 0,
+      cappedCount: 0,
+    });
   });
 
   it("keeps seed-only provider rows distinguishable from genuine empty", async () => {
@@ -430,6 +438,14 @@ describe("execution generation fencing", () => {
     expect(run.requestLedger[0]?.status).toBe("zero_results");
     expect(run.requestLedger[0]?.providerResultCount).toBe(1);
     expect(run.requestLedger[0]?.ideaCount).toBe(0);
+    expect(run.requestLedger[0]?.filterReasonCounts).toEqual({
+      emptyCount: 0,
+      invalidCount: 0,
+      brandOnlyCount: 0,
+      seedDuplicateCount: 1,
+      compactDuplicateCount: 0,
+      cappedCount: 0,
+    });
   });
 
   it("records useful rows as succeeded with providerResultCount >= ideaCount", async () => {
@@ -447,6 +463,20 @@ describe("execution generation fencing", () => {
     expect(entry?.status).toBe("succeeded");
     expect(entry?.ideaCount).toBeGreaterThan(0);
     expect(entry?.providerResultCount).toBeGreaterThanOrEqual(entry?.ideaCount ?? 0);
+    expect(entry?.filterReasonCounts).toEqual({
+      emptyCount: 0,
+      invalidCount: 0,
+      brandOnlyCount: 0,
+      seedDuplicateCount: 1,
+      compactDuplicateCount: 1,
+      cappedCount: 0,
+    });
+    expect(
+      (entry?.ideaCount ?? 0) +
+        (entry?.filterReasonCounts
+          ? Object.values(entry.filterReasonCounts).reduce((sum, count) => sum + count, 0)
+          : 0),
+    ).toBe(entry?.providerResultCount);
   });
 
   it("does not persist zero_results when the provider throws invalid_response", async () => {
@@ -469,5 +499,6 @@ describe("execution generation fencing", () => {
     expect(run.requestLedger[0]?.failureCode).toBe("invalid_response");
     expect(run.requestLedger[0]?.ideaCount).toBe(0);
     expect(run.requestLedger[0]?.providerResultCount).toBeNull();
+    expect(run.requestLedger[0]?.filterReasonCounts).toBeNull();
   });
 });

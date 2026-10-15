@@ -58,4 +58,19 @@ describe("RESEARCH privacy lifecycle", () => {
     expect(migration022).not.toMatch(/grant execute on function public\.persist_research_request_result.*to anon/);
     expect(migration022).not.toMatch(/clicks|impressions|ctr|position/);
   });
+
+  it("keeps migration 023 persist RPC off anon and authenticated for all signatures", () => {
+    const migration023 = read("../../../supabase/migrations/023_research_filter_provenance.sql");
+    expect(migration023).toMatch(
+      /revoke all on function public\.persist_research_request_result\(uuid, uuid, bigint, text, text, text, integer, numeric, text, jsonb\) from anon/,
+    );
+    expect(migration023).toMatch(
+      /revoke all on function public\.persist_research_request_result\(uuid, uuid, bigint, text, text, text, integer, numeric, text, jsonb, integer\) from authenticated/,
+    );
+    expect(migration023).toMatch(
+      /revoke all on function public\.persist_research_request_result\(uuid, uuid, bigint, text, text, text, integer, numeric, text, jsonb, integer, jsonb\) from anon/,
+    );
+    expect(migration023).not.toMatch(/grant execute on function public\.persist_research_request_result.*to anon/);
+    expect(migration023).not.toMatch(/clicks|impressions|ctr|position/);
+  });
 });

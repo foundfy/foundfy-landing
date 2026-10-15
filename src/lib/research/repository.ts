@@ -17,6 +17,7 @@ import type {
   ResearchRunRecord,
   ResearchRunStatus,
 } from "./types";
+import type { ResearchFilterReasonCounts } from "./filter-reasons";
 import type { FencedIdeaInsert } from "./fence";
 
 type ResearchRunRow = {
@@ -206,6 +207,7 @@ export async function persistResearchRequestResult(input: {
   providerTaskId: string | null;
   ideaCount: number;
   providerResultCount?: number | null;
+  filterReasonCounts?: ResearchFilterReasonCounts | null;
   providerCost: number | null;
   failureCode: string | null;
   ideas: FencedIdeaInsert[];
@@ -219,6 +221,7 @@ export async function persistResearchRequestResult(input: {
     p_provider_task_id: input.providerTaskId,
     p_idea_count: input.ideaCount,
     p_provider_result_count: input.providerResultCount ?? null,
+    p_filter_reason_counts: input.filterReasonCounts ?? null,
     p_provider_cost: input.providerCost,
     p_failure_code: input.failureCode,
     p_ideas: input.ideas.map((idea) => ({

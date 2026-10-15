@@ -26,6 +26,25 @@ const entry = (
   retrievedAt: status === "skipped" || status === "pending" ? null : "2026-10-11T00:00:01.000Z",
   ideaCount: status === "succeeded" ? 3 : 0,
   providerResultCount: status === "succeeded" ? 4 : status === "zero_results" ? 0 : null,
+  filterReasonCounts: status === "succeeded"
+    ? {
+        emptyCount: 0,
+        invalidCount: 0,
+        brandOnlyCount: 0,
+        seedDuplicateCount: 0,
+        compactDuplicateCount: 1,
+        cappedCount: 0,
+      }
+    : status === "zero_results"
+      ? {
+          emptyCount: 0,
+          invalidCount: 0,
+          brandOnlyCount: 0,
+          seedDuplicateCount: 0,
+          compactDuplicateCount: 0,
+          cappedCount: 0,
+        }
+      : null,
   providerCost: status === "succeeded" ? 0.09 : null,
   failureCode: status === "failed" || status === "timeout" || status === "rate_limited" ? status : null,
   ...overrides,
@@ -64,6 +83,13 @@ describe("RESEARCH request ledger", () => {
     const withoutCount = { ...entry("succeeded") } as Record<string, unknown>;
     delete withoutCount.providerResultCount;
     expect(parseRequestLedger([withoutCount])[0]?.providerResultCount).toBeNull();
+    const withoutReasons = { ...entry("succeeded") } as Record<string, unknown>;
+    delete withoutReasons.filterReasonCounts;
+    expect(parseRequestLedger([withoutReasons])[0]?.filterReasonCounts).toBeNull();
+    expect(
+      parseRequestLedger([{ ...entry("succeeded"), filterReasonCounts: { seedDuplicateCount: 1 } }])[0]
+        ?.filterReasonCounts,
+    ).toBeNull();
     expect(
       parseRequestLedger([
         {

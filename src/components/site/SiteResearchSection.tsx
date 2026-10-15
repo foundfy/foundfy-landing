@@ -413,8 +413,24 @@ export default function SiteResearchSection({
             <p className={styles.sectionMeta}>{RESEARCH_PARTIAL_COPY}</p>
           ) : null}
           {run.ideas.length === 0 ? (
-            <p className={styles.understandingCopy}>{researchEmptyCopy(run.emptyOutcome)}</p>
+            <div>
+              <p className={styles.understandingCopy}>{researchEmptyCopy(run.emptyOutcome)}</p>
+              {run.filterReasonDetails.map((detail) => (
+                <p key={detail} className={styles.sectionMeta}>
+                  {detail}
+                </p>
+              ))}
+            </div>
           ) : (
+            <>
+              {run.reviewedKeptCopy ? (
+                <p className={styles.understandingCopy}>{run.reviewedKeptCopy}</p>
+              ) : null}
+              {run.filterReasonDetails.map((detail) => (
+                <p key={detail} className={styles.sectionMeta}>
+                  {detail}
+                </p>
+              ))}
             <ol className={styles.opportunityList}>
               {run.ideas.map((idea) => {
                 const volume = formatEstimatedMonthlySearches(
@@ -465,6 +481,7 @@ export default function SiteResearchSection({
                 );
               })}
             </ol>
+            </>
           )}
         </div>
       ) : null}

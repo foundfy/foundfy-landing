@@ -1,3 +1,10 @@
+import {
+  FILTER_REASON_COUNT_KEYS,
+  filterReasonCountSum,
+  mergeFilterReasonCounts,
+  type FilterReasonCountKey,
+  type ResearchFilterReasonCounts,
+} from "./filter-reasons";
 import type {
   CurrentGscSampleStatus,
   ResearchEmptyOutcome,
@@ -36,7 +43,7 @@ export const RESEARCH_EMPTY_COPY = "Foundfy did not keep related searches for th
 export const RESEARCH_PROVIDER_EMPTY_COPY =
   "The provider returned no related searches for this run.";
 export const RESEARCH_FILTERED_EMPTY_COPY =
-  "Foundfy did not keep any of the returned searches after applying its filters.";
+  "Foundfy did not keep any of the returned searches after applying its research criteria.";
 export const RESEARCH_ERROR_COPY = "Foundfy couldn’t research related demand right now.";
 export const RESEARCH_DISABLED_COPY = "Research is not available right now.";
 export const RESEARCH_RETRY_NOT_SAFE_COPY =
@@ -123,6 +130,111 @@ export function researchEmptyCopy(outcome: ResearchEmptyOutcome | null): string 
   }
 
   return RESEARCH_EMPTY_COPY;
+}
+
+export function researchRunFilterProvenance(input: {
+  ideaCount: number;
+  ledger: ResearchRequestLedgerEntry[];
+}): {
+  providerResultCount: number | null;
+  ideaCount: number;
+  filterReasonCounts: ResearchFilterReasonCounts | null;
+} {
+  const terminal = input.ledger.filter(
+    (entry) => entry.status === "succeeded" || entry.status === "zero_results",
+  );
+  if (terminal.length === 0) {
+    return {
+      providerResultCount: null,
+      ideaCount: input.ideaCount,
+      filterReasonCounts: null,
+    };
+  }
+
+  if (terminal.some((entry) => entry.providerResultCount == null)) {
+    return {
+      providerResultCount: null,
+      ideaCount: input.ideaCount,
+      filterReasonCounts: null,
+    };
+  }
+
+  const providerResultCount = terminal.reduce(
+    (sum, entry) => sum + (entry.providerResultCount ?? 0),
+    0,
+  );
+
+  return {
+    providerResultCount,
+    ideaCount: input.ideaCount,
+    filterReasonCounts: mergeFilterReasonCounts(terminal.map((entry) => entry.filterReasonCounts)),
+  };
+}
+
+export function researchReviewedKeptCopy(
+  providerResultCount: number | null,
+  ideaCount: number,
+): string | null {
+  if (providerResultCount == null || ideaCount <= 0 || providerResultCount <= ideaCount) {
+    return null;
+  }
+
+  const searchNoun = providerResultCount === 1 ? "search" : "searches";
+  return `Foundfy reviewed ${providerResultCount} related ${searchNoun} and kept ${ideaCount} that met its research criteria.`;
+}
+
+const FILTER_REASON_DETAIL_ORDER: FilterReasonCountKey[] = [...FILTER_REASON_COUNT_KEYS];
+
+export function researchFilterReasonDetails(
+  counts: ResearchFilterReasonCounts | null,
+): string[] {
+  if (!counts || filterReasonCountSum(counts) === 0) {
+    return [];
+  }
+
+  const details: string[] = [];
+  for (const key of FILTER_REASON_DETAIL_ORDER) {
+    const count = counts[key];
+    if (count <= 0) {
+      continue;
+    }
+    const line = filterReasonDetailCopy(key, count);
+    if (line) {
+      details.push(line);
+    }
+  }
+  return details;
+}
+
+function filterReasonDetailCopy(key: FilterReasonCountKey, count: number): string | null {
+  if (count <= 0) {
+    return null;
+  }
+
+  switch (key) {
+    case "emptyCount":
+      return count === 1
+        ? "1 did not contain usable search text."
+        : `${count} did not contain usable search text.`;
+    case "invalidCount":
+      return count === 1
+        ? "1 contained unsupported search text."
+        : `${count} contained unsupported search text.`;
+    case "brandOnlyCount":
+      return count === 1 ? "1 was only a brand search." : `${count} were only a brand search.`;
+    case "seedDuplicateCount":
+      return count === 1
+        ? "1 matched the confirmed offering itself."
+        : `${count} matched the confirmed offering itself.`;
+    case "compactDuplicateCount":
+      return count === 1
+        ? "1 repeated another related search."
+        : `${count} repeated another related search.`;
+    case "cappedCount":
+      return count === 1
+        ? "1 was outside Foundfy's 20-result display limit."
+        : `${count} were outside Foundfy's 20-result display limit.`;
+  }
 }
 
 export function isResearchTestData(environment: ResearchProviderEnvironment): boolean {
