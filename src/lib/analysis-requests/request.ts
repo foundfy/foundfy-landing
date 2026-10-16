@@ -10,7 +10,7 @@ import { createAndEnqueueCrawl } from "@/lib/crawler/start-crawl";
 import { staleReasonForRun } from "@/lib/decisions/load";
 import { findDecisionById, findLatestCompletedDecisionRun } from "@/lib/decisions/db";
 import { loadDecisionPrerequisites } from "@/lib/decisions/generate";
-import { DecisionPrerequisiteError } from "@/lib/decisions/types";
+import { asDecisionV1Run, DecisionPrerequisiteError } from "@/lib/decisions/types";
 import { listEvidenceForSync } from "@/lib/gsc/db-search";
 import { requireObserveOwner } from "@/lib/gsc/observe";
 import { pageComparisonKey } from "@/lib/gsc/page-map";
@@ -173,7 +173,8 @@ export async function requestPageAnalysis(input: {
     throw error;
   }
 
-  const run = await findLatestCompletedDecisionRun(input.websiteId);
+  const latest = await findLatestCompletedDecisionRun(input.websiteId);
+  const run = latest ? asDecisionV1Run(latest) : null;
   const stale =
     run == null
       ? "missing_run"

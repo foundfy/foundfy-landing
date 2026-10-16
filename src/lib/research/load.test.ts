@@ -28,6 +28,13 @@ vi.mock("./repository", () => ({
   listResearchIdeasForRun: (...args: unknown[]) => listResearchIdeasForRunMock(...args),
 }));
 
+const listInspectionsForResearchIdeasMock = vi.fn();
+
+vi.mock("@/lib/decisions/inspect", () => ({
+  listInspectionsForResearchIdeas: (...args: unknown[]) =>
+    listInspectionsForResearchIdeasMock(...args),
+}));
+
 import { loadResearchForOwner } from "./load";
 import { researchRequestKey } from "./request-key";
 
@@ -79,6 +86,7 @@ describe("loadResearchForOwner", () => {
       },
     ]);
     listCompletedSearchSyncsForWebsiteMock.mockResolvedValue([]);
+    listInspectionsForResearchIdeasMock.mockResolvedValue(new Map());
   });
 
   it("recomputes current GSC status without treating a new sync as research staleness", async () => {
@@ -100,6 +108,37 @@ describe("loadResearchForOwner", () => {
     const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
     expect(view.run?.ideas[0]?.currentGscSampleStatus).toBe("gsc_unavailable");
     expect(view.run?.ideas[0]?.keyword).toBe("fixture related term one");
+    expect(view.run?.ideas[0]?.canInspect).toBe(true);
+    expect(view.run?.ideas[0]?.inspection).toBeNull();
+  });
+
+  it("attaches a persisted related-demand inspection to the RESEARCH idea", async () => {
+    listInspectionsForResearchIdeasMock.mockResolvedValue(
+      new Map([
+        [
+          "idea-1",
+          {
+            decisionId: "d-1",
+            runId: "inspect-1",
+            state: "no_obvious_match_in_current_crawl",
+            resultCopy: "Foundfy did not find an obvious match in the current crawl sample.",
+            gscCopy: "Google Search evidence is not available for this inspection.",
+            crawlBounded: true,
+            crawlBoundedCopy:
+              "This inspection used the current crawl sample: 10 pages fetched from 347 discovered URLs.",
+            nextStepCopy: "Review current pages and evidence. Foundfy is not recommending a change yet.",
+          },
+        ],
+      ]),
+    );
+    const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
+    expect(view.run?.ideas[0]?.inspection?.state).toBe("no_obvious_match_in_current_crawl");
+    expect(view.run?.ideas[0]?.inspection?.gscCopy).toMatch(/not available/);
+    expect(view.run?.ideas[0]?.canInspect).toBe(true);
+    expect(listInspectionsForResearchIdeasMock).toHaveBeenCalledWith({
+      websiteId: "site-1",
+      ideaIds: ["idea-1"],
+    });
   });
 
   it("hides the RESEARCH surface when the provider is disabled", async () => {
@@ -136,6 +175,75 @@ describe("loadResearchForOwner", () => {
     expect(sandboxView.readiness.surfaceVisible).toBe(false);
     expect(sandboxView.run).toBeNull();
     expect(findLatestCompatibleResearchRunMock).not.toHaveBeenCalled();
+  });
+
+  it("loads persisted live RESEARCH in production when live execution is disabled", async () => {
+    findLatestCompatibleResearchRunMock.mockResolvedValue({
+      id: "run-live",
+      status: "completed",
+      siteModelConfirmedAt: "2026-10-01T00:00:00.000Z",
+      offeringSeeds: ["silk paint"],
+      providerEnvironment: "live",
+      countryKey: "US",
+      countryName: "United States",
+      languageCodes: ["en"],
+      gscQueriesTruncated: false,
+      completedAt: "2026-10-10T00:00:00.000Z",
+      createdAt: "2026-10-10T00:00:00.000Z",
+    });
+    listResearchIdeasForRunMock.mockResolvedValue([
+      {
+        id: "idea-live",
+        keyword: "como pintar en seda",
+        estimatedMonthlySearches: 20,
+        seedOffering: "silk paint",
+        languageCode: "es",
+        createdAt: "2026-10-10T00:00:00.000Z",
+        initialGscSampleStatus: "not_in_current_gsc_sample",
+      },
+    ]);
+    const view = await loadResearchForOwner({
+      websiteId: "site-1",
+      sessionToken: "session",
+      env: {
+        ...process.env,
+        NODE_ENV: "production",
+        RESEARCH_PROVIDER_MODE: "live",
+        RESEARCH_LIVE_ENABLED: "false",
+        DATAFORSEO_LOGIN: "login",
+        DATAFORSEO_PASSWORD: "password",
+      },
+    });
+    expect(view.readiness.surfaceVisible).toBe(true);
+    expect(view.readiness.executionAvailable).toBe(false);
+    expect(view.run?.providerEnvironment).toBe("live");
+    expect(view.run?.ideas[0]?.keyword).toBe("como pintar en seda");
+    expect(view.run?.ideas[0]?.canInspect).toBe(true);
+    expect(findLatestCompatibleResearchRunMock).toHaveBeenCalledWith({
+      websiteId: "site-1",
+      environment: "live",
+    });
+  });
+
+  it("does not create or refresh RESEARCH when production live execution is disabled and nothing is persisted", async () => {
+    findLatestCompatibleResearchRunMock.mockResolvedValue(null);
+    const view = await loadResearchForOwner({
+      websiteId: "site-1",
+      sessionToken: "session",
+      env: {
+        ...process.env,
+        NODE_ENV: "production",
+        RESEARCH_PROVIDER_MODE: "live",
+        RESEARCH_LIVE_ENABLED: "false",
+        DATAFORSEO_LOGIN: "login",
+        DATAFORSEO_PASSWORD: "password",
+      },
+    });
+    expect(view.readiness.surfaceVisible).toBe(true);
+    expect(view.readiness.executionAvailable).toBe(false);
+    expect(view.run).toBeNull();
+    expect(listResearchIdeasForRunMock).not.toHaveBeenCalled();
+    expect(listInspectionsForResearchIdeasMock).not.toHaveBeenCalled();
   });
 
   it("loads live-environment RESEARCH in production when live is enabled", async () => {
@@ -248,6 +356,7 @@ describe("loadResearchForOwner", () => {
     });
     const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
     expect(view.run?.displayClosed).toBe(true);
+    expect(view.run?.ideas[0]?.canInspect).toBe(false);
     expect(view.run?.canStartNewCycle).toBe(true);
     expect(view.run?.displayInterrupted).toBe(false);
     expect(view.run?.canClose).toBe(false);
@@ -371,14 +480,17 @@ describe("loadResearchForOwner", () => {
     ]);
     listEvidenceForSyncMock.mockResolvedValue([]);
     process.env.RESEARCH_PROVIDER_MODE = "live";
-    process.env.RESEARCH_LIVE_ENABLED = "true";
+    process.env.RESEARCH_LIVE_ENABLED = "false";
     process.env.DATAFORSEO_LOGIN = "login";
     process.env.DATAFORSEO_PASSWORD = "password";
     process.env.NODE_ENV = "production";
 
     const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
+    expect(view.readiness.surfaceVisible).toBe(true);
+    expect(view.readiness.executionAvailable).toBe(false);
     expect(view.run?.ideas).toHaveLength(1);
     expect(view.run?.ideas[0]?.keyword).toBe("como pintar en seda");
+    expect(view.run?.ideas[0]?.canInspect).toBe(true);
     expect(view.run?.ideas[0]?.currentGscSampleStatus).toBe("not_in_current_gsc_sample");
     expect(view.run?.reviewedKeptCopy).toBe(
       "Foundfy reviewed 3 related searches and kept 1 that met its research criteria.",

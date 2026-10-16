@@ -67,6 +67,23 @@ describe("RESEARCH readiness", () => {
     expect(readiness.surfaceVisible).toBe(true);
   });
 
+  it("keeps persisted RESEARCH visible in production when live execution is disabled", () => {
+    const readiness = evaluateResearchReadiness({
+      model: model(),
+      hasCompletedGscSync: true,
+      env: {
+        NODE_ENV: "production",
+        RESEARCH_PROVIDER_MODE: "live",
+        RESEARCH_LIVE_ENABLED: "false",
+        DATAFORSEO_LOGIN: "login",
+        DATAFORSEO_PASSWORD: "password",
+      },
+    });
+    expect(readiness.surfaceVisible).toBe(true);
+    expect(readiness.executionAvailable).toBe(false);
+    expect(readiness.gate?.code).toBe("live_not_enabled");
+  });
+
   it("does not reuse Site Model locations as the research country", () => {
     const readiness = evaluateResearchReadiness({
       model: model(),

@@ -1,3 +1,4 @@
+import { listInspectionsForResearchIdeas } from "@/lib/decisions/inspect";
 import {
   listCompletedSearchSyncsForWebsite,
   listEvidenceForSync,
@@ -142,6 +143,10 @@ export async function loadResearchForOwner(input: {
     confirmedOffers: confirmed ? validConfirmedOfferings(confirmed.offers, hostname) : [],
     latestCompatibleRunId: latest.id,
   });
+  const inspections = await listInspectionsForResearchIdeas({
+    websiteId: input.websiteId,
+    ideaIds: records.map((idea) => idea.id),
+  });
 
   const ideas: ResearchIdeaView[] = records.map((idea) => ({
     id: idea.id,
@@ -157,6 +162,8 @@ export async function loadResearchForOwner(input: {
       keyword: idea.keyword,
       queryKeys: gsc.queryKeys,
     }),
+    canInspect: staleReasons.length === 0 && latest.status === "completed",
+    inspection: inspections.get(idea.id) ?? null,
   }));
 
   return {

@@ -57,11 +57,13 @@ describe("RESEARCH website deletion graph", () => {
       gsc_observe_owners: [{ child: "research_runs", action: "set null" }],
       gsc_search_syncs: [{ child: "research_runs", action: "set null" }],
       research_runs: [{ child: "research_ideas", action: "cascade" }],
+      research_ideas: [{ child: "decision_runs", action: "cascade" }],
     };
 
     const result = simulateDelete(graph, "websites");
     expect(result.blocked).toBe(false);
     expect(result.deleted.has("research_runs")).toBe(true);
     expect(result.deleted.has("research_ideas")).toBe(true);
+    expect(result.deleted.has("decision_runs")).toBe(true);
   });
 });

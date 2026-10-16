@@ -1,3 +1,4 @@
+import type { RelatedDemandInspectionView } from "@/lib/decisions/inspect-display";
 import type { ResearchFilterReasonCounts } from "./filter-reasons";
 
 export type { ResearchFilterReasonCounts };
@@ -181,6 +182,8 @@ export type ResearchIdeaView = {
   retrievedAt: string;
   initialGscSampleStatus: InitialGscSampleStatus;
   currentGscSampleStatus: CurrentGscSampleStatus;
+  canInspect: boolean;
+  inspection: RelatedDemandInspectionView | null;
 };
 
 export type ResearchRunView = {

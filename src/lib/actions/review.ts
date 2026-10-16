@@ -1,5 +1,5 @@
 import { findDecisionById, findDecisionRunById, findLatestCompletedDecisionRun, listDecisionsForRun } from "@/lib/decisions/db";
-import type { DecisionRecord } from "@/lib/decisions/types";
+import { asDecisionV1Run, type DecisionRecord } from "@/lib/decisions/types";
 import { requireObserveOwner } from "@/lib/gsc/observe";
 import { ActionError } from "./types";
 import {
@@ -120,9 +120,18 @@ export async function submitCanonicalReview(input: {
     );
   }
 
-  const run = await findDecisionRunById(decision.websiteId, decision.decisionRunId);
-  if (!run) {
+  const stored = await findDecisionRunById(decision.websiteId, decision.decisionRunId);
+  if (!stored) {
     throw new ActionError("decision_not_found", "Decision not found.", 404);
+  }
+  let run;
+  try {
+    run = asDecisionV1Run(stored);
+  } catch {
+    throw new ActionError(
+      "unsupported_decision",
+      "Foundfy can only record a canonical review from a current canonical-points-elsewhere Decision.",
+    );
   }
 
   const identity = await resolveLiveIdentity(decision);

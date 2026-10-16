@@ -33,6 +33,7 @@ import {
   formatEstimatedMonthlySearches,
   formatResearchRetrievedAt,
 } from "@/lib/research/display";
+import { INSPECT_CTA_LABEL } from "@/lib/decisions/inspect-display";
 import type { ResearchOwnerView } from "@/lib/research/types";
 import styles from "./SitePageView.module.css";
 
@@ -52,6 +53,7 @@ export default function SiteResearchSection({
   const [countryKey, setCountryKey] = useState("");
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [selectedOfferings, setSelectedOfferings] = useState<string[]>([]);
+  const [inspectingIdeaId, setInspectingIdeaId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -176,6 +178,29 @@ export default function SiteResearchSection({
     } catch {
       setErrorMessage(RESEARCH_ERROR_COPY);
     } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const inspectIdea = async (ideaId: string) => {
+    setInspectingIdeaId(ideaId);
+    setIsSaving(true);
+    setErrorMessage(null);
+    try {
+      const response = await fetch(
+        `/api/websites/${websiteId}/research/ideas/${ideaId}/inspect`,
+        { method: "POST" },
+      );
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setErrorMessage(payload.error ?? RESEARCH_ERROR_COPY);
+        return;
+      }
+      await load();
+    } catch {
+      setErrorMessage(RESEARCH_ERROR_COPY);
+    } finally {
+      setInspectingIdeaId(null);
       setIsSaving(false);
     }
   };
@@ -377,7 +402,7 @@ export default function SiteResearchSection({
             <div className={styles.understandingBlock}>
               <p className={styles.researchBanner}>{RESEARCH_INTERRUPTED_COPY}</p>
               <p className={styles.sectionMeta}>{RESEARCH_NO_REPLAY_COPY}</p>
-              {run.canResumeUnattempted ? (
+              {run.canResumeUnattempted && view.readiness.executionAvailable ? (
                 <div className={styles.interpretationActions}>
                   <button
                     className={styles.scanButton}
@@ -390,9 +415,9 @@ export default function SiteResearchSection({
                     {isSaving ? "Resuming…" : RESEARCH_RESUME_UNATTEMPTED_LABEL}
                   </button>
                 </div>
-              ) : (
+              ) : view.readiness.executionAvailable ? (
                 <p className={styles.sectionMeta}>{RESEARCH_NO_SAFE_RETRY_COPY}</p>
-              )}
+              ) : null}
               {run.canClose ? (
                 <div className={styles.interpretationActions}>
                   <p className={styles.sectionMeta}>{RESEARCH_CLOSE_HELP_COPY}</p>
@@ -450,6 +475,30 @@ export default function SiteResearchSection({
                     <p className={styles.understandingCopy}>
                       {currentGscSampleCopy(idea.currentGscSampleStatus)}
                     </p>
+                    {idea.inspection ? (
+                      <div className={styles.understandingBlock}>
+                        <p className={styles.understandingCopy}>{idea.inspection.resultCopy}</p>
+                        <p className={styles.sectionMeta}>{idea.inspection.gscCopy}</p>
+                        {idea.inspection.crawlBoundedCopy ? (
+                          <p className={styles.sectionMeta}>{idea.inspection.crawlBoundedCopy}</p>
+                        ) : null}
+                        <p className={styles.sectionMeta}>{idea.inspection.nextStepCopy}</p>
+                      </div>
+                    ) : null}
+                    {idea.canInspect ? (
+                      <div className={styles.interpretationActions}>
+                        <button
+                          className={styles.scanButton}
+                          type="button"
+                          disabled={isSaving}
+                          onClick={() => {
+                            void inspectIdea(idea.id);
+                          }}
+                        >
+                          {inspectingIdeaId === idea.id ? "Checking…" : INSPECT_CTA_LABEL}
+                        </button>
+                      </div>
+                    ) : null}
                     <details className={styles.evidenceDetails}>
                       <summary className={styles.evidenceSummary}>{RESEARCH_EVIDENCE_LABEL}</summary>
                       <div className={styles.decisionWhyBody}>

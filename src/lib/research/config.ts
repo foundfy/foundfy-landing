@@ -71,14 +71,10 @@ export function researchSurfaceVisible(env: NodeJS.ProcessEnv = process.env): bo
   }
 
   if (isProductionRuntime(env)) {
-    return mode === "live" && researchExecutionAvailable(env);
+    return mode === "live";
   }
 
-  if (mode === "fixture" || mode === "sandbox") {
-    return true;
-  }
-
-  return mode === "live" && isResearchLiveEnabled(env);
+  return mode === "fixture" || mode === "sandbox" || mode === "live";
 }
 
 export function researchReadEnvironment(

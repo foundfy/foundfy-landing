@@ -73,4 +73,26 @@ describe("RESEARCH privacy lifecycle", () => {
     expect(migration023).not.toMatch(/grant execute on function public\.persist_research_request_result.*to anon/);
     expect(migration023).not.toMatch(/clicks|impressions|ctr|position/);
   });
+
+  it("keeps migration 024 inspect persist RPC off anon and authenticated", () => {
+    const migration024 = read("../../../supabase/migrations/024_research_decide_investigation.sql");
+    expect(migration024).toMatch(
+      /revoke all on function public\.persist_research_inspect_decision\(uuid, uuid, uuid, uuid, text, text, text, uuid, text, boolean, jsonb\) from public/,
+    );
+    expect(migration024).toMatch(
+      /revoke all on function public\.persist_research_inspect_decision\(uuid, uuid, uuid, uuid, text, text, text, uuid, text, boolean, jsonb\) from anon/,
+    );
+    expect(migration024).toMatch(
+      /revoke all on function public\.persist_research_inspect_decision\(uuid, uuid, uuid, uuid, text, text, text, uuid, text, boolean, jsonb\) from authenticated/,
+    );
+    expect(migration024).toMatch(
+      /grant execute on function public\.persist_research_inspect_decision\(uuid, uuid, uuid, uuid, text, text, text, uuid, text, boolean, jsonb\) to service_role/,
+    );
+    expect(migration024).not.toMatch(
+      /grant execute on function public\.persist_research_inspect_decision.*to anon/,
+    );
+    expect(migration024).not.toMatch(
+      /grant execute on function public\.persist_research_inspect_decision.*to authenticated/,
+    );
+  });
 });
