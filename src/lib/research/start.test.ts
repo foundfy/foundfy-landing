@@ -999,4 +999,26 @@ describe("startResearchForOwner", () => {
     ).rejects.toMatchObject({ name: "ResearchGateError", code: "invalid_country" });
     expect(claimResearchRunMock).not.toHaveBeenCalled();
   });
+
+  it("refuses live provider start when RESEARCH_LIVE_ENABLED is false", async () => {
+    const fetchImpl = vi.fn();
+    await expect(
+      startResearchForOwner({
+        websiteId: "site-1",
+        sessionToken: "session",
+        countryKey: "ES",
+        languages: ["en"],
+        selectedOfferings: ["silk paint"],
+        env: {
+          RESEARCH_PROVIDER_MODE: "live",
+          RESEARCH_LIVE_ENABLED: "false",
+          DATAFORSEO_LOGIN: "login",
+          DATAFORSEO_PASSWORD: "password",
+        },
+        fetchImpl,
+      }),
+    ).rejects.toMatchObject({ name: "ResearchGateError", code: "live_not_enabled" });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(claimResearchRunMock).not.toHaveBeenCalled();
+  });
 });

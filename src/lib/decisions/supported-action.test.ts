@@ -142,6 +142,18 @@ describe("supportedActionTypeForDecision", () => {
     expect(
       supportedActionTypeForDecision(
         decision({
+          decisionType: "inspect_related_demand_against_pages",
+          pageId: "page-1",
+          evidenceRefs: [
+            { kind: "research_idea", recordId: "idea-1", snapshot: {} },
+            { kind: "page", recordId: "page-1", snapshot: { title: "Como pintar en seda" } },
+          ],
+        }),
+      ),
+    ).toBeNull();
+    expect(
+      supportedActionTypeForDecision(
+        decision({
           decisionType: "multi_page_issue_with_visibility",
           pageId: null,
           evidenceRefs: [observation("page_fundamentals.duplicate_title")],

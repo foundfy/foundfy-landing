@@ -463,6 +463,25 @@ export async function listResearchIdeasForRun(runId: string): Promise<ResearchId
   return (data ?? []).map((row) => mapIdea(row as ResearchIdeaRow));
 }
 
+export async function findResearchIdeaForWebsite(input: {
+  ideaId: string;
+  websiteId: string;
+}): Promise<ResearchIdeaRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("research_ideas")
+    .select(IDEA_COLUMNS)
+    .eq("id", input.ideaId)
+    .eq("website_id", input.websiteId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load research idea: ${error.message}`);
+  }
+
+  return data ? mapIdea(data as ResearchIdeaRow) : null;
+}
+
 export async function findLatestCompatibleResearchRun(input: {
   websiteId: string;
   environment: ResearchProviderEnvironment;

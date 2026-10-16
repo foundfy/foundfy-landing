@@ -45,6 +45,10 @@ describe("RESEARCH v0 source boundary", () => {
     expect(ui).toContain("researchEmptyCopy");
     expect(ui).toContain("run.displayInterrupted");
     expect(ui).toContain("recoveryOwnsCta");
+    expect(ui).toContain("INSPECT_CTA_LABEL");
+    expect(ui).toContain("idea.canInspect");
+    expect(ui).toContain("executionAvailable");
+    expect(ui).toContain("/research/ideas/");
     expect(ui).not.toMatch(/Retry all/);
     expect(ui).not.toMatch(/Close and retry|Start again/);
     expect(display).toContain("Estimated monthly searches");

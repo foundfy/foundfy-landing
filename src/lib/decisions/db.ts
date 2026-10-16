@@ -1,11 +1,15 @@
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
 import { DECISION_ENGINE_VERSION } from "./config";
-import type {
-  DecisionRecord,
-  DecisionRunRecord,
-  DecisionRunStatus,
-  GoalSnapshot,
-  RankedDecision,
+import {
+  RESEARCH_INSPECT_DECISION_TYPE,
+  isResearchInspectState,
+  type DecisionRecord,
+  type DecisionRunRecord,
+  type DecisionRunStatus,
+  type DecisionV1Record,
+  type GoalSnapshot,
+  type RankedDecision,
+  type ResearchInspectDecisionRecord,
 } from "./types";
 
 type RunRow = {
@@ -13,15 +17,16 @@ type RunRow = {
   website_id: string;
   site_model_id: string;
   crawl_run_id: string;
-  gsc_search_sync_id: string;
+  gsc_search_sync_id: string | null;
   engine_version: string;
   status: DecisionRunStatus;
-  goal_id: string;
-  goal_snapshot: GoalSnapshot;
+  goal_id: string | null;
+  goal_snapshot: GoalSnapshot | Record<string, unknown>;
   gsc_truncated: boolean;
   error_code: string | null;
   created_at: string;
   completed_at: string | null;
+  research_idea_id: string | null;
 };
 
 type DecisionRow = {
@@ -33,18 +38,19 @@ type DecisionRow = {
   explanation: string;
   page_url: string | null;
   page_id: string | null;
-  priority_band: DecisionRecord["priorityBand"];
-  rank: number;
-  scoring: DecisionRecord["scoring"];
-  confidence: DecisionRecord["confidence"];
+  priority_band: string | null;
+  rank: number | null;
+  scoring: DecisionV1Record["scoring"] | null;
+  confidence: string | null;
+  inspection_state: string | null;
   created_at: string;
 };
 
 const RUN_COLUMNS =
-  "id, website_id, site_model_id, crawl_run_id, gsc_search_sync_id, engine_version, status, goal_id, goal_snapshot, gsc_truncated, error_code, created_at, completed_at";
+  "id, website_id, site_model_id, crawl_run_id, gsc_search_sync_id, engine_version, status, goal_id, goal_snapshot, gsc_truncated, error_code, created_at, completed_at, research_idea_id";
 
 const DECISION_COLUMNS =
-  "id, decision_run_id, website_id, decision_type, title, explanation, page_url, page_id, priority_band, rank, scoring, confidence, created_at";
+  "id, decision_run_id, website_id, decision_type, title, explanation, page_url, page_id, priority_band, rank, scoring, confidence, inspection_state, created_at";
 
 function mapRun(row: RunRow): DecisionRunRecord {
   return {
@@ -61,11 +67,53 @@ function mapRun(row: RunRow): DecisionRunRecord {
     errorCode: row.error_code,
     createdAt: row.created_at,
     completedAt: row.completed_at,
+    researchIdeaId: row.research_idea_id ?? null,
   };
 }
 
 function mapDecision(row: DecisionRow, evidenceRefs: DecisionRecord["evidenceRefs"]): DecisionRecord {
-  return {
+  if (row.decision_type === RESEARCH_INSPECT_DECISION_TYPE) {
+    if (
+      row.rank != null ||
+      row.priority_band != null ||
+      row.confidence != null ||
+      row.scoring != null ||
+      !isResearchInspectState(row.inspection_state)
+    ) {
+      throw new Error("Inspect Decision row does not match research inspection semantics.");
+    }
+
+    const inspect: ResearchInspectDecisionRecord = {
+      id: row.id,
+      decisionRunId: row.decision_run_id,
+      websiteId: row.website_id,
+      decisionType: RESEARCH_INSPECT_DECISION_TYPE,
+      title: row.title,
+      explanation: row.explanation,
+      pageUrl: row.page_url,
+      pageId: row.page_id,
+      priorityBand: null,
+      rank: null,
+      scoring: null,
+      confidence: null,
+      inspectionState: row.inspection_state,
+      createdAt: row.created_at,
+      evidenceRefs,
+    };
+    return inspect;
+  }
+
+  if (
+    row.rank == null ||
+    row.priority_band == null ||
+    row.confidence == null ||
+    row.scoring == null ||
+    row.inspection_state != null
+  ) {
+    throw new Error("decision_v1 Decision row is missing required ranked fields.");
+  }
+
+  const v1: DecisionV1Record = {
     id: row.id,
     decisionRunId: row.decision_run_id,
     websiteId: row.website_id,
@@ -74,13 +122,14 @@ function mapDecision(row: DecisionRow, evidenceRefs: DecisionRecord["evidenceRef
     explanation: row.explanation,
     pageUrl: row.page_url,
     pageId: row.page_id,
-    priorityBand: row.priority_band,
+    priorityBand: row.priority_band as DecisionV1Record["priorityBand"],
     rank: row.rank,
     scoring: row.scoring,
-    confidence: row.confidence,
+    confidence: row.confidence as DecisionV1Record["confidence"],
     createdAt: row.created_at,
     evidenceRefs,
   };
+  return v1;
 }
 
 export async function insertRunningDecisionRun(input: {
@@ -104,6 +153,7 @@ export async function insertRunningDecisionRun(input: {
       goal_id: input.goal.id,
       goal_snapshot: input.goal,
       gsc_truncated: input.gscTruncated,
+      research_idea_id: null,
     })
     .select(RUN_COLUMNS)
     .maybeSingle();
@@ -206,6 +256,7 @@ export async function markWebsiteDecisionRunsStale(
     .from("decision_runs")
     .update({ status: "stale" })
     .eq("website_id", websiteId)
+    .eq("engine_version", DECISION_ENGINE_VERSION)
     .eq("status", "completed");
 
   if (exceptRunId) {

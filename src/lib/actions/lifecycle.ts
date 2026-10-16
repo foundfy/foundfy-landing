@@ -14,7 +14,16 @@ import {
   supportedActionField,
   supportedActionTypeForDecision,
 } from "@/lib/decisions/supported-action";
-import type { DecisionRecord, DecisionRunRecord, GoalSnapshot } from "@/lib/decisions/types";
+import {
+  asDecisionV1Record,
+  asDecisionV1Run,
+  isGoalSnapshot,
+  isResearchInspectDecisionRecord,
+  type DecisionRecord,
+  type DecisionRunRecord,
+  type DecisionV1RunRecord,
+  type GoalSnapshot,
+} from "@/lib/decisions/types";
 import { requireObserveOwner } from "@/lib/gsc/observe";
 import { getWebsiteById } from "@/lib/websites/repository";
 import {
@@ -117,7 +126,7 @@ async function loadCurrentRun(input: {
   sessionToken: string | null;
 }): Promise<{
   ownerId: string;
-  run: DecisionRunRecord | null;
+  run: DecisionV1RunRecord | null;
   goal: GoalSnapshot;
   staleReason: string | null;
 }> {
@@ -132,12 +141,13 @@ async function loadCurrentRun(input: {
     };
   }
 
+  const v1 = asDecisionV1Run(run);
   return {
     ownerId: prerequisites.context.owner.id,
-    run,
-    goal: run.goalSnapshot,
+    run: v1,
+    goal: v1.goalSnapshot,
     staleReason: staleReasonForRun({
-      run,
+      run: v1,
       siteModelId: prerequisites.siteModel.id,
       crawlRunId: prerequisites.crawl.id,
       gscSearchSyncId: prerequisites.sync.id,
@@ -151,7 +161,7 @@ async function requireCurrentDecisionContext(input: {
   sessionToken: string | null;
 }): Promise<{
   ownerId: string;
-  run: DecisionRunRecord;
+  run: DecisionV1RunRecord;
   goal: GoalSnapshot;
 }> {
   const loaded = await loadCurrentRun(input);
@@ -354,7 +364,10 @@ async function previewForWithGoal(
   const decision = action.decisionId
     ? await findDecisionById(action.websiteId, action.decisionId)
     : null;
-  const view = decision ? toDecisionView(decision, goal, truncated) : null;
+  const view =
+    decision && !isResearchInspectDecisionRecord(decision)
+      ? toDecisionView(asDecisionV1Record(decision), goal, truncated)
+      : null;
   const frozenUnsafe = safety.run ? !(await frozenBeforeStillHolds(action)) : true;
   const unsafe = actionIsUnsafe(action, safety.run, safety.staleReason) || frozenUnsafe;
   const availability = executeAvailability({
@@ -408,7 +421,7 @@ async function previewFor(
 
   return previewForWithGoal(
     action,
-    run?.goalSnapshot ?? {
+    (run && isGoalSnapshot(run.goalSnapshot) ? run.goalSnapshot : null) ?? {
       id: action.goalId,
       primaryType: "grow_signups",
       secondaryType: null,
@@ -553,7 +566,7 @@ export async function listActionsForWebsite(input: {
     previews.push(
       await previewForWithGoal(
         action,
-        storedRun?.goalSnapshot ?? {
+        (storedRun && isGoalSnapshot(storedRun.goalSnapshot) ? storedRun.goalSnapshot : null) ?? {
           id: action.goalId,
           primaryType: "grow_signups",
           secondaryType: null,

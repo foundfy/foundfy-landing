@@ -1,8 +1,10 @@
 import {
   DecisionPrerequisiteError,
+  asDecisionV1Record,
+  asDecisionV1Run,
   type DecisionEmptyReason,
   type DecisionPrerequisiteReason,
-  type DecisionRecord,
+  type DecisionV1Record,
   type DecisionView,
   type DecisionsOwnerView,
   type GoalSnapshot,
@@ -12,7 +14,7 @@ import { loadDecisionPrerequisites } from "./generate";
 import { supportedActionTypeForDecision, supportedReviewTypeForDecision } from "./supported-action";
 import { goalContextCopy, matchingConfidenceCopy } from "./wording";
 
-function gscDemand(refs: DecisionRecord["evidenceRefs"]): { appearances: number; visits: number } | null {
+function gscDemand(refs: DecisionV1Record["evidenceRefs"]): { appearances: number; visits: number } | null {
   const gsc = refs.filter((ref) => ref.kind === "gsc_evidence");
   if (gsc.length === 0) {
     return null;
@@ -30,7 +32,7 @@ function gscDemand(refs: DecisionRecord["evidenceRefs"]): { appearances: number;
   };
 }
 
-function websiteEvidenceCopy(decision: DecisionRecord): string {
+function websiteEvidenceCopy(decision: DecisionV1Record): string {
   const observation = decision.evidenceRefs.find((ref) => ref.kind === "observation");
   const title =
     observation && typeof observation.snapshot.title === "string"
@@ -49,7 +51,7 @@ function websiteEvidenceCopy(decision: DecisionRecord): string {
 }
 
 export function toDecisionView(
-  decision: DecisionRecord,
+  decision: DecisionV1Record,
   goal: GoalSnapshot,
   truncated: boolean,
 ): DecisionView {
@@ -196,12 +198,13 @@ export async function loadDecisionsForWebsite(input: {
     });
   }
 
-  const decisions = await listDecisionsForRun(run.id);
+  const v1 = asDecisionV1Run(run);
+  const decisions = await listDecisionsForRun(v1.id);
   const stale =
     prerequisites == null
       ? "inputs"
       : staleReasonForRun({
-          run,
+          run: v1,
           siteModelId: prerequisites.siteModel.id,
           crawlRunId: prerequisites.crawl.id,
           gscSearchSyncId: prerequisites.sync.id,
@@ -220,13 +223,13 @@ export async function loadDecisionsForWebsite(input: {
     blockedReason: blocked,
     emptyReason,
     run: {
-      id: run.id,
-      engineVersion: run.engineVersion,
-      createdAt: run.createdAt,
-      completedAt: run.completedAt,
+      id: v1.id,
+      engineVersion: v1.engineVersion,
+      createdAt: v1.createdAt,
+      completedAt: v1.completedAt,
     },
     decisions: decisions.map((decision) =>
-      toDecisionView(decision, run.goalSnapshot, run.gscTruncated),
+      toDecisionView(asDecisionV1Record(decision), v1.goalSnapshot, v1.gscTruncated),
     ),
   };
 }

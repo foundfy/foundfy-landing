@@ -43,7 +43,7 @@ describe("RESEARCH provider config", () => {
     expect(readResearchProviderMode()).toBe("disabled");
   });
 
-  it("hides RESEARCH in production until live is explicitly enabled", () => {
+  it("hides fixture and sandbox RESEARCH in production, but not persisted live reads", () => {
     const productionDisabled = {
       NODE_ENV: "production",
       RESEARCH_PROVIDER_MODE: "disabled",
@@ -66,6 +66,17 @@ describe("RESEARCH provider config", () => {
         DATAFORSEO_PASSWORD: "password",
       }),
     ).toBe(false);
+
+    const productionLiveDisabled = {
+      NODE_ENV: "production",
+      RESEARCH_PROVIDER_MODE: "live",
+      RESEARCH_LIVE_ENABLED: "false",
+      DATAFORSEO_LOGIN: "login",
+      DATAFORSEO_PASSWORD: "password",
+    };
+    expect(researchSurfaceVisible(productionLiveDisabled)).toBe(true);
+    expect(researchReadEnvironment(productionLiveDisabled)).toBe("live");
+    expect(researchExecutionAvailable(productionLiveDisabled)).toBe(false);
     expect(
       researchReadEnvironment({
         NODE_ENV: "production",
