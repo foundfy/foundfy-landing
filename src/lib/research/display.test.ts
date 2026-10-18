@@ -11,8 +11,11 @@ import {
   RESEARCH_NO_SAFE_RETRY_COPY,
   RESEARCH_PROVIDER_EMPTY_COPY,
   RESEARCH_RESUME_UNATTEMPTED_LABEL,
+  RESEARCH_DISABLED_COPY,
+  RESEARCH_NO_SAVED_EVIDENCE_COPY,
   RESEARCH_TEST_DATA_COPY,
   RESEARCH_TRUNCATED_COPY,
+  hasPersistedResearchEvidence,
   currentGscSampleCopy,
   formatEstimatedMonthlySearches,
   researchEmptyCopy,
@@ -45,6 +48,27 @@ describe("RESEARCH wording", () => {
     expect(RESEARCH_CLOSE_LABEL).not.toMatch(/retry/i);
     expect(RESEARCH_NEW_CYCLE_LABEL).toBe("Start a new research cycle");
     expect(RESEARCH_NEW_CYCLE_LABEL).not.toMatch(/retry/i);
+    expect(RESEARCH_NO_SAVED_EVIDENCE_COPY).toMatch(/no saved related-demand evidence/);
+    expect(RESEARCH_NO_SAVED_EVIDENCE_COPY).not.toBe(RESEARCH_DISABLED_COPY);
+    expect(
+      hasPersistedResearchEvidence({
+        run: {
+          id: "ca",
+          ideas: [],
+          filterReasonDetails: ["2 matched the confirmed offering itself."],
+          emptyOutcome: "filtered_all",
+        } as never,
+        persistedRuns: [
+          {
+            id: "es",
+            ideas: [{ keyword: "como pintar en seda" }],
+            filterReasonDetails: [],
+            emptyOutcome: null,
+          } as never,
+        ],
+      }),
+    ).toBe(true);
+    expect(hasPersistedResearchEvidence({ run: null, persistedRuns: [] })).toBe(false);
   });
 
   it("keeps empty RESEARCH copy bounded and distinguishes provenance", () => {

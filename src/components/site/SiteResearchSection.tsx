@@ -7,7 +7,8 @@ import {
   RESEARCH_CLOSED_COPY,
   RESEARCH_COUNTRY_LABEL,
   RESEARCH_CTA_LABEL,
-  RESEARCH_DISABLED_COPY,
+  RESEARCH_NO_SAVED_EVIDENCE_COPY,
+  hasPersistedResearchEvidence,
   researchEmptyCopy,
   RESEARCH_ERROR_COPY,
   RESEARCH_EVIDENCE_LABEL,
@@ -34,7 +35,7 @@ import {
   formatResearchRetrievedAt,
 } from "@/lib/research/display";
 import { INSPECT_CTA_LABEL } from "@/lib/decisions/inspect-display";
-import type { ResearchOwnerView } from "@/lib/research/types";
+import type { ResearchIdeaView, ResearchOwnerView, ResearchRunView } from "@/lib/research/types";
 import styles from "./SitePageView.module.css";
 
 type SiteResearchSectionProps = {
@@ -256,14 +257,20 @@ export default function SiteResearchSection({
 
   const gate = view.readiness.gate;
   const run = view.run;
+  const persistedRuns = view.persistedRuns ?? [];
+  const persistedEvidence = hasPersistedResearchEvidence({ run, persistedRuns });
+  const executionDisabledGate =
+    gate?.code === "live_not_enabled" ||
+    gate?.code === "credentials_missing" ||
+    gate?.code === "provider_disabled";
   const recoveryOwnsCta = Boolean(run?.displayInterrupted);
   const showForm =
     !recoveryOwnsCta &&
+    view.readiness.executionAvailable &&
     (!gate ||
       gate.code === "no_research_country" ||
       gate.code === "no_research_language" ||
-      gate.code === "offering_selection_required" ||
-      view.readiness.executionAvailable);
+      gate.code === "offering_selection_required");
   const startLabel = run?.canStartNewCycle ? RESEARCH_NEW_CYCLE_LABEL : RESEARCH_CTA_LABEL;
 
   return (
@@ -275,7 +282,7 @@ export default function SiteResearchSection({
         <p className={styles.sectionMeta}>{RESEARCH_SECTION_COPY}</p>
       </div>
 
-      {gate && !view.readiness.executionAvailable ? (
+      {gate && !view.readiness.executionAvailable && !executionDisabledGate ? (
         <div className={styles.understandingBlock}>
           <p className={styles.understandingCopy}>{gate.message}</p>
           {gate.code === "no_confirmed_site_model" || gate.code === "no_valid_offering" ? (
@@ -285,10 +292,11 @@ export default function SiteResearchSection({
               </a>
             </p>
           ) : null}
-          {gate.code === "live_not_enabled" || gate.code === "credentials_missing" ? (
-            <p className={styles.sectionMeta}>{RESEARCH_DISABLED_COPY}</p>
-          ) : null}
         </div>
+      ) : null}
+
+      {executionDisabledGate && !persistedEvidence ? (
+        <p className={styles.understandingCopy}>{RESEARCH_NO_SAVED_EVIDENCE_COPY}</p>
       ) : null}
 
       {showForm && view.readiness.validOfferings.length > 0 ? (
@@ -388,152 +396,192 @@ export default function SiteResearchSection({
       ) : null}
 
       {run ? (
-        <div className={styles.understandingBlock}>
-          {run.isTestData ? <p className={styles.researchBanner}>{RESEARCH_TEST_DATA_COPY}</p> : null}
-          {run.stale ? <p className={styles.sectionMeta}>{RESEARCH_STALE_COPY}</p> : null}
-          {run.displayClosed ? (
-            <div className={styles.understandingBlock}>
-              <p className={styles.researchBanner}>{RESEARCH_CLOSED_COPY}</p>
-              {run.incomplete ? (
-                <p className={styles.sectionMeta}>{RESEARCH_PARTIAL_COPY}</p>
-              ) : null}
-            </div>
-          ) : run.displayInterrupted ? (
-            <div className={styles.understandingBlock}>
-              <p className={styles.researchBanner}>{RESEARCH_INTERRUPTED_COPY}</p>
-              <p className={styles.sectionMeta}>{RESEARCH_NO_REPLAY_COPY}</p>
-              {run.canResumeUnattempted && view.readiness.executionAvailable ? (
-                <div className={styles.interpretationActions}>
-                  <button
-                    className={styles.scanButton}
-                    type="button"
-                    disabled={isSaving}
-                    onClick={() => {
-                      void recover();
-                    }}
-                  >
-                    {isSaving ? "Resuming…" : RESEARCH_RESUME_UNATTEMPTED_LABEL}
-                  </button>
-                </div>
-              ) : view.readiness.executionAvailable ? (
-                <p className={styles.sectionMeta}>{RESEARCH_NO_SAFE_RETRY_COPY}</p>
-              ) : null}
-              {run.canClose ? (
-                <div className={styles.interpretationActions}>
-                  <p className={styles.sectionMeta}>{RESEARCH_CLOSE_HELP_COPY}</p>
-                  <button
-                    className={styles.scanButton}
-                    type="button"
-                    disabled={isSaving}
-                    onClick={() => {
-                      void closeRun();
-                    }}
-                  >
-                    {isSaving ? "Closing…" : RESEARCH_CLOSE_LABEL}
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          ) : run.incomplete ? (
-            <p className={styles.sectionMeta}>{RESEARCH_PARTIAL_COPY}</p>
-          ) : null}
-          {run.ideas.length === 0 ? (
-            <div>
-              <p className={styles.understandingCopy}>{researchEmptyCopy(run.emptyOutcome)}</p>
-              {run.filterReasonDetails.map((detail) => (
-                <p key={detail} className={styles.sectionMeta}>
-                  {detail}
-                </p>
-              ))}
-            </div>
-          ) : (
-            <>
-              {run.reviewedKeptCopy ? (
-                <p className={styles.understandingCopy}>{run.reviewedKeptCopy}</p>
-              ) : null}
-              {run.filterReasonDetails.map((detail) => (
-                <p key={detail} className={styles.sectionMeta}>
-                  {detail}
-                </p>
-              ))}
-            <ol className={styles.opportunityList}>
-              {run.ideas.map((idea) => {
-                const volume = formatEstimatedMonthlySearches(
-                  idea.estimatedMonthlySearches,
-                  run.providerEnvironment,
-                );
-                return (
-                  <li key={idea.id} className={styles.opportunityItem}>
-                    <p className={styles.opportunityQuery}>{idea.keyword}</p>
-                    {volume ? (
-                      <p className={styles.opportunityMetrics}>
-                        {RESEARCH_VOLUME_LABEL}: {volume}
-                      </p>
-                    ) : (
-                      <p className={styles.opportunityMetrics}>{RESEARCH_VOLUME_LABEL}</p>
-                    )}
-                    <p className={styles.understandingCopy}>
-                      {currentGscSampleCopy(idea.currentGscSampleStatus)}
-                    </p>
-                    {idea.inspection ? (
-                      <div className={styles.understandingBlock}>
-                        <p className={styles.understandingCopy}>{idea.inspection.resultCopy}</p>
-                        <p className={styles.sectionMeta}>{idea.inspection.gscCopy}</p>
-                        {idea.inspection.crawlBoundedCopy ? (
-                          <p className={styles.sectionMeta}>{idea.inspection.crawlBoundedCopy}</p>
-                        ) : null}
-                        <p className={styles.sectionMeta}>{idea.inspection.nextStepCopy}</p>
-                      </div>
-                    ) : null}
-                    {idea.canInspect ? (
-                      <div className={styles.interpretationActions}>
-                        <button
-                          className={styles.scanButton}
-                          type="button"
-                          disabled={isSaving}
-                          onClick={() => {
-                            void inspectIdea(idea.id);
-                          }}
-                        >
-                          {inspectingIdeaId === idea.id ? "Checking…" : INSPECT_CTA_LABEL}
-                        </button>
-                      </div>
-                    ) : null}
-                    <details className={styles.evidenceDetails}>
-                      <summary className={styles.evidenceSummary}>{RESEARCH_EVIDENCE_LABEL}</summary>
-                      <div className={styles.decisionWhyBody}>
-                        <p className={styles.understandingCopy}>
-                          {RESEARCH_SOURCE_OFFERING_LABEL}: {idea.seedOffering}
-                        </p>
-                        <p className={styles.understandingCopy}>
-                          {RESEARCH_COUNTRY_LABEL}: {idea.countryName}
-                        </p>
-                        <p className={styles.understandingCopy}>
-                          {RESEARCH_LANGUAGE_LABEL}: {idea.languageCode}
-                        </p>
-                        <p className={styles.understandingCopy}>
-                          {RESEARCH_RETRIEVED_LABEL}: {formatResearchRetrievedAt(idea.retrievedAt)}
-                        </p>
-                        <p className={styles.sectionMeta}>
-                          {idea.currentGscSampleStatus === "in_current_gsc_sample"
-                            ? RESEARCH_IN_SAMPLE_COPY
-                            : idea.currentGscSampleStatus === "not_in_current_gsc_sample"
-                              ? RESEARCH_NOT_IN_SAMPLE_COPY
-                              : currentGscSampleCopy(idea.currentGscSampleStatus)}
-                        </p>
-                        {run.currentGscQueriesTruncated || run.gscQueriesTruncatedAtRetrieval ? (
-                          <p className={styles.sectionMeta}>{RESEARCH_TRUNCATED_COPY}</p>
-                        ) : null}
-                      </div>
-                    </details>
-                  </li>
-                );
-              })}
-            </ol>
-            </>
-          )}
-        </div>
+        <ResearchRunEvidence
+          run={run}
+          showLifecycle
+          executionAvailable={view.readiness.executionAvailable}
+          isSaving={isSaving}
+          inspectingIdeaId={inspectingIdeaId}
+          onInspect={inspectIdea}
+          onRecover={recover}
+          onClose={closeRun}
+        />
       ) : null}
+      {persistedRuns.map((persistedRun) => (
+        <ResearchRunEvidence
+          key={persistedRun.id}
+          run={persistedRun}
+          showLifecycle={false}
+          executionAvailable={false}
+          isSaving={isSaving}
+          inspectingIdeaId={inspectingIdeaId}
+          onInspect={inspectIdea}
+        />
+      ))}
     </section>
+  );
+}
+
+function ResearchRunEvidence(input: {
+  run: ResearchRunView;
+  showLifecycle: boolean;
+  executionAvailable: boolean;
+  isSaving: boolean;
+  inspectingIdeaId: string | null;
+  onInspect: (ideaId: string) => void;
+  onRecover?: () => void;
+  onClose?: () => void;
+}) {
+  const run = input.run;
+  return (
+    <div className={styles.understandingBlock}>
+      <p className={styles.sectionMeta}>
+        {RESEARCH_COUNTRY_LABEL}: {run.countryName}
+      </p>
+      <p className={styles.sectionMeta}>
+        {RESEARCH_LANGUAGE_LABEL}: {run.languageCodes.join(", ")}
+      </p>
+      {run.isTestData ? <p className={styles.researchBanner}>{RESEARCH_TEST_DATA_COPY}</p> : null}
+      {run.stale ? <p className={styles.sectionMeta}>{RESEARCH_STALE_COPY}</p> : null}
+      {input.showLifecycle && run.displayClosed ? (
+        <div className={styles.understandingBlock}>
+          <p className={styles.researchBanner}>{RESEARCH_CLOSED_COPY}</p>
+          {run.incomplete ? <p className={styles.sectionMeta}>{RESEARCH_PARTIAL_COPY}</p> : null}
+        </div>
+      ) : input.showLifecycle && run.displayInterrupted ? (
+        <div className={styles.understandingBlock}>
+          <p className={styles.researchBanner}>{RESEARCH_INTERRUPTED_COPY}</p>
+          <p className={styles.sectionMeta}>{RESEARCH_NO_REPLAY_COPY}</p>
+          {run.canResumeUnattempted && input.executionAvailable ? (
+            <div className={styles.interpretationActions}>
+              <button
+                className={styles.scanButton}
+                type="button"
+                disabled={input.isSaving}
+                onClick={() => {
+                  input.onRecover?.();
+                }}
+              >
+                {input.isSaving ? "Resuming…" : RESEARCH_RESUME_UNATTEMPTED_LABEL}
+              </button>
+            </div>
+          ) : input.executionAvailable ? (
+            <p className={styles.sectionMeta}>{RESEARCH_NO_SAFE_RETRY_COPY}</p>
+          ) : null}
+          {run.canClose ? (
+            <div className={styles.interpretationActions}>
+              <p className={styles.sectionMeta}>{RESEARCH_CLOSE_HELP_COPY}</p>
+              <button
+                className={styles.scanButton}
+                type="button"
+                disabled={input.isSaving}
+                onClick={() => {
+                  input.onClose?.();
+                }}
+              >
+                {input.isSaving ? "Closing…" : RESEARCH_CLOSE_LABEL}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : input.showLifecycle && run.incomplete ? (
+        <p className={styles.sectionMeta}>{RESEARCH_PARTIAL_COPY}</p>
+      ) : null}
+      {run.ideas.length === 0 ? (
+        <div>
+          <p className={styles.understandingCopy}>{researchEmptyCopy(run.emptyOutcome)}</p>
+          {run.filterReasonDetails.map((detail) => (
+            <p key={detail} className={styles.sectionMeta}>
+              {detail}
+            </p>
+          ))}
+        </div>
+      ) : (
+        <>
+          {run.reviewedKeptCopy ? (
+            <p className={styles.understandingCopy}>{run.reviewedKeptCopy}</p>
+          ) : null}
+          {run.filterReasonDetails.map((detail) => (
+            <p key={detail} className={styles.sectionMeta}>
+              {detail}
+            </p>
+          ))}
+          <ol className={styles.opportunityList}>
+            {run.ideas.map((idea: ResearchIdeaView) => {
+              const volume = formatEstimatedMonthlySearches(
+                idea.estimatedMonthlySearches,
+                run.providerEnvironment,
+              );
+              return (
+                <li key={idea.id} className={styles.opportunityItem}>
+                  <p className={styles.opportunityQuery}>{idea.keyword}</p>
+                  {volume ? (
+                    <p className={styles.opportunityMetrics}>
+                      {RESEARCH_VOLUME_LABEL}: {volume}
+                    </p>
+                  ) : (
+                    <p className={styles.opportunityMetrics}>{RESEARCH_VOLUME_LABEL}</p>
+                  )}
+                  <p className={styles.understandingCopy}>
+                    {currentGscSampleCopy(idea.currentGscSampleStatus)}
+                  </p>
+                  {idea.inspection ? (
+                    <div className={styles.understandingBlock}>
+                      <p className={styles.understandingCopy}>{idea.inspection.resultCopy}</p>
+                      <p className={styles.sectionMeta}>{idea.inspection.gscCopy}</p>
+                      {idea.inspection.crawlBoundedCopy ? (
+                        <p className={styles.sectionMeta}>{idea.inspection.crawlBoundedCopy}</p>
+                      ) : null}
+                      <p className={styles.sectionMeta}>{idea.inspection.nextStepCopy}</p>
+                    </div>
+                  ) : null}
+                  {idea.canInspect ? (
+                    <div className={styles.interpretationActions}>
+                      <button
+                        className={styles.scanButton}
+                        type="button"
+                        disabled={input.isSaving}
+                        onClick={() => {
+                          input.onInspect(idea.id);
+                        }}
+                      >
+                        {input.inspectingIdeaId === idea.id ? "Checking…" : INSPECT_CTA_LABEL}
+                      </button>
+                    </div>
+                  ) : null}
+                  <details className={styles.evidenceDetails}>
+                    <summary className={styles.evidenceSummary}>{RESEARCH_EVIDENCE_LABEL}</summary>
+                    <div className={styles.decisionWhyBody}>
+                      <p className={styles.understandingCopy}>
+                        {RESEARCH_SOURCE_OFFERING_LABEL}: {idea.seedOffering}
+                      </p>
+                      <p className={styles.understandingCopy}>
+                        {RESEARCH_COUNTRY_LABEL}: {idea.countryName}
+                      </p>
+                      <p className={styles.understandingCopy}>
+                        {RESEARCH_LANGUAGE_LABEL}: {idea.languageCode}
+                      </p>
+                      <p className={styles.understandingCopy}>
+                        {RESEARCH_RETRIEVED_LABEL}: {formatResearchRetrievedAt(idea.retrievedAt)}
+                      </p>
+                      <p className={styles.sectionMeta}>
+                        {idea.currentGscSampleStatus === "in_current_gsc_sample"
+                          ? RESEARCH_IN_SAMPLE_COPY
+                          : idea.currentGscSampleStatus === "not_in_current_gsc_sample"
+                            ? RESEARCH_NOT_IN_SAMPLE_COPY
+                            : currentGscSampleCopy(idea.currentGscSampleStatus)}
+                      </p>
+                      {run.currentGscQueriesTruncated || run.gscQueriesTruncatedAtRetrieval ? (
+                        <p className={styles.sectionMeta}>{RESEARCH_TRUNCATED_COPY}</p>
+                      ) : null}
+                    </div>
+                  </details>
+                </li>
+              );
+            })}
+          </ol>
+        </>
+      )}
+    </div>
   );
 }

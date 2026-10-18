@@ -381,6 +381,7 @@ export async function listResearchRunsForFingerprint(input: {
     .eq("website_id", input.websiteId)
     .eq("request_fingerprint", input.fingerprint)
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(30);
 
   if (error) {
@@ -482,6 +483,29 @@ export async function findResearchIdeaForWebsite(input: {
   return data ? mapIdea(data as ResearchIdeaRow) : null;
 }
 
+export const RESEARCH_READABLE_COMPLETED_PAGE_SIZE = 50;
+
+export async function listCompatibleResearchRuns(input: {
+  websiteId: string;
+  environment: ResearchProviderEnvironment;
+}): Promise<ResearchRunRecord[]> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("research_runs")
+    .select(RUN_COLUMNS)
+    .eq("website_id", input.websiteId)
+    .eq("provider_environment", input.environment)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(50);
+
+  if (error) {
+    throw new Error(`Failed to load compatible research runs: ${error.message}`);
+  }
+
+  return (data ?? []).map((row) => mapRun(row as ResearchRunRow));
+}
+
 export async function findLatestCompatibleResearchRun(input: {
   websiteId: string;
   environment: ResearchProviderEnvironment;
@@ -493,11 +517,72 @@ export async function findLatestCompatibleResearchRun(input: {
     .eq("website_id", input.websiteId)
     .eq("provider_environment", input.environment)
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (error) {
-    throw new Error(`Failed to load compatible research run: ${error.message}`);
+    throw new Error(`Failed to load latest compatible research run: ${error.message}`);
+  }
+
+  return data ? mapRun(data as ResearchRunRow) : null;
+}
+
+export async function listReadableCompletedResearchRuns(input: {
+  websiteId: string;
+  environment: ResearchProviderEnvironment;
+}): Promise<ResearchRunRecord[]> {
+  const supabase = getSupabaseAdmin();
+  const rows: ResearchRunRecord[] = [];
+  let from = 0;
+
+  for (;;) {
+    const to = from + RESEARCH_READABLE_COMPLETED_PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from("research_runs")
+      .select(RUN_COLUMNS)
+      .eq("website_id", input.websiteId)
+      .eq("provider_environment", input.environment)
+      .eq("status", "completed")
+      .is("closed_at", null)
+      .order("completed_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      throw new Error(`Failed to load readable completed research runs: ${error.message}`);
+    }
+
+    const page = (data ?? []).map((row) => mapRun(row as ResearchRunRow));
+    rows.push(...page);
+    if (page.length < RESEARCH_READABLE_COMPLETED_PAGE_SIZE) {
+      return rows;
+    }
+    from += RESEARCH_READABLE_COMPLETED_PAGE_SIZE;
+  }
+}
+
+export async function findLatestReadableCompletedRunForFingerprint(input: {
+  websiteId: string;
+  fingerprint: string;
+}): Promise<ResearchRunRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("research_runs")
+    .select(RUN_COLUMNS)
+    .eq("website_id", input.websiteId)
+    .eq("request_fingerprint", input.fingerprint)
+    .eq("status", "completed")
+    .is("closed_at", null)
+    .order("completed_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load current completed research run: ${error.message}`);
   }
 
   return data ? mapRun(data as ResearchRunRow) : null;

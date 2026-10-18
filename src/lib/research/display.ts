@@ -10,8 +10,10 @@ import type {
   ResearchEmptyOutcome,
   ResearchGate,
   ResearchGateCode,
+  ResearchOwnerView,
   ResearchProviderEnvironment,
   ResearchRequestLedgerEntry,
+  ResearchRunView,
 } from "./types";
 
 export const RESEARCH_SECTION_HEADING = "Search demand to explore";
@@ -46,6 +48,8 @@ export const RESEARCH_FILTERED_EMPTY_COPY =
   "Foundfy did not keep any of the returned searches after applying its research criteria.";
 export const RESEARCH_ERROR_COPY = "Foundfy couldn’t research related demand right now.";
 export const RESEARCH_DISABLED_COPY = "Research is not available right now.";
+export const RESEARCH_NO_SAVED_EVIDENCE_COPY =
+  "Foundfy has no saved related-demand evidence for this site yet.";
 export const RESEARCH_RETRY_NOT_SAFE_COPY =
   "Foundfy already started related-demand research for this selection and cannot safely run it again automatically.";
 export const RESEARCH_STALE_COPY = "This related-demand evidence is out of date. Research again to refresh it.";
@@ -255,6 +259,27 @@ export function formatEstimatedMonthlySearches(
   }
 
   return formatted;
+}
+
+export function researchRunHasVisibleEvidence(run: ResearchRunView): boolean {
+  return (
+    run.ideas.length > 0 ||
+    run.filterReasonDetails.length > 0 ||
+    run.emptyOutcome != null ||
+    run.displayClosed ||
+    run.displayInterrupted ||
+    run.incomplete
+  );
+}
+
+export function hasPersistedResearchEvidence(
+  view: Pick<ResearchOwnerView, "run" | "persistedRuns">,
+): boolean {
+  if (view.run && researchRunHasVisibleEvidence(view.run)) {
+    return true;
+  }
+
+  return (view.persistedRuns ?? []).some(researchRunHasVisibleEvidence);
 }
 
 export function formatResearchRetrievedAt(iso: string): string {

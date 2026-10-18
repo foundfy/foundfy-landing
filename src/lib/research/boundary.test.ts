@@ -48,6 +48,9 @@ describe("RESEARCH v0 source boundary", () => {
     expect(ui).toContain("INSPECT_CTA_LABEL");
     expect(ui).toContain("idea.canInspect");
     expect(ui).toContain("executionAvailable");
+    expect(ui).toContain("persistedRuns");
+    expect(ui).toContain("RESEARCH_NO_SAVED_EVIDENCE_COPY");
+    expect(ui).not.toContain("RESEARCH_DISABLED_COPY");
     expect(ui).toContain("/research/ideas/");
     expect(ui).not.toMatch(/Retry all/);
     expect(ui).not.toMatch(/Close and retry|Start again/);
@@ -59,6 +62,14 @@ describe("RESEARCH v0 source boundary", () => {
     const load = read("./load.ts");
     const route = read("../../app/api/websites/[websiteId]/research/route.ts");
     expect(load).not.toMatch(/relatedKeywordIdeas|resolveResearchProvider|updateResearchRun|claimResearchRecovery/);
+    expect(load).toContain("listReadableCompletedResearchRuns");
+    expect(load).toContain("findLatestCompatibleResearchRun");
+    expect(load).not.toContain("listCompatibleResearchRuns");
+    expect(load).not.toContain("isReusableCompletedRun");
+    const inspect = read("../decisions/inspect.ts");
+    expect(inspect).toContain("findLatestReadableCompletedRunForFingerprint");
+    expect(inspect).not.toContain("listCompatibleResearchRuns");
+    expect(inspect).not.toMatch(/relatedKeywordIdeas|resolveResearchProvider/);
     expect(route).toMatch(/export async function GET/);
     expect(route).toMatch(/loadResearchForOwner/);
     expect(route).not.toMatch(/recoverResearchForOwner|executeResearchLedger|closeResearchForOwner/);

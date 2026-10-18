@@ -4,7 +4,7 @@ import { gscQueryCompactSet, currentGscSampleStatus } from "@/lib/research/gsc-j
 import { validConfirmedOfferings } from "@/lib/research/offerings";
 import { activeConfirmedSiteModel } from "@/lib/research/readiness";
 import {
-  findLatestCompatibleResearchRun,
+  findLatestReadableCompletedRunForFingerprint,
   findResearchIdeaForWebsite,
   findResearchRunForWebsite,
 } from "@/lib/research/repository";
@@ -110,15 +110,15 @@ export async function inspectRelatedDemandForOwner(input: {
     );
   }
 
-  const latestCompatible = await findLatestCompatibleResearchRun({
+  const currentFingerprintRun = await findLatestReadableCompletedRunForFingerprint({
     websiteId: input.websiteId,
-    environment: run.providerEnvironment,
+    fingerprint: run.requestFingerprint,
   });
   const staleReasons = researchStaleReasons({
     run,
     confirmedAt: confirmed.confirmed.confirmedAt,
     confirmedOffers: offerings,
-    latestCompatibleRunId: latestCompatible?.id ?? null,
+    currentFingerprintRunId: currentFingerprintRun?.id ?? null,
   });
   if (staleReasons.length > 0) {
     throw new RelatedDemandInspectError(
