@@ -11,7 +11,7 @@ import type { ResearchInspectDecisionRecord, ResearchInspectState } from "./type
 const requireObserveOwnerMock = vi.fn();
 const findResearchIdeaForWebsiteMock = vi.fn();
 const findResearchRunForWebsiteMock = vi.fn();
-const findLatestCompatibleResearchRunMock = vi.fn();
+const findLatestReadableCompletedRunForFingerprintMock = vi.fn();
 const findLatestConfirmedSiteModelForWebsiteMock = vi.fn();
 const findLatestUsableCrawlRunMock = vi.fn();
 const listCompletedSearchSyncsForWebsiteMock = vi.fn();
@@ -29,8 +29,8 @@ vi.mock("@/lib/gsc/observe", () => ({
 vi.mock("@/lib/research/repository", () => ({
   findResearchIdeaForWebsite: (...args: unknown[]) => findResearchIdeaForWebsiteMock(...args),
   findResearchRunForWebsite: (...args: unknown[]) => findResearchRunForWebsiteMock(...args),
-  findLatestCompatibleResearchRun: (...args: unknown[]) =>
-    findLatestCompatibleResearchRunMock(...args),
+  findLatestReadableCompletedRunForFingerprint: (...args: unknown[]) =>
+    findLatestReadableCompletedRunForFingerprintMock(...args),
 }));
 
 vi.mock("@/lib/site-model/repository", () => ({
@@ -257,7 +257,7 @@ describe("inspectRelatedDemandForOwner", () => {
     requireObserveOwnerMock.mockResolvedValue({ website: { id: WEBSITE_ID } });
     findResearchIdeaForWebsiteMock.mockResolvedValue(idea());
     findResearchRunForWebsiteMock.mockResolvedValue(run());
-    findLatestCompatibleResearchRunMock.mockResolvedValue(run());
+    findLatestReadableCompletedRunForFingerprintMock.mockResolvedValue(run());
     findLatestConfirmedSiteModelForWebsiteMock.mockResolvedValue(model());
     findLatestUsableCrawlRunMock.mockResolvedValue(crawl());
     findInspectCrawlMock.mockResolvedValue({
@@ -309,7 +309,13 @@ describe("inspectRelatedDemandForOwner", () => {
       inspectRelatedDemandForOwner({ websiteId: WEBSITE_ID, ideaId: IDEA_ID, sessionToken: "s" }),
     ).rejects.toMatchObject({ code: "offering_removed" });
 
-    findLatestCompatibleResearchRunMock.mockResolvedValueOnce(run({ id: "newer-run" }));
+    findLatestReadableCompletedRunForFingerprintMock.mockResolvedValueOnce(
+      run({
+        id: "newer-run",
+        createdAt: "2026-10-16T12:54:32.806Z",
+        completedAt: "2026-10-16T12:54:36.952Z",
+      }),
+    );
     await expect(
       inspectRelatedDemandForOwner({ websiteId: WEBSITE_ID, ideaId: IDEA_ID, sessionToken: "s" }),
     ).rejects.toMatchObject({ code: "research_stale" });
@@ -585,7 +591,10 @@ describe("inspectRelatedDemandForOwner", () => {
       });
       expect(view.state).toBe("no_obvious_match_in_current_crawl");
       expect(persistResearchInspectDecisionMock).toHaveBeenCalled();
-      expect(findLatestCompatibleResearchRunMock).toHaveBeenCalled();
+      expect(findLatestReadableCompletedRunForFingerprintMock).toHaveBeenCalledWith({
+        websiteId: WEBSITE_ID,
+        fingerprint: "fp",
+      });
     } finally {
       process.env = original;
     }
@@ -707,5 +716,78 @@ describe("inspectRelatedDemandForOwner", () => {
     });
     expect(view.state).toBe("no_obvious_match_in_current_crawl");
     expect(persistResearchInspectDecisionMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("allows inspecting a Spanish idea when a newer Catalan fingerprint run exists", async () => {
+    findLatestReadableCompletedRunForFingerprintMock.mockResolvedValue(run());
+    const view = await inspectRelatedDemandForOwner({
+      websiteId: WEBSITE_ID,
+      ideaId: IDEA_ID,
+      sessionToken: "s",
+    });
+    expect(view.state).toBe("no_obvious_match_in_current_crawl");
+    expect(persistResearchInspectDecisionMock).toHaveBeenCalled();
+  });
+
+  it("still inspects the last valid Spanish run when later same-fingerprint runs are not readable completed", async () => {
+    findLatestReadableCompletedRunForFingerprintMock.mockResolvedValue(run());
+    await expect(
+      inspectRelatedDemandForOwner({
+        websiteId: WEBSITE_ID,
+        ideaId: IDEA_ID,
+        sessionToken: "s",
+      }),
+    ).resolves.toMatchObject({ state: "no_obvious_match_in_current_crawl" });
+    expect(persistResearchInspectDecisionMock).toHaveBeenCalled();
+    expect(findLatestReadableCompletedRunForFingerprintMock).toHaveBeenCalledWith({
+      websiteId: WEBSITE_ID,
+      fingerprint: "fp",
+    });
+  });
+
+  it("blocks inspect of an older idea after a newer same-fingerprint zero-result completed run", async () => {
+    findLatestReadableCompletedRunForFingerprintMock.mockResolvedValue(
+      run({
+        id: "es-newer-empty",
+        createdAt: "2026-10-16T12:54:32.806Z",
+        completedAt: "2026-10-16T12:54:36.952Z",
+      }),
+    );
+    await expect(
+      inspectRelatedDemandForOwner({
+        websiteId: WEBSITE_ID,
+        ideaId: IDEA_ID,
+        sessionToken: "s",
+      }),
+    ).rejects.toMatchObject({ code: "research_stale" });
+    expect(persistResearchInspectDecisionMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks inspect of persisted evidence older than 30 days without writing a Decision", async () => {
+    const oldCompletedAt = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
+    findResearchRunForWebsiteMock.mockResolvedValue(
+      run({
+        completedAt: oldCompletedAt,
+        createdAt: oldCompletedAt,
+      }),
+    );
+    findLatestReadableCompletedRunForFingerprintMock.mockResolvedValue(
+      run({
+        completedAt: oldCompletedAt,
+        createdAt: oldCompletedAt,
+      }),
+    );
+    await expect(
+      inspectRelatedDemandForOwner({
+        websiteId: WEBSITE_ID,
+        ideaId: IDEA_ID,
+        sessionToken: "s",
+      }),
+    ).rejects.toMatchObject({ code: "research_stale" });
+    expect(persistResearchInspectDecisionMock).not.toHaveBeenCalled();
+    expect(findLatestReadableCompletedRunForFingerprintMock).toHaveBeenCalledWith({
+      websiteId: WEBSITE_ID,
+      fingerprint: "fp",
+    });
   });
 });

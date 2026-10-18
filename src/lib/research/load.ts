@@ -18,11 +18,17 @@ import { validConfirmedOfferings } from "./offerings";
 import { evaluateResearchReadiness } from "./readiness";
 import {
   findLatestCompatibleResearchRun,
+  listReadableCompletedResearchRuns,
   listResearchIdeasForRun,
 } from "./repository";
 import { researchRunRecoveryState } from "./recovery";
-import { researchStaleReasons } from "./staleness";
+import {
+  currentCompletedRunForFingerprint,
+  currentCompletedRunsByFingerprint,
+  researchStaleReasons,
+} from "./staleness";
 import type {
+  ResearchIdeaRecord,
   ResearchIdeaView,
   ResearchOwnerView,
   ResearchRunRecord,
@@ -50,6 +56,33 @@ async function latestGscQueryState(websiteId: string): Promise<{
     truncated: sync.queriesTruncated,
     queryKeys: gscQueryCompactSet(queries),
   };
+}
+
+function toIdeaViews(input: {
+  run: ResearchRunRecord;
+  records: ResearchIdeaRecord[];
+  staleReasons: ResearchRunView["staleReasons"];
+  queryKeys: Set<string> | null;
+  inspections: Map<string, NonNullable<ResearchIdeaView["inspection"]>>;
+}): ResearchIdeaView[] {
+  return input.records.map((idea) => ({
+    id: idea.id,
+    runId: idea.runId,
+    keyword: idea.keyword,
+    estimatedMonthlySearches: idea.estimatedMonthlySearches,
+    seedOffering: idea.seedOffering,
+    languageCode: idea.languageCode,
+    countryKey: input.run.countryKey,
+    countryName: input.run.countryName,
+    retrievedAt: idea.createdAt,
+    initialGscSampleStatus: idea.initialGscSampleStatus,
+    currentGscSampleStatus: currentGscSampleStatus({
+      keyword: idea.keyword,
+      queryKeys: input.queryKeys,
+    }),
+    canInspect: input.staleReasons.length === 0 && input.run.status === "completed",
+    inspection: input.inspections.get(idea.id) ?? null,
+  }));
 }
 
 function toRunView(input: {
@@ -123,56 +156,74 @@ export async function loadResearchForOwner(input: {
 
   const environment = researchReadEnvironment(env);
   if (!environment || !readiness.surfaceVisible) {
-    return { readiness: { ...readiness, surfaceVisible: false }, run: null };
+    return {
+      readiness: { ...readiness, surfaceVisible: false },
+      run: null,
+      persistedRuns: [],
+    };
   }
 
-  const latest = await findLatestCompatibleResearchRun({
-    websiteId: input.websiteId,
-    environment,
-  });
+  const [latest, readableCompleted] = await Promise.all([
+    findLatestCompatibleResearchRun({
+      websiteId: input.websiteId,
+      environment,
+    }),
+    listReadableCompletedResearchRuns({
+      websiteId: input.websiteId,
+      environment,
+    }),
+  ]);
   if (!latest) {
-    return { readiness, run: null };
+    return { readiness, run: null, persistedRuns: [] };
   }
 
-  const records = await listResearchIdeasForRun(latest.id);
   const confirmed = model?.confirmed ?? null;
   const hostname = model?.understanding.hostname ?? "";
-  const staleReasons = researchStaleReasons({
-    run: latest,
-    confirmedAt: confirmed?.confirmedAt ?? null,
-    confirmedOffers: confirmed ? validConfirmedOfferings(confirmed.offers, hostname) : [],
-    latestCompatibleRunId: latest.id,
+  const confirmedOffers = confirmed
+    ? validConfirmedOfferings(confirmed.offers, hostname)
+    : [];
+  const currentFingerprintRuns = currentCompletedRunsByFingerprint({
+    runs: readableCompleted,
   });
+  const extraCurrentRuns = currentFingerprintRuns.filter((run) => run.id !== latest.id);
+  const displayRuns = [latest, ...extraCurrentRuns];
+  const recordsByRunId = new Map<string, ResearchIdeaRecord[]>();
+  for (const run of displayRuns) {
+    recordsByRunId.set(run.id, await listResearchIdeasForRun(run.id));
+  }
   const inspections = await listInspectionsForResearchIdeas({
     websiteId: input.websiteId,
-    ideaIds: records.map((idea) => idea.id),
+    ideaIds: [...recordsByRunId.values()].flatMap((records) => records.map((idea) => idea.id)),
   });
 
-  const ideas: ResearchIdeaView[] = records.map((idea) => ({
-    id: idea.id,
-    keyword: idea.keyword,
-    estimatedMonthlySearches: idea.estimatedMonthlySearches,
-    seedOffering: idea.seedOffering,
-    languageCode: idea.languageCode,
-    countryKey: latest.countryKey,
-    countryName: latest.countryName,
-    retrievedAt: idea.createdAt,
-    initialGscSampleStatus: idea.initialGscSampleStatus,
-    currentGscSampleStatus: currentGscSampleStatus({
-      keyword: idea.keyword,
-      queryKeys: gsc.queryKeys,
-    }),
-    canInspect: staleReasons.length === 0 && latest.status === "completed",
-    inspection: inspections.get(idea.id) ?? null,
-  }));
+  const toView = (run: ResearchRunRecord): ResearchRunView => {
+    const currentFingerprintRun = currentCompletedRunForFingerprint({
+      runs: readableCompleted,
+      fingerprint: run.requestFingerprint,
+    });
+    const staleReasons = researchStaleReasons({
+      run,
+      confirmedAt: confirmed?.confirmedAt ?? null,
+      confirmedOffers,
+      currentFingerprintRunId: currentFingerprintRun?.id ?? null,
+    });
+    return toRunView({
+      run,
+      ideas: toIdeaViews({
+        run,
+        records: recordsByRunId.get(run.id) ?? [],
+        staleReasons,
+        queryKeys: gsc.queryKeys,
+        inspections,
+      }),
+      staleReasons,
+      currentGscQueriesTruncated: gsc.truncated,
+    });
+  };
 
   return {
     readiness,
-    run: toRunView({
-      run: latest,
-      ideas,
-      staleReasons,
-      currentGscQueriesTruncated: gsc.truncated,
-    }),
+    run: toView(latest),
+    persistedRuns: extraCurrentRuns.map(toView),
   };
 }

@@ -173,6 +173,7 @@ export type ResearchRecoveryResult = {
 
 export type ResearchIdeaView = {
   id: string;
+  runId: string;
   keyword: string;
   estimatedMonthlySearches: number | null;
   seedOffering: string;
@@ -255,4 +256,5 @@ export type ResearchReadinessView = {
 export type ResearchOwnerView = {
   readiness: ResearchReadinessView;
   run: ResearchRunView | null;
+  persistedRuns: ResearchRunView[];
 };

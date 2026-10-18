@@ -5,6 +5,7 @@ const findLatestConfirmedSiteModelForWebsiteMock = vi.fn();
 const listCompletedSearchSyncsForWebsiteMock = vi.fn();
 const listEvidenceForSyncMock = vi.fn();
 const findLatestCompatibleResearchRunMock = vi.fn();
+const listReadableCompletedResearchRunsMock = vi.fn();
 const listResearchIdeasForRunMock = vi.fn();
 
 vi.mock("@/lib/gsc/observe", () => ({
@@ -25,6 +26,8 @@ vi.mock("@/lib/gsc/db-search", () => ({
 vi.mock("./repository", () => ({
   findLatestCompatibleResearchRun: (...args: unknown[]) =>
     findLatestCompatibleResearchRunMock(...args),
+  listReadableCompletedResearchRuns: (...args: unknown[]) =>
+    listReadableCompletedResearchRunsMock(...args),
   listResearchIdeasForRun: (...args: unknown[]) => listResearchIdeasForRunMock(...args),
 }));
 
@@ -35,10 +38,18 @@ vi.mock("@/lib/decisions/inspect", () => ({
     listInspectionsForResearchIdeasMock(...args),
 }));
 
+import { RESEARCH_REUSE_WINDOW_MS } from "./config";
 import { loadResearchForOwner } from "./load";
 import { researchRequestKey } from "./request-key";
 
 const originalEnv = { ...process.env };
+
+function setRunHistory(runs: Array<Record<string, unknown>>) {
+  findLatestCompatibleResearchRunMock.mockResolvedValue(runs[0] ?? null);
+  listReadableCompletedResearchRunsMock.mockResolvedValue(
+    runs.filter((run) => run.status === "completed" && run.closedAt == null),
+  );
+}
 
 describe("loadResearchForOwner", () => {
   afterEach(() => {
@@ -59,24 +70,28 @@ describe("loadResearchForOwner", () => {
         offers: ["silk paint"],
       },
     });
-    findLatestCompatibleResearchRunMock.mockResolvedValue({
-      id: "run-1",
-      status: "completed",
-      siteModelConfirmedAt: "2026-10-01T00:00:00.000Z",
-      offeringSeeds: ["silk paint"],
-      providerEnvironment: "fixture",
-      countryKey: "US",
-      countryName: "United States",
-      languageCodes: ["en"],
-      gscQueriesTruncated: false,
-      completedAt: "2026-10-10T00:00:00.000Z",
-      createdAt: "2026-10-10T00:00:00.000Z",
-      lastProgressAt: "2026-10-10T00:00:00.000Z",
-      requestLedger: [],
-    });
+    setRunHistory([
+      {
+        id: "run-1",
+        status: "completed",
+        siteModelConfirmedAt: "2026-10-01T00:00:00.000Z",
+        offeringSeeds: ["silk paint"],
+        providerEnvironment: "fixture",
+        countryKey: "US",
+        countryName: "United States",
+        languageCodes: ["en"],
+        requestFingerprint: "fp-en",
+        gscQueriesTruncated: false,
+        completedAt: "2026-10-10T00:00:00.000Z",
+        createdAt: "2026-10-10T00:00:00.000Z",
+        lastProgressAt: "2026-10-10T00:00:00.000Z",
+        requestLedger: [],
+      },
+    ]);
     listResearchIdeasForRunMock.mockResolvedValue([
       {
         id: "idea-1",
+        runId: "run-1",
         keyword: "fixture related term one",
         estimatedMonthlySearches: 50,
         seedOffering: "silk paint",
@@ -150,6 +165,7 @@ describe("loadResearchForOwner", () => {
     expect(view.readiness.surfaceVisible).toBe(false);
     expect(view.run).toBeNull();
     expect(findLatestCompatibleResearchRunMock).not.toHaveBeenCalled();
+    expect(listReadableCompletedResearchRunsMock).not.toHaveBeenCalled();
   });
 
   it("hides fixture and sandbox runs in production", async () => {
@@ -175,25 +191,30 @@ describe("loadResearchForOwner", () => {
     expect(sandboxView.readiness.surfaceVisible).toBe(false);
     expect(sandboxView.run).toBeNull();
     expect(findLatestCompatibleResearchRunMock).not.toHaveBeenCalled();
+    expect(listReadableCompletedResearchRunsMock).not.toHaveBeenCalled();
   });
 
   it("loads persisted live RESEARCH in production when live execution is disabled", async () => {
-    findLatestCompatibleResearchRunMock.mockResolvedValue({
-      id: "run-live",
-      status: "completed",
-      siteModelConfirmedAt: "2026-10-01T00:00:00.000Z",
-      offeringSeeds: ["silk paint"],
-      providerEnvironment: "live",
-      countryKey: "US",
-      countryName: "United States",
-      languageCodes: ["en"],
-      gscQueriesTruncated: false,
-      completedAt: "2026-10-10T00:00:00.000Z",
-      createdAt: "2026-10-10T00:00:00.000Z",
-    });
+    setRunHistory([
+      {
+        id: "run-live",
+        status: "completed",
+        siteModelConfirmedAt: "2026-10-01T00:00:00.000Z",
+        offeringSeeds: ["silk paint"],
+        providerEnvironment: "live",
+        countryKey: "US",
+        countryName: "United States",
+        languageCodes: ["en"],
+        requestFingerprint: "fp-es",
+        gscQueriesTruncated: false,
+        completedAt: "2026-10-10T00:00:00.000Z",
+        createdAt: "2026-10-10T00:00:00.000Z",
+      },
+    ]);
     listResearchIdeasForRunMock.mockResolvedValue([
       {
         id: "idea-live",
+        runId: "run-live",
         keyword: "como pintar en seda",
         estimatedMonthlySearches: 20,
         seedOffering: "silk paint",
@@ -223,10 +244,14 @@ describe("loadResearchForOwner", () => {
       websiteId: "site-1",
       environment: "live",
     });
+    expect(listReadableCompletedResearchRunsMock).toHaveBeenCalledWith({
+      websiteId: "site-1",
+      environment: "live",
+    });
   });
 
   it("does not create or refresh RESEARCH when production live execution is disabled and nothing is persisted", async () => {
-    findLatestCompatibleResearchRunMock.mockResolvedValue(null);
+    setRunHistory([]);
     const view = await loadResearchForOwner({
       websiteId: "site-1",
       sessionToken: "session",
@@ -242,24 +267,28 @@ describe("loadResearchForOwner", () => {
     expect(view.readiness.surfaceVisible).toBe(true);
     expect(view.readiness.executionAvailable).toBe(false);
     expect(view.run).toBeNull();
+    expect(view.persistedRuns).toEqual([]);
     expect(listResearchIdeasForRunMock).not.toHaveBeenCalled();
     expect(listInspectionsForResearchIdeasMock).not.toHaveBeenCalled();
   });
 
   it("loads live-environment RESEARCH in production when live is enabled", async () => {
-    findLatestCompatibleResearchRunMock.mockResolvedValue({
-      id: "run-live",
-      status: "completed",
-      siteModelConfirmedAt: "2026-10-01T00:00:00.000Z",
-      offeringSeeds: ["silk paint"],
-      providerEnvironment: "live",
-      countryKey: "US",
-      countryName: "United States",
-      languageCodes: ["en"],
-      gscQueriesTruncated: false,
-      completedAt: "2026-10-10T00:00:00.000Z",
-      createdAt: "2026-10-10T00:00:00.000Z",
-    });
+    setRunHistory([
+      {
+        id: "run-live",
+        status: "completed",
+        siteModelConfirmedAt: "2026-10-01T00:00:00.000Z",
+        offeringSeeds: ["silk paint"],
+        providerEnvironment: "live",
+        countryKey: "US",
+        countryName: "United States",
+        languageCodes: ["en"],
+        requestFingerprint: "fp-en",
+        gscQueriesTruncated: false,
+        completedAt: "2026-10-10T00:00:00.000Z",
+        createdAt: "2026-10-10T00:00:00.000Z",
+      },
+    ]);
     const view = await loadResearchForOwner({
       websiteId: "site-1",
       sessionToken: "session",
@@ -277,12 +306,18 @@ describe("loadResearchForOwner", () => {
       websiteId: "site-1",
       environment: "live",
     });
+    expect(listReadableCompletedResearchRunsMock).toHaveBeenCalledWith({
+      websiteId: "site-1",
+      environment: "live",
+    });
     expect(view.run?.providerEnvironment).toBe("live");
   });
 
   it("reports abandoned active runs as recovery-required without mutating them", async () => {
-    findLatestCompatibleResearchRunMock.mockResolvedValue({
+    setRunHistory([
+      {
       id: "run-abandoned",
+      requestFingerprint: "fp-en",
       status: "running",
       siteModelConfirmedAt: "2026-10-01T00:00:00.000Z",
       offeringSeeds: ["silk paint"],
@@ -313,17 +348,21 @@ describe("loadResearchForOwner", () => {
           failureCode: null,
         },
       ],
-    });
+    },
+    ]);
     const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
     expect(view.run?.recoveryRequired).toBe(true);
     expect(view.run?.displayInterrupted).toBe(true);
     expect(view.run?.canResumeUnattempted).toBe(true);
     expect(findLatestCompatibleResearchRunMock).toHaveBeenCalledTimes(1);
+    expect(listReadableCompletedResearchRunsMock).toHaveBeenCalledTimes(1);
   });
 
   it("shows closed historical evidence as closed and eligible for a later new cycle", async () => {
-    findLatestCompatibleResearchRunMock.mockResolvedValue({
+    setRunHistory([
+      {
       id: "run-closed",
+      requestFingerprint: "fp-en",
       status: "closed",
       siteModelConfirmedAt: "2026-10-01T00:00:00.000Z",
       offeringSeeds: ["silk paint"],
@@ -353,7 +392,8 @@ describe("loadResearchForOwner", () => {
           failureCode: null,
         },
       ],
-    });
+    },
+    ]);
     const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
     expect(view.run?.displayClosed).toBe(true);
     expect(view.run?.ideas[0]?.canInspect).toBe(false);
@@ -375,8 +415,10 @@ describe("loadResearchForOwner", () => {
         offers: ["SEO audit for small businesses"],
       },
     });
-    findLatestCompatibleResearchRunMock.mockResolvedValue({
+    setRunHistory([
+      {
       id: "105f3d46-5bb9-4825-bf0d-f1b1a50c8ea2",
+      requestFingerprint: "fp-foundfy-en",
       status: "completed",
       siteModelId: "42dce699-616d-44e2-90e0-0e14163b82f3",
       siteModelConfirmedAt: "2026-10-13T09:52:17.945+00:00",
@@ -406,7 +448,8 @@ describe("loadResearchForOwner", () => {
           filterReasonCounts: null,
         },
       ],
-    });
+    },
+    ]);
     process.env.RESEARCH_PROVIDER_MODE = "live";
     process.env.RESEARCH_LIVE_ENABLED = "true";
     process.env.DATAFORSEO_LOGIN = "login";
@@ -426,6 +469,7 @@ describe("loadResearchForOwner", () => {
     listResearchIdeasForRunMock.mockResolvedValue([
       {
         id: "477889f4-ce3e-401b-88f6-57fd25e30df2",
+        runId: "6a99b0dd-91c5-43df-9b65-8443331ed4a6",
         keyword: "como pintar en seda",
         estimatedMonthlySearches: 20,
         seedOffering: "Materiales para pintura sobre seda",
@@ -443,8 +487,10 @@ describe("loadResearchForOwner", () => {
         offers: ["Materiales para pintura sobre seda"],
       },
     });
-    findLatestCompatibleResearchRunMock.mockResolvedValue({
+    setRunHistory([
+      {
       id: "6a99b0dd-91c5-43df-9b65-8443331ed4a6",
+      requestFingerprint: "fp-es",
       status: "completed",
       siteModelId: "011f7a71-ebc0-4938-ba04-af8ddbe674bd",
       siteModelConfirmedAt: "2026-10-15T12:37:56.457+00:00",
@@ -474,7 +520,8 @@ describe("loadResearchForOwner", () => {
           failureCode: null,
         },
       ],
-    });
+    },
+    ]);
     listCompletedSearchSyncsForWebsiteMock.mockResolvedValue([
       { id: "c2048065-dfe4-404f-a680-4e24e4c4200e", queriesTruncated: true },
     ]);
@@ -497,5 +544,566 @@ describe("loadResearchForOwner", () => {
     );
     expect(view.run?.filterReasonDetails).toEqual([]);
     expect(view.run?.stale).toBe(false);
+    expect(view.persistedRuns).toEqual([]);
+  });
+
+  it("returns the current Spanish idea when a later Catalan fingerprint is the website-latest run", async () => {
+    const spanishRun = {
+      id: "6a99b0dd-91c5-43df-9b65-8443331ed4a6",
+      status: "completed" as const,
+      siteModelConfirmedAt: "2026-10-15T12:37:56.457+00:00",
+      offeringSeeds: ["Materiales para pintura sobre seda"],
+      providerEnvironment: "live" as const,
+      countryKey: "ES",
+      countryName: "Spain",
+      languageCodes: ["es"],
+      requestFingerprint: "fp-es",
+      gscQueriesTruncated: true,
+      completedAt: "2026-10-15T12:54:36.952+00:00",
+      createdAt: "2026-10-15T12:54:32.80692+00:00",
+      requestLedger: [
+        {
+          requestKey: researchRequestKey("Materiales para pintura sobre seda", "es"),
+          seedOffering: "Materiales para pintura sobre seda",
+          languageCode: "es",
+          locationCode: 2724,
+          providerTaskId: "task-es",
+          status: "succeeded" as const,
+          requestedAt: "2026-10-15T12:54:32.939Z",
+          attemptedAt: "2026-10-15T12:54:33.385Z",
+          retrievedAt: "2026-10-15T12:54:36.812Z",
+          ideaCount: 1,
+          providerResultCount: 3,
+          filterReasonCounts: null,
+          providerCost: 0.09,
+          failureCode: null,
+        },
+      ],
+    };
+    const catalanRun = {
+      id: "32dd4ebc-94a9-463f-827b-fd5b9d16d4a9",
+      status: "completed" as const,
+      siteModelConfirmedAt: "2026-10-15T12:37:56.457+00:00",
+      offeringSeeds: ["Materiales para pintura sobre seda"],
+      providerEnvironment: "live" as const,
+      countryKey: "ES",
+      countryName: "Spain",
+      languageCodes: ["ca"],
+      requestFingerprint: "fp-ca",
+      gscQueriesTruncated: true,
+      completedAt: "2026-10-15T20:32:58.531+00:00",
+      createdAt: "2026-10-15T20:32:55.092742+00:00",
+      requestLedger: [
+        {
+          requestKey: researchRequestKey("Materiales para pintura sobre seda", "ca"),
+          seedOffering: "Materiales para pintura sobre seda",
+          languageCode: "ca",
+          locationCode: 2724,
+          providerTaskId: "task-ca",
+          status: "zero_results" as const,
+          requestedAt: "2026-10-15T20:32:55.200Z",
+          attemptedAt: "2026-10-15T20:32:55.400Z",
+          retrievedAt: "2026-10-15T20:32:58.400Z",
+          ideaCount: 0,
+          providerResultCount: 2,
+          filterReasonCounts: {
+            emptyCount: 0,
+            invalidCount: 0,
+            brandOnlyCount: 0,
+            seedDuplicateCount: 2,
+            compactDuplicateCount: 0,
+            cappedCount: 0,
+          },
+          providerCost: 0.09,
+          failureCode: null,
+        },
+      ],
+    };
+    findLatestConfirmedSiteModelForWebsiteMock.mockResolvedValue({
+      id: "011f7a71-ebc0-4938-ba04-af8ddbe674bd",
+      status: "stale",
+      understanding: { hostname: "dbhobby.com", languages: { htmlLangs: ["ca", "es", "en"] } },
+      confirmed: {
+        confirmedAt: "2026-10-15T12:37:56.457+00:00",
+        offers: ["Materiales para pintura sobre seda"],
+      },
+    });
+    setRunHistory([catalanRun, spanishRun]);
+    listResearchIdeasForRunMock.mockImplementation(async (runId: string) => {
+      if (runId === spanishRun.id) {
+        return [
+          {
+            id: "477889f4-ce3e-401b-88f6-57fd25e30df2",
+            runId: spanishRun.id,
+            keyword: "como pintar en seda",
+            estimatedMonthlySearches: 20,
+            seedOffering: "Materiales para pintura sobre seda",
+            languageCode: "es",
+            createdAt: "2026-10-15T12:54:36.812882+00:00",
+            initialGscSampleStatus: "not_in_current_gsc_sample",
+          },
+        ];
+      }
+      return [];
+    });
+    process.env.RESEARCH_PROVIDER_MODE = "live";
+    process.env.RESEARCH_LIVE_ENABLED = "false";
+    process.env.DATAFORSEO_LOGIN = "login";
+    process.env.DATAFORSEO_PASSWORD = "password";
+    process.env.NODE_ENV = "production";
+
+    const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
+    expect(view.readiness.executionAvailable).toBe(false);
+    expect(view.run?.id).toBe(catalanRun.id);
+    expect(view.run?.languageCodes).toEqual(["ca"]);
+    expect(view.run?.ideas).toEqual([]);
+    expect(view.run?.filterReasonDetails.join(" ")).toMatch(/matched the confirmed offering/);
+    expect(view.persistedRuns).toHaveLength(1);
+    expect(view.persistedRuns[0]?.id).toBe(spanishRun.id);
+    expect(view.persistedRuns[0]?.languageCodes).toEqual(["es"]);
+    expect(view.persistedRuns[0]?.ideas[0]?.runId).toBe(spanishRun.id);
+    expect(view.persistedRuns[0]?.ideas[0]?.keyword).toBe("como pintar en seda");
+    expect(view.persistedRuns[0]?.ideas[0]?.languageCode).toBe("es");
+    expect(view.persistedRuns[0]?.ideas[0]?.countryName).toBe("Spain");
+    expect(view.persistedRuns[0]?.ideas[0]?.estimatedMonthlySearches).toBe(20);
+    expect(view.persistedRuns[0]?.ideas[0]?.canInspect).toBe(true);
+  });
+
+  it("keeps older current Spanish evidence when a newer same-fingerprint run is not a valid successor", async () => {
+    const spanishRun = {
+      id: "6a99b0dd-91c5-43df-9b65-8443331ed4a6",
+      status: "completed" as const,
+      siteModelConfirmedAt: "2026-10-15T12:37:56.457+00:00",
+      offeringSeeds: ["Materiales para pintura sobre seda"],
+      providerEnvironment: "live" as const,
+      countryKey: "ES",
+      countryName: "Spain",
+      languageCodes: ["es"],
+      requestFingerprint: "fp-es",
+      gscQueriesTruncated: true,
+      completedAt: "2026-10-15T12:54:36.952+00:00",
+      createdAt: "2026-10-15T12:54:32.80692+00:00",
+      requestLedger: [],
+    };
+    const failedSuccessor = {
+      ...spanishRun,
+      id: "es-failed-newer",
+      status: "failed" as const,
+      completedAt: null,
+      createdAt: "2026-10-16T12:54:32.80692+00:00",
+    };
+    findLatestConfirmedSiteModelForWebsiteMock.mockResolvedValue({
+      id: "011f7a71-ebc0-4938-ba04-af8ddbe674bd",
+      status: "stale",
+      understanding: { hostname: "dbhobby.com", languages: { htmlLangs: ["es"] } },
+      confirmed: {
+        confirmedAt: "2026-10-15T12:37:56.457+00:00",
+        offers: ["Materiales para pintura sobre seda"],
+      },
+    });
+    setRunHistory([failedSuccessor, spanishRun]);
+    listResearchIdeasForRunMock.mockImplementation(async (runId: string) =>
+      runId === spanishRun.id
+        ? [
+            {
+              id: "477889f4-ce3e-401b-88f6-57fd25e30df2",
+              runId: spanishRun.id,
+              keyword: "como pintar en seda",
+              estimatedMonthlySearches: 20,
+              seedOffering: "Materiales para pintura sobre seda",
+              languageCode: "es",
+              createdAt: "2026-10-15T12:54:36.812882+00:00",
+              initialGscSampleStatus: "not_in_current_gsc_sample",
+            },
+          ]
+        : [],
+    );
+    process.env.RESEARCH_PROVIDER_MODE = "live";
+    process.env.RESEARCH_LIVE_ENABLED = "false";
+    process.env.NODE_ENV = "production";
+
+    const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
+    expect(view.run?.id).toBe(failedSuccessor.id);
+    expect(view.persistedRuns[0]?.id).toBe(spanishRun.id);
+    expect(view.persistedRuns[0]?.ideas[0]?.canInspect).toBe(true);
+  });
+
+  it("omits an older Spanish idea after a newer valid same-fingerprint completed run", async () => {
+    const older = {
+      id: "es-older",
+      status: "completed" as const,
+      siteModelConfirmedAt: "2026-10-15T12:37:56.457+00:00",
+      offeringSeeds: ["Materiales para pintura sobre seda"],
+      providerEnvironment: "live" as const,
+      countryKey: "ES",
+      countryName: "Spain",
+      languageCodes: ["es"],
+      requestFingerprint: "fp-es",
+      gscQueriesTruncated: true,
+      completedAt: "2026-10-15T12:54:36.952+00:00",
+      createdAt: "2026-10-15T12:54:32.80692+00:00",
+      requestLedger: [],
+    };
+    const newer = {
+      ...older,
+      id: "es-newer",
+      completedAt: "2026-10-16T12:54:36.952+00:00",
+      createdAt: "2026-10-16T12:54:32.80692+00:00",
+    };
+    findLatestConfirmedSiteModelForWebsiteMock.mockResolvedValue({
+      id: "011f7a71-ebc0-4938-ba04-af8ddbe674bd",
+      status: "stale",
+      understanding: { hostname: "dbhobby.com", languages: { htmlLangs: ["es"] } },
+      confirmed: {
+        confirmedAt: "2026-10-15T12:37:56.457+00:00",
+        offers: ["Materiales para pintura sobre seda"],
+      },
+    });
+    setRunHistory([newer, older]);
+    listResearchIdeasForRunMock.mockImplementation(async (runId: string) => {
+      if (runId === older.id) {
+        return [
+          {
+            id: "old-idea",
+            runId: older.id,
+            keyword: "como pintar en seda",
+            estimatedMonthlySearches: 20,
+            seedOffering: "Materiales para pintura sobre seda",
+            languageCode: "es",
+            createdAt: "2026-10-15T12:54:36.812882+00:00",
+            initialGscSampleStatus: "not_in_current_gsc_sample",
+          },
+        ];
+      }
+      return [
+        {
+          id: "new-idea",
+          runId: newer.id,
+          keyword: "pintar seda",
+          estimatedMonthlySearches: 10,
+          seedOffering: "Materiales para pintura sobre seda",
+          languageCode: "es",
+          createdAt: "2026-10-16T12:54:36.812882+00:00",
+          initialGscSampleStatus: "not_in_current_gsc_sample",
+        },
+      ];
+    });
+    process.env.RESEARCH_PROVIDER_MODE = "live";
+    process.env.RESEARCH_LIVE_ENABLED = "false";
+    process.env.NODE_ENV = "production";
+
+    const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
+    expect(view.run?.id).toBe(newer.id);
+    expect(view.run?.ideas.map((idea) => idea.id)).toEqual(["new-idea"]);
+    expect(view.run?.ideas[0]?.canInspect).toBe(true);
+    expect(view.persistedRuns).toEqual([]);
+  });
+
+  it("selects a newer same-fingerprint zero-result completed run and hides the older idea", async () => {
+    const older = {
+      id: "es-older",
+      status: "completed" as const,
+      siteModelConfirmedAt: "2026-10-15T12:37:56.457+00:00",
+      offeringSeeds: ["Materiales para pintura sobre seda"],
+      providerEnvironment: "live" as const,
+      countryKey: "ES",
+      countryName: "Spain",
+      languageCodes: ["es"],
+      requestFingerprint: "fp-es",
+      gscQueriesTruncated: true,
+      completedAt: "2026-10-15T12:54:36.952+00:00",
+      createdAt: "2026-10-15T12:54:32.80692+00:00",
+      requestLedger: [],
+    };
+    const newer = {
+      ...older,
+      id: "es-newer-empty",
+      completedAt: "2026-10-16T12:54:36.952+00:00",
+      createdAt: "2026-10-16T12:54:32.80692+00:00",
+      requestLedger: [
+        {
+          requestKey: researchRequestKey("Materiales para pintura sobre seda", "es"),
+          seedOffering: "Materiales para pintura sobre seda",
+          languageCode: "es",
+          locationCode: 2724,
+          providerTaskId: "task-es-2",
+          status: "zero_results" as const,
+          requestedAt: "2026-10-16T12:54:32.939Z",
+          attemptedAt: "2026-10-16T12:54:33.385Z",
+          retrievedAt: "2026-10-16T12:54:36.812Z",
+          ideaCount: 0,
+          providerResultCount: 0,
+          filterReasonCounts: null,
+          providerCost: 0.09,
+          failureCode: null,
+        },
+      ],
+    };
+    findLatestConfirmedSiteModelForWebsiteMock.mockResolvedValue({
+      id: "011f7a71-ebc0-4938-ba04-af8ddbe674bd",
+      status: "stale",
+      understanding: { hostname: "dbhobby.com", languages: { htmlLangs: ["es"] } },
+      confirmed: {
+        confirmedAt: "2026-10-15T12:37:56.457+00:00",
+        offers: ["Materiales para pintura sobre seda"],
+      },
+    });
+    setRunHistory([newer, older]);
+    listResearchIdeasForRunMock.mockImplementation(async (runId: string) =>
+      runId === older.id
+        ? [
+            {
+              id: "old-idea",
+              runId: older.id,
+              keyword: "como pintar en seda",
+              estimatedMonthlySearches: 20,
+              seedOffering: "Materiales para pintura sobre seda",
+              languageCode: "es",
+              createdAt: "2026-10-15T12:54:36.812882+00:00",
+              initialGscSampleStatus: "not_in_current_gsc_sample",
+            },
+          ]
+        : [],
+    );
+    process.env.RESEARCH_PROVIDER_MODE = "live";
+    process.env.RESEARCH_LIVE_ENABLED = "false";
+    process.env.NODE_ENV = "production";
+
+    const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
+    expect(view.run?.id).toBe(newer.id);
+    expect(view.run?.ideas).toEqual([]);
+    expect(view.run?.emptyOutcome).toBe("provider_empty");
+    expect(view.persistedRuns).toEqual([]);
+    expect(view.readiness.executionAvailable).toBe(false);
+  });
+
+  it("keeps older completed Spanish evidence when a newer same-fingerprint run is requested or running", async () => {
+    const spanishRun = {
+      id: "6a99b0dd-91c5-43df-9b65-8443331ed4a6",
+      status: "completed" as const,
+      siteModelConfirmedAt: "2026-10-15T12:37:56.457+00:00",
+      offeringSeeds: ["Materiales para pintura sobre seda"],
+      providerEnvironment: "live" as const,
+      countryKey: "ES",
+      countryName: "Spain",
+      languageCodes: ["es"],
+      requestFingerprint: "fp-es",
+      gscQueriesTruncated: true,
+      completedAt: "2026-10-15T12:54:36.952+00:00",
+      createdAt: "2026-10-15T12:54:32.80692+00:00",
+      requestLedger: [],
+    };
+    findLatestConfirmedSiteModelForWebsiteMock.mockResolvedValue({
+      id: "011f7a71-ebc0-4938-ba04-af8ddbe674bd",
+      status: "stale",
+      understanding: { hostname: "dbhobby.com", languages: { htmlLangs: ["es"] } },
+      confirmed: {
+        confirmedAt: "2026-10-15T12:37:56.457+00:00",
+        offers: ["Materiales para pintura sobre seda"],
+      },
+    });
+    listResearchIdeasForRunMock.mockImplementation(async (runId: string) =>
+      runId === spanishRun.id
+        ? [
+            {
+              id: "477889f4-ce3e-401b-88f6-57fd25e30df2",
+              runId: spanishRun.id,
+              keyword: "como pintar en seda",
+              estimatedMonthlySearches: 20,
+              seedOffering: "Materiales para pintura sobre seda",
+              languageCode: "es",
+              createdAt: "2026-10-15T12:54:36.812882+00:00",
+              initialGscSampleStatus: "not_in_current_gsc_sample",
+            },
+          ]
+        : [],
+    );
+    process.env.RESEARCH_PROVIDER_MODE = "live";
+    process.env.RESEARCH_LIVE_ENABLED = "false";
+    process.env.NODE_ENV = "production";
+
+    for (const status of ["requested", "running"] as const) {
+      const successor = {
+        ...spanishRun,
+        id: `es-${status}-newer`,
+        status,
+        completedAt: null,
+        createdAt: "2026-10-16T12:54:32.80692+00:00",
+      };
+      setRunHistory([successor, spanishRun]);
+      const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
+      expect(view.run?.id).toBe(successor.id);
+      expect(view.persistedRuns[0]?.id).toBe(spanishRun.id);
+      expect(view.persistedRuns[0]?.ideas[0]?.keyword).toBe("como pintar en seda");
+      expect(view.persistedRuns[0]?.ideas[0]?.canInspect).toBe(true);
+    }
+  });
+
+  it("keeps a non-latest Spanish fingerprint readable and stale after 30 days", async () => {
+    const spanishCompletedAt = new Date(Date.now() - RESEARCH_REUSE_WINDOW_MS - 60_000).toISOString();
+    const spanishRun = {
+      id: "6a99b0dd-91c5-43df-9b65-8443331ed4a6",
+      status: "completed" as const,
+      siteModelConfirmedAt: "2026-10-15T12:37:56.457+00:00",
+      offeringSeeds: ["Materiales para pintura sobre seda"],
+      providerEnvironment: "live" as const,
+      countryKey: "ES",
+      countryName: "Spain",
+      languageCodes: ["es"],
+      requestFingerprint: "fp-es",
+      gscQueriesTruncated: true,
+      completedAt: spanishCompletedAt,
+      createdAt: spanishCompletedAt,
+      requestLedger: [],
+    };
+    const catalanRun = {
+      id: "32dd4ebc-94a9-463f-827b-fd5b9d16d4a9",
+      status: "completed" as const,
+      siteModelConfirmedAt: "2026-10-15T12:37:56.457+00:00",
+      offeringSeeds: ["Materiales para pintura sobre seda"],
+      providerEnvironment: "live" as const,
+      countryKey: "ES",
+      countryName: "Spain",
+      languageCodes: ["ca"],
+      requestFingerprint: "fp-ca",
+      gscQueriesTruncated: true,
+      completedAt: "2026-10-15T20:32:58.531+00:00",
+      createdAt: "2026-10-15T20:32:55.092742+00:00",
+      requestLedger: [
+        {
+          requestKey: researchRequestKey("Materiales para pintura sobre seda", "ca"),
+          seedOffering: "Materiales para pintura sobre seda",
+          languageCode: "ca",
+          locationCode: 2724,
+          providerTaskId: "task-ca",
+          status: "zero_results" as const,
+          requestedAt: "2026-10-15T20:32:55.200Z",
+          attemptedAt: "2026-10-15T20:32:55.400Z",
+          retrievedAt: "2026-10-15T20:32:58.400Z",
+          ideaCount: 0,
+          providerResultCount: 2,
+          filterReasonCounts: {
+            emptyCount: 0,
+            invalidCount: 0,
+            brandOnlyCount: 0,
+            seedDuplicateCount: 2,
+            compactDuplicateCount: 0,
+            cappedCount: 0,
+          },
+          providerCost: 0.09,
+          failureCode: null,
+        },
+      ],
+    };
+    findLatestConfirmedSiteModelForWebsiteMock.mockResolvedValue({
+      id: "011f7a71-ebc0-4938-ba04-af8ddbe674bd",
+      status: "stale",
+      understanding: { hostname: "dbhobby.com", languages: { htmlLangs: ["ca", "es", "en"] } },
+      confirmed: {
+        confirmedAt: "2026-10-15T12:37:56.457+00:00",
+        offers: ["Materiales para pintura sobre seda"],
+      },
+    });
+    setRunHistory([catalanRun, spanishRun]);
+    listResearchIdeasForRunMock.mockImplementation(async (runId: string) =>
+      runId === spanishRun.id
+        ? [
+            {
+              id: "477889f4-ce3e-401b-88f6-57fd25e30df2",
+              runId: spanishRun.id,
+              keyword: "como pintar en seda",
+              estimatedMonthlySearches: 20,
+              seedOffering: "Materiales para pintura sobre seda",
+              languageCode: "es",
+              createdAt: spanishCompletedAt,
+              initialGscSampleStatus: "not_in_current_gsc_sample",
+            },
+          ]
+        : [],
+    );
+    process.env.RESEARCH_PROVIDER_MODE = "live";
+    process.env.RESEARCH_LIVE_ENABLED = "false";
+    process.env.NODE_ENV = "production";
+
+    const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
+    expect(view.run?.id).toBe(catalanRun.id);
+    expect(view.persistedRuns).toHaveLength(1);
+    expect(view.persistedRuns[0]?.id).toBe(spanishRun.id);
+    expect(view.persistedRuns[0]?.stale).toBe(true);
+    expect(view.persistedRuns[0]?.staleReasons).toContain("older_than_30_days");
+    expect(view.persistedRuns[0]?.ideas[0]?.keyword).toBe("como pintar en seda");
+    expect(view.persistedRuns[0]?.ideas[0]?.canInspect).toBe(false);
+    expect(view.persistedRuns[0]?.ideas[0]?.languageCode).toBe("es");
+    expect(view.readiness.executionAvailable).toBe(false);
+  });
+
+  it("still returns a valid fingerprint after more than 50 newer unrelated completed runs", async () => {
+    const spanishRun = {
+      id: "6a99b0dd-91c5-43df-9b65-8443331ed4a6",
+      status: "completed" as const,
+      siteModelConfirmedAt: "2026-10-15T12:37:56.457+00:00",
+      offeringSeeds: ["Materiales para pintura sobre seda"],
+      providerEnvironment: "live" as const,
+      countryKey: "ES",
+      countryName: "Spain",
+      languageCodes: ["es"],
+      requestFingerprint: "fp-es",
+      gscQueriesTruncated: true,
+      completedAt: "2026-10-15T12:54:36.952+00:00",
+      createdAt: "2026-10-15T12:54:32.80692+00:00",
+      requestLedger: [],
+    };
+    const otherRuns = Array.from({ length: 51 }, (_, index) => ({
+      id: `other-${index}`,
+      status: "completed" as const,
+      siteModelConfirmedAt: "2026-10-15T12:37:56.457+00:00",
+      offeringSeeds: ["Materiales para pintura sobre seda"],
+      providerEnvironment: "live" as const,
+      countryKey: "ES",
+      countryName: "Spain",
+      languageCodes: ["ca"],
+      requestFingerprint: `fp-other-${index}`,
+      gscQueriesTruncated: true,
+      completedAt: `2026-10-16T20:32:${String(index).padStart(2, "0")}.000+00:00`,
+      createdAt: `2026-10-16T20:32:${String(index).padStart(2, "0")}.000+00:00`,
+      requestLedger: [],
+    }));
+    findLatestConfirmedSiteModelForWebsiteMock.mockResolvedValue({
+      id: "011f7a71-ebc0-4938-ba04-af8ddbe674bd",
+      status: "stale",
+      understanding: { hostname: "dbhobby.com", languages: { htmlLangs: ["ca", "es", "en"] } },
+      confirmed: {
+        confirmedAt: "2026-10-15T12:37:56.457+00:00",
+        offers: ["Materiales para pintura sobre seda"],
+      },
+    });
+    setRunHistory([...otherRuns, spanishRun]);
+    listResearchIdeasForRunMock.mockImplementation(async (runId: string) =>
+      runId === spanishRun.id
+        ? [
+            {
+              id: "477889f4-ce3e-401b-88f6-57fd25e30df2",
+              runId: spanishRun.id,
+              keyword: "como pintar en seda",
+              estimatedMonthlySearches: 20,
+              seedOffering: "Materiales para pintura sobre seda",
+              languageCode: "es",
+              createdAt: "2026-10-15T12:54:36.812882+00:00",
+              initialGscSampleStatus: "not_in_current_gsc_sample",
+            },
+          ]
+        : [],
+    );
+    process.env.RESEARCH_PROVIDER_MODE = "live";
+    process.env.RESEARCH_LIVE_ENABLED = "false";
+    process.env.NODE_ENV = "production";
+
+    const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
+    expect(view.run?.id).toBe(otherRuns[0]?.id);
+    expect(view.persistedRuns.some((run) => run.id === spanishRun.id)).toBe(true);
+    const spanish = view.persistedRuns.find((run) => run.id === spanishRun.id);
+    expect(spanish?.ideas[0]?.keyword).toBe("como pintar en seda");
+    expect(spanish?.ideas[0]?.canInspect).toBe(true);
+    expect(view.persistedRuns.some((run) => run.id === view.run?.id)).toBe(false);
   });
 });
