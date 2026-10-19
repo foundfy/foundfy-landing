@@ -9,6 +9,7 @@ async function main() {
     .from("crawl_runs")
     .select("id, completed_at, websites!inner(hostname)")
     .eq("websites.hostname", hostname)
+    .eq("purpose", "site_sample")
     .eq("status", "completed")
     .order("completed_at", { ascending: true });
 

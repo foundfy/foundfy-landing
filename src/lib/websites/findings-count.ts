@@ -1,4 +1,5 @@
 import { isUsableCompletedCrawl } from "@/lib/crawler/crawl-usability";
+import { isNonSiteSamplePurpose } from "@/lib/crawler/purpose";
 import {
   areObservationsMaterialized,
   countActiveObservations,
@@ -9,7 +10,12 @@ export async function loadTrustworthyFindingsCount(input: {
   crawlRunId: string;
   status: string;
   pagesCrawled: number;
+  purpose?: string | null;
 }): Promise<number | null> {
+  if (isNonSiteSamplePurpose(input.purpose)) {
+    return null;
+  }
+
   if (
     !isUsableCompletedCrawl({
       status: input.status,

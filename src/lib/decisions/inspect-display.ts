@@ -32,6 +32,8 @@ export const INSPECT_STATE_COPY: Record<RelatedDemandInspectState, string> = {
     "Foundfy found a current crawled page with clear text matching this related search.",
   no_obvious_match_in_current_crawl:
     "Foundfy did not find an obvious match in the current crawl sample.",
+  no_obvious_match_after_targeted_observation:
+    "Foundfy analyzed the additional page you asked it to check and still did not find an obvious match.",
   ambiguous: "Current site evidence does not point clearly to one page.",
 };
 

@@ -116,6 +116,21 @@ describe("maybeRecoverStaleCrawlRun", () => {
     expect(requeueStaleRunningCrawlRunMock).toHaveBeenCalledTimes(1);
   });
 
+  it("does not recover targeted_observe crawls", async () => {
+    getCrawlRunSummaryMock.mockResolvedValue(
+      runningSummary({
+        purpose: "targeted_observe",
+        startedAt: "2026-09-10T15:00:00.000Z",
+      }),
+    );
+
+    const result = await maybeRecoverStaleCrawlRun("run-1");
+
+    expect(result).toEqual({ recovered: false });
+    expect(requeueStaleRunningCrawlRunMock).not.toHaveBeenCalled();
+    expect(resetAbandonedProcessingQueueItemsMock).not.toHaveBeenCalled();
+  });
+
   it("never recovers completed crawls", async () => {
     getCrawlRunSummaryMock.mockResolvedValue(
       runningSummary({

@@ -1,3 +1,4 @@
+import { CRAWL_RUN_PURPOSE_SITE_SAMPLE } from "@/lib/crawler/purpose";
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
 
 export type PreviousCompletedCrawlRun = {
@@ -32,6 +33,7 @@ export async function findPreviousCompletedCrawlRun(input: {
     .from("crawl_runs")
     .select("id, completed_at, pages_crawled")
     .eq("website_id", input.websiteId)
+    .eq("purpose", CRAWL_RUN_PURPOSE_SITE_SAMPLE)
     .eq("status", "completed")
     .neq("id", input.currentCrawlRunId)
     .lte("completed_at", currentRun.completed_at)

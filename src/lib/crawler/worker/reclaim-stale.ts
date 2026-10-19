@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
+import { CRAWL_RUN_PURPOSE_SITE_SAMPLE } from "../purpose";
 import {
   WORKER_QUEUED_STALE_MS,
   WORKER_RUNNING_STALE_MS,
@@ -17,7 +18,8 @@ export async function reclaimStaleCrawlRuns(): Promise<{
   const { data: queuedRuns, error: queuedError } = await supabase
     .from("crawl_runs")
     .select("id, created_at")
-    .eq("status", "queued");
+    .eq("status", "queued")
+    .eq("purpose", CRAWL_RUN_PURPOSE_SITE_SAMPLE);
 
   if (queuedError) {
     throw new Error(`Failed to load queued crawl runs: ${queuedError.message}`);
@@ -41,7 +43,8 @@ export async function reclaimStaleCrawlRuns(): Promise<{
   const { data: runningRuns, error: runningError } = await supabase
     .from("crawl_runs")
     .select("id, started_at")
-    .eq("status", "running");
+    .eq("status", "running")
+    .eq("purpose", CRAWL_RUN_PURPOSE_SITE_SAMPLE);
 
   if (runningError) {
     throw new Error(`Failed to load running crawl runs: ${runningError.message}`);

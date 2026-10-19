@@ -1,3 +1,4 @@
+import { isNonSiteSamplePurpose } from "@/lib/crawler/purpose";
 import type { WebsiteCrawlRunRecord, WebsiteRecord } from "@/lib/websites/types";
 import { buildSiteModelEvidence, deriveSiteModelUnderstanding } from "./derive";
 import { buildHeuristicSiteInterpretation } from "./interpretation/heuristic";
@@ -74,6 +75,10 @@ export async function loadOrCreateSiteModel(input: {
   website: WebsiteRecord;
   crawlRun: WebsiteCrawlRunRecord;
 }): Promise<SiteModelRecord | null> {
+  if (isNonSiteSamplePurpose(input.crawlRun.purpose)) {
+    return findSiteModelForCrawl(input.website.id, input.crawlRun.id);
+  }
+
   const existing = await findSiteModelForCrawl(input.website.id, input.crawlRun.id);
   const evidenceBundle = await loadSiteModelEvidence(input.crawlRun.id);
 

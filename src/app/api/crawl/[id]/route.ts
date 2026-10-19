@@ -4,6 +4,7 @@ import {
   normalizeCrawlStatusForApiResponse,
 } from "@/lib/crawler/crawl-usability";
 import { getCrawlRunSummary, countPagesForCrawlRun } from "@/lib/crawler/db/repository";
+import { isNonSiteSamplePurpose } from "@/lib/crawler/purpose";
 import { maybeRecoverStaleCrawlRun } from "@/lib/crawler/worker/recover-stale-run";
 import { processCrawlRun } from "@/lib/crawler/worker/process-run";
 import { scheduleExplanationEnrichmentIfNeeded } from "@/lib/ai-enrichment/scheduler";
@@ -32,6 +33,10 @@ export async function GET(_request: Request, context: RouteContext) {
     let summary = await getCrawlRunSummary(id);
 
     if (!summary) {
+      return NextResponse.json({ error: "Crawl run not found." }, { status: 404 });
+    }
+
+    if (isNonSiteSamplePurpose(summary.purpose)) {
       return NextResponse.json({ error: "Crawl run not found." }, { status: 404 });
     }
 

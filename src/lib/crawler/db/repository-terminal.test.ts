@@ -65,6 +65,7 @@ describe("crawl run terminal updates", () => {
     runUpdateChain.select.mockClear();
     runUpdateChain.maybeSingle.mockReset();
     runUpdateChain.maybeSingle.mockResolvedValue({ data: null, error: null });
+    websiteUpdateMock.mockClear();
   });
 
   it("does not overwrite a completed crawl when marking failed", async () => {
@@ -87,7 +88,10 @@ describe("crawl run terminal updates", () => {
   });
 
   it("completes only running rows with the expected started_at lease", async () => {
-    runUpdateChain.maybeSingle.mockResolvedValueOnce({ data: { id: "run-1" }, error: null });
+    runUpdateChain.maybeSingle.mockResolvedValueOnce({
+      data: { id: "run-1", purpose: "site_sample" },
+      error: null,
+    });
 
     const updated = await markCrawlRunCompleted("run-1", "website-1", {
       expectedStartedAt: "2026-09-10T15:00:00.000Z",
@@ -99,6 +103,21 @@ describe("crawl run terminal updates", () => {
       "started_at",
       "2026-09-10T15:00:00.000Z",
     );
+    expect(websiteUpdateMock).toHaveBeenCalled();
+  });
+
+  it("does not update last_crawled_at when completing a targeted_observe crawl", async () => {
+    runUpdateChain.maybeSingle.mockResolvedValueOnce({
+      data: { id: "run-targeted", purpose: "targeted_observe" },
+      error: null,
+    });
+
+    const updated = await markCrawlRunCompleted("run-targeted", "website-1", {
+      expectedStartedAt: "2026-09-10T15:00:00.000Z",
+    });
+
+    expect(updated).toBe(true);
+    expect(websiteUpdateMock).not.toHaveBeenCalled();
   });
 
   it("resets only processing queue items for the crawl run", async () => {

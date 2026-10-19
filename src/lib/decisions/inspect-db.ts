@@ -1,3 +1,4 @@
+import { isNonSiteSamplePurpose } from "@/lib/crawler/purpose";
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
 import { listDecisionsForRun } from "./db";
 import { INSPECT_RELATED_DEMAND_ENGINE } from "./inspect-display";
@@ -25,10 +26,11 @@ type RunRow = {
   created_at: string;
   completed_at: string | null;
   research_idea_id: string | null;
+  targeted_observation_id: string | null;
 };
 
 const RUN_COLUMNS =
-  "id, website_id, site_model_id, crawl_run_id, gsc_search_sync_id, engine_version, status, goal_id, goal_snapshot, gsc_truncated, error_code, created_at, completed_at, research_idea_id";
+  "id, website_id, site_model_id, crawl_run_id, gsc_search_sync_id, engine_version, status, goal_id, goal_snapshot, gsc_truncated, error_code, created_at, completed_at, research_idea_id, targeted_observation_id";
 
 function mapRun(row: RunRow): DecisionRunRecord {
   return {
@@ -46,6 +48,7 @@ function mapRun(row: RunRow): DecisionRunRecord {
     createdAt: row.created_at,
     completedAt: row.completed_at,
     researchIdeaId: row.research_idea_id,
+    targetedObservationId: row.targeted_observation_id,
   };
 }
 
@@ -59,7 +62,7 @@ export async function findInspectCrawl(crawlRunId: string): Promise<InspectCrawl
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("crawl_runs")
-    .select("id, pages_crawled, pages_discovered")
+    .select("id, pages_crawled, pages_discovered, purpose")
     .eq("id", crawlRunId)
     .maybeSingle();
 
@@ -68,6 +71,10 @@ export async function findInspectCrawl(crawlRunId: string): Promise<InspectCrawl
   }
 
   if (!data) {
+    return null;
+  }
+
+  if (isNonSiteSamplePurpose((data as { purpose?: string | null }).purpose)) {
     return null;
   }
 
@@ -120,7 +127,8 @@ export async function findCompletedInspectRun(input: {
     .eq("research_idea_id", input.researchIdeaId)
     .eq("crawl_run_id", input.crawlRunId)
     .eq("engine_version", INSPECT_RELATED_DEMAND_ENGINE)
-    .eq("status", "completed");
+    .eq("status", "completed")
+    .is("targeted_observation_id", null);
 
   query =
     input.gscSearchSyncId == null
@@ -154,6 +162,7 @@ export async function listCompletedInspectRunsForIdeas(input: {
     .eq("website_id", input.websiteId)
     .eq("engine_version", INSPECT_RELATED_DEMAND_ENGINE)
     .eq("status", "completed")
+    .is("targeted_observation_id", null)
     .in("research_idea_id", input.ideaIds)
     .order("completed_at", { ascending: false, nullsFirst: false });
 

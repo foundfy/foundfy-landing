@@ -28,6 +28,7 @@ describe("related demand inspection copy", () => {
       title,
       explanation,
       INSPECT_STATE_COPY.clear_existing_page_evidence,
+      INSPECT_STATE_COPY.no_obvious_match_after_targeted_observation,
       INSPECT_STATE_COPY.ambiguous,
       INSPECT_GSC_UNAVAILABLE_COPY,
     ].join("\n");
@@ -83,6 +84,10 @@ describe("related demand inspection copy", () => {
       ...base,
       inspectionState: "no_obvious_match_in_current_crawl",
     });
+    const afterObserve = inspectionViewFromDecision({
+      ...base,
+      inspectionState: "no_obvious_match_after_targeted_observation",
+    });
     const ambiguous = inspectionViewFromDecision({
       ...base,
       inspectionState: "ambiguous",
@@ -92,10 +97,14 @@ describe("related demand inspection copy", () => {
     expect(clear.resultCopy).toBe(INSPECT_STATE_COPY.clear_existing_page_evidence);
     expect(noMatch.state).toBe("no_obvious_match_in_current_crawl");
     expect(noMatch.resultCopy).toBe(INSPECT_STATE_COPY.no_obvious_match_in_current_crawl);
+    expect(afterObserve.state).toBe("no_obvious_match_after_targeted_observation");
+    expect(afterObserve.resultCopy).toBe(
+      INSPECT_STATE_COPY.no_obvious_match_after_targeted_observation,
+    );
     expect(ambiguous.state).toBe("ambiguous");
     expect(ambiguous.resultCopy).toBe(INSPECT_STATE_COPY.ambiguous);
 
-    for (const view of [clear, noMatch, ambiguous]) {
+    for (const view of [clear, noMatch, afterObserve, ambiguous]) {
       expect(view).not.toHaveProperty("rank");
       expect(view).not.toHaveProperty("priorityBand");
       expect(view).not.toHaveProperty("confidence");

@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
+import { isNonSiteSamplePurpose } from "@/lib/crawler/purpose";
 import type { JsonLdPropertySnippet } from "@/lib/crawler/types";
 import type {
   SiteConfirmedUnderstanding,
@@ -206,7 +207,7 @@ export async function loadSiteModelEvidence(crawlRunId: string): Promise<{
 
   const { data: crawl, error: crawlError } = await supabase
     .from("crawl_runs")
-    .select("id, website_id, seed_url, pages_crawled, pages_discovered, max_pages")
+    .select("id, website_id, seed_url, purpose, pages_crawled, pages_discovered, max_pages")
     .eq("id", crawlRunId)
     .maybeSingle();
 
@@ -215,6 +216,10 @@ export async function loadSiteModelEvidence(crawlRunId: string): Promise<{
   }
 
   if (!crawl) {
+    return null;
+  }
+
+  if (isNonSiteSamplePurpose((crawl as { purpose?: string | null }).purpose)) {
     return null;
   }
 

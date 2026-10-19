@@ -1,3 +1,4 @@
+import { isNonSiteSamplePurpose } from "@/lib/crawler/purpose";
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
 import type {
   CrawlArtifactEvidence,
@@ -31,7 +32,7 @@ export async function loadCrawlEvidenceContext(
 
   const { data: run, error: runError } = await supabase
     .from("crawl_runs")
-    .select("id, website_id, seed_url, websites(hostname)")
+    .select("id, website_id, seed_url, purpose, websites(hostname)")
     .eq("id", crawlRunId)
     .maybeSingle();
 
@@ -40,6 +41,10 @@ export async function loadCrawlEvidenceContext(
   }
 
   if (!run) {
+    return null;
+  }
+
+  if (isNonSiteSamplePurpose((run as { purpose?: string | null }).purpose)) {
     return null;
   }
 

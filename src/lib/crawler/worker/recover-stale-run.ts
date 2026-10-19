@@ -4,6 +4,7 @@ import {
   requeueStaleRunningCrawlRun,
   resetAbandonedProcessingQueueItems,
 } from "../db/repository";
+import { isNonSiteSamplePurpose } from "../purpose";
 import {
   isRunningCrawlStale,
   pollRunningStaleCutoffIso,
@@ -35,6 +36,10 @@ export async function maybeRecoverStaleCrawlRun(
   const summary = await getCrawlRunSummary(crawlRunId);
 
   if (!summary) {
+    return { recovered: false };
+  }
+
+  if (isNonSiteSamplePurpose(summary.purpose)) {
     return { recovered: false };
   }
 

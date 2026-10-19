@@ -3,6 +3,7 @@ import {
   isUsableCompletedCrawl,
   normalizeCrawlStatusForApiResponse,
 } from "@/lib/crawler/crawl-usability";
+import { CRAWL_RUN_PURPOSE_SITE_SAMPLE } from "@/lib/crawler/purpose";
 import type { CrawlLifecycleStatus } from "@/lib/analysis/crawl-status";
 import type { WebsiteCrawlRunRecord, WebsiteRecord } from "./types";
 import { WEBSITE_SCAN_HISTORY_LIMIT } from "./types";
@@ -20,6 +21,7 @@ type CrawlRunRow = {
   website_id: string;
   status: string;
   seed_url: string;
+  purpose?: string | null;
   max_pages: number;
   pages_crawled: number;
   error_message: string | null;
@@ -50,6 +52,7 @@ function mapCrawlRunRow(row: CrawlRunRow): WebsiteCrawlRunRecord {
     websiteId: row.website_id,
     status: normalized.status as CrawlLifecycleStatus,
     seedUrl: row.seed_url,
+    purpose: row.purpose ?? null,
     pagesCrawled: normalized.pagesCrawled,
     maxPages: row.max_pages,
     errorMessage: normalized.errorMessage,
@@ -88,9 +91,10 @@ export async function listCrawlRunsForWebsite(
   const { data, error } = await supabase
     .from("crawl_runs")
     .select(
-      "id, website_id, status, seed_url, max_pages, pages_crawled, error_message, started_at, completed_at, created_at",
+      "id, website_id, status, seed_url, purpose, max_pages, pages_crawled, error_message, started_at, completed_at, created_at",
     )
     .eq("website_id", websiteId)
+    .eq("purpose", CRAWL_RUN_PURPOSE_SITE_SAMPLE)
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -109,9 +113,10 @@ export async function findLatestUsableCrawlRun(
   const { data, error } = await supabase
     .from("crawl_runs")
     .select(
-      "id, website_id, status, seed_url, max_pages, pages_crawled, error_message, started_at, completed_at, created_at",
+      "id, website_id, status, seed_url, purpose, max_pages, pages_crawled, error_message, started_at, completed_at, created_at",
     )
     .eq("website_id", websiteId)
+    .eq("purpose", CRAWL_RUN_PURPOSE_SITE_SAMPLE)
     .eq("status", "completed")
     .gt("pages_crawled", 0)
     .order("completed_at", { ascending: false, nullsFirst: false })
@@ -138,9 +143,10 @@ export async function findActiveCrawlRunForWebsite(
   const { data, error } = await supabase
     .from("crawl_runs")
     .select(
-      "id, website_id, status, seed_url, max_pages, pages_crawled, error_message, started_at, completed_at, created_at",
+      "id, website_id, status, seed_url, purpose, max_pages, pages_crawled, error_message, started_at, completed_at, created_at",
     )
     .eq("website_id", websiteId)
+    .eq("purpose", CRAWL_RUN_PURPOSE_SITE_SAMPLE)
     .in("status", ["queued", "running"])
     .order("created_at", { ascending: false })
     .limit(1)

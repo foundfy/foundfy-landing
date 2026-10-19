@@ -68,6 +68,9 @@ describe("findPreviousCompletedCrawlRun", () => {
     });
     expect(gtMock).toHaveBeenCalledWith("pages_crawled", 0);
     expect(fromMock).toHaveBeenCalledTimes(2);
+
+    const previousQuery = fromMock.mock.results[1]?.value as { eq: ReturnType<typeof vi.fn> };
+    expect(previousQuery.eq).toHaveBeenCalledWith("purpose", "site_sample");
   });
 
   it("walks back past zero-page completed runs via pages_crawled filter", async () => {

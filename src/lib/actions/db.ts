@@ -513,6 +513,7 @@ export async function findLatestCompletedCrawlAfter(input: {
     .from("crawl_runs")
     .select("id, website_id, status, pages_crawled, completed_at, created_at")
     .eq("website_id", input.websiteId)
+    .eq("purpose", "site_sample")
     .eq("status", "completed")
     .gt("pages_crawled", 0)
     .gt("completed_at", input.afterIso)
