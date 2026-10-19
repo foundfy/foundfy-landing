@@ -68,6 +68,7 @@ describe("persistResearchInspectDecision", () => {
     expect(payload).not.toHaveProperty("p_priority_band");
     expect(payload).not.toHaveProperty("p_confidence");
     expect(payload).not.toHaveProperty("p_scoring");
+    expect(payload).not.toHaveProperty("p_targeted_observation_id");
     expect(payload.p_inspection_state).toBe("no_obvious_match_in_current_crawl");
   });
 

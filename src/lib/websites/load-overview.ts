@@ -60,6 +60,7 @@ export async function loadWebsiteOverview(
         crawlRunId: run.id,
         status: run.status,
         pagesCrawled: run.pagesCrawled,
+        purpose: run.purpose,
       }),
     ),
   );

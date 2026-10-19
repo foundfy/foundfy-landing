@@ -181,4 +181,17 @@ describe("loadOrCreateSiteModel", () => {
     expect(result?.confirmed).toEqual(confirmed.confirmed);
     expect(updateDraftInterpretationMock).not.toHaveBeenCalled();
   });
+
+  it("does not derive a site model from a targeted_observe crawl", async () => {
+    findSiteModelForCrawlMock.mockResolvedValue(null);
+
+    const result = await loadOrCreateSiteModel({
+      website,
+      crawlRun: { ...crawlRun, purpose: "targeted_observe" },
+    });
+
+    expect(result).toBeNull();
+    expect(loadSiteModelEvidenceMock).not.toHaveBeenCalled();
+    expect(insertSiteModelMock).not.toHaveBeenCalled();
+  });
 });

@@ -21,6 +21,7 @@ export type WebsiteCrawlRunRecord = {
   websiteId: string;
   status: CrawlLifecycleStatus;
   seedUrl: string;
+  purpose?: string | null;
   pagesCrawled: number;
   maxPages: number;
   errorMessage: string | null;

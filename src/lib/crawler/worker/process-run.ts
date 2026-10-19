@@ -58,6 +58,7 @@ import {
   shouldSkipEquivalentHostVariant,
   type PageHostEvidence,
 } from "../select/host-variant-equivalence";
+import { isNonSiteSamplePurpose } from "../purpose";
 import type { RobotsRules } from "../types";
 import { FinalUrlDeduplicator } from "../url/final-url-dedup";
 import { getOriginForHostname, isSameSite, normalizeCrawlUrl } from "../url/normalize";
@@ -496,6 +497,10 @@ async function loadHostVariantEvidenceOrEmpty(
 export async function processCrawlRun(preferredRunId?: string): Promise<string | null> {
   const claimed = await claimNextQueuedRun(preferredRunId);
   if (!claimed) {
+    return null;
+  }
+
+  if (isNonSiteSamplePurpose(claimed.purpose)) {
     return null;
   }
 

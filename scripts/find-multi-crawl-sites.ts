@@ -6,6 +6,7 @@ async function main() {
   const { data, error } = await supabase
     .from("crawl_runs")
     .select("id, status, completed_at, websites!inner(hostname)")
+    .eq("purpose", "site_sample")
     .eq("status", "completed")
     .order("completed_at", { ascending: false })
     .limit(50);

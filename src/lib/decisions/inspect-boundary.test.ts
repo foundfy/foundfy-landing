@@ -40,6 +40,9 @@ describe("RESEARCH inspect engine isolation and side-effect boundary", () => {
     expect(read("./inspect-db.ts")).not.toMatch(/p_engine_version|p_decision_type|p_website_id|p_goal_id/);
     expect(read("./inspect-db.ts")).toMatch(/p_inspection_state: input\.inspectionState/);
     expect(read("./inspect-db.ts")).not.toMatch(/p_confidence|p_scoring|p_rank|p_priority_band/);
+    expect(read("./inspect-db.ts")).not.toMatch(/p_targeted_observation_id/);
+    expect(read("./inspect-db.ts")).not.toMatch(/persist_research_inspect_decision_with_observation/);
+    expect(read("./inspect-db.ts")).toMatch(/is\("targeted_observation_id", null\)/);
     expect(read("./inspect.ts")).not.toMatch(/insertInspectDecisionRun|completeInspectDecisionRun|failDecisionRun/);
     expect(read("./inspect.ts")).not.toMatch(/rank:\s*1|priorityBand:\s*"next"|inspectScoring/);
     expect(read("./inspect-display.ts")).toMatch(/decision\.inspectionState/);

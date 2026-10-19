@@ -2,6 +2,8 @@ import type {
   AnalysisFinding,
   FindingsSummary,
 } from "@/lib/analysis/crawl-status";
+import { getCrawlRunSummary } from "@/lib/crawler/db/repository";
+import { isNonSiteSamplePurpose } from "@/lib/crawler/purpose";
 import {
   generateObservationsForCrawlRun,
   listObservations,
@@ -55,6 +57,11 @@ export async function loadFindingsForCompletedRun(crawlRunId: string): Promise<{
   findings: AnalysisFinding[];
   findingsSummary: FindingsSummary;
 }> {
+  const summary = await getCrawlRunSummary(crawlRunId);
+  if (!summary || isNonSiteSamplePurpose(summary.purpose)) {
+    throw new Error("Crawl run not found.");
+  }
+
   let observations = await listObservations(crawlRunId);
 
   if (observations.length === 0) {

@@ -4,6 +4,23 @@ type QueryResult = { data: unknown; error: null | { message: string } };
 
 const websiteSelectMock = vi.fn();
 const crawlRunsSelectMock = vi.fn();
+const eqMock = vi.fn();
+const inMock = vi.fn();
+const gtMock = vi.fn();
+const orderMock = vi.fn();
+const limitMock = vi.fn();
+const maybeSingleMock = vi.fn();
+
+function chain() {
+  return {
+    eq: eqMock,
+    in: inMock,
+    gt: gtMock,
+    order: orderMock,
+    limit: limitMock,
+    maybeSingle: maybeSingleMock,
+  };
+}
 
 const fromMock = vi.fn((table: string) => {
   if (table === "websites") {
@@ -34,36 +51,16 @@ import {
   listCrawlRunsForWebsite,
 } from "./repository";
 
-function createSelectChain(result: QueryResult) {
-  const maybeSingle = vi.fn().mockResolvedValue(result);
-  const limit = vi.fn(() => ({ maybeSingle }));
-  const orderSecond = vi.fn(() => ({ limit }));
-  const orderFirst = vi.fn(() => ({ order: orderSecond }));
-  const gt = vi.fn(() => ({ order: orderFirst }));
-  const eqStatus = vi.fn(() => ({ gt, order: orderFirst, in: vi.fn(() => ({ order: orderFirst, limit })) }));
-  const eqWebsite = vi.fn(() => ({
-    eq: eqStatus,
-    gt,
-    in: eqStatus,
-    order: orderFirst,
-    limit,
-  }));
-  const eqId = vi.fn(() => ({ maybeSingle }));
-  const select = vi.fn(() => ({ eq: eqWebsite, eq: eqId }));
-
-  return {
-    select,
-    eqWebsite,
-    eqStatus,
-    orderFirst,
-    limit,
-    maybeSingle,
-  };
-}
-
 describe("website repository", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    eqMock.mockReturnValue(chain());
+    inMock.mockReturnValue(chain());
+    gtMock.mockReturnValue(chain());
+    orderMock.mockReturnValue(chain());
+    limitMock.mockReturnValue(chain());
+    maybeSingleMock.mockResolvedValue({ data: null, error: null } satisfies QueryResult);
+    crawlRunsSelectMock.mockReturnValue(chain());
   });
 
   it("treats legacy zero-page completed runs as not usable", () => {
@@ -83,13 +80,14 @@ describe("website repository", () => {
     ).toBe(false);
   });
 
-  it("findLatestUsableCrawlRun queries completed runs with pages crawled", async () => {
-    const chain = createSelectChain({
+  it("findLatestUsableCrawlRun queries completed site_sample runs with pages crawled", async () => {
+    maybeSingleMock.mockResolvedValue({
       data: {
         id: "run-usable",
         website_id: "website-1",
         status: "completed",
         seed_url: "https://www.example.com/",
+        purpose: "site_sample",
         max_pages: 10,
         pages_crawled: 10,
         error_message: null,
@@ -99,21 +97,23 @@ describe("website repository", () => {
       },
       error: null,
     });
-    crawlRunsSelectMock.mockReturnValue({ eq: chain.eqWebsite });
 
     const run = await findLatestUsableCrawlRun("website-1");
 
     expect(run?.id).toBe("run-usable");
-    expect(chain.eqWebsite).toHaveBeenCalledWith("website_id", "website-1");
+    expect(eqMock).toHaveBeenCalledWith("website_id", "website-1");
+    expect(eqMock).toHaveBeenCalledWith("purpose", "site_sample");
+    expect(eqMock).toHaveBeenCalledWith("status", "completed");
   });
 
-  it("findActiveCrawlRunForWebsite returns the newest queued or running crawl", async () => {
-    const maybeSingle = vi.fn().mockResolvedValue({
+  it("findActiveCrawlRunForWebsite returns the newest queued or running site_sample crawl", async () => {
+    maybeSingleMock.mockResolvedValue({
       data: {
         id: "run-active",
         website_id: "website-1",
         status: "running",
         seed_url: "https://example.com/",
+        purpose: "site_sample",
         max_pages: 10,
         pages_crawled: 2,
         error_message: null,
@@ -123,27 +123,24 @@ describe("website repository", () => {
       },
       error: null,
     });
-    const limit = vi.fn(() => ({ maybeSingle }));
-    const order = vi.fn(() => ({ limit }));
-    const inStatus = vi.fn(() => ({ order }));
-    const eqWebsite = vi.fn(() => ({ in: inStatus }));
-    crawlRunsSelectMock.mockReturnValue({ eq: eqWebsite });
 
     const run = await findActiveCrawlRunForWebsite("website-1");
 
     expect(run?.id).toBe("run-active");
     expect(run?.status).toBe("running");
-    expect(inStatus).toHaveBeenCalledWith("status", ["queued", "running"]);
+    expect(eqMock).toHaveBeenCalledWith("purpose", "site_sample");
+    expect(inMock).toHaveBeenCalledWith("status", ["queued", "running"]);
   });
 
   it("listCrawlRunsForWebsite normalizes legacy zero-page completed runs to failed", async () => {
-    const limit = vi.fn().mockResolvedValue({
+    limitMock.mockResolvedValue({
       data: [
         {
           id: "run-failed-newer",
           website_id: "website-1",
           status: "failed",
           seed_url: "https://example.com/",
+          purpose: "site_sample",
           max_pages: 10,
           pages_crawled: 0,
           error_message: "timeout",
@@ -156,6 +153,7 @@ describe("website repository", () => {
           website_id: "website-1",
           status: "completed",
           seed_url: "https://example.com/",
+          purpose: "site_sample",
           max_pages: 10,
           pages_crawled: 10,
           error_message: null,
@@ -168,6 +166,7 @@ describe("website repository", () => {
           website_id: "website-1",
           status: "completed",
           seed_url: "https://example.com/",
+          purpose: "site_sample",
           max_pages: 10,
           pages_crawled: 0,
           error_message: null,
@@ -178,9 +177,6 @@ describe("website repository", () => {
       ],
       error: null,
     });
-    const order = vi.fn(() => ({ limit }));
-    const eqWebsite = vi.fn(() => ({ order }));
-    crawlRunsSelectMock.mockReturnValue({ eq: eqWebsite });
 
     const runs = await listCrawlRunsForWebsite("website-1");
 
@@ -189,6 +185,7 @@ describe("website repository", () => {
       "run-usable",
       "run-legacy-zero",
     ]);
+    expect(eqMock).toHaveBeenCalledWith("purpose", "site_sample");
     expect(runs[0]?.status).toBe("failed");
     expect(runs[1]?.status).toBe("completed");
     expect(runs[2]?.status).toBe("failed");

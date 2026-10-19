@@ -1,4 +1,8 @@
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
+import {
+  CRAWL_RUN_PURPOSE_SITE_SAMPLE,
+  isNonSiteSamplePurpose,
+} from "../purpose";
 import type {
   CrawlRunStatus,
   CrawlRunSummary,
@@ -20,6 +24,7 @@ type CrawlRunRow = {
   website_id: string;
   status: CrawlRunStatus;
   seed_url: string;
+  purpose?: string | null;
   max_pages: number;
   pages_crawled: number;
   pages_discovered: number;
@@ -126,6 +131,7 @@ export async function createCrawlRun(input: {
       website_id: input.websiteId,
       seed_url: input.seedUrl,
       max_pages: input.maxPages,
+      purpose: CRAWL_RUN_PURPOSE_SITE_SAMPLE,
       status: "queued",
     })
     .select("id")
@@ -183,7 +189,7 @@ export async function getCrawlRunSummary(crawlRunId: string): Promise<CrawlRunSu
   const { data, error } = await supabase
     .from("crawl_runs")
     .select(
-      "id, website_id, status, seed_url, max_pages, pages_crawled, pages_discovered, error_message, started_at, completed_at, created_at, websites(hostname)",
+      "id, website_id, status, seed_url, purpose, max_pages, pages_crawled, pages_discovered, error_message, started_at, completed_at, created_at, websites(hostname)",
     )
     .eq("id", crawlRunId)
     .maybeSingle();
@@ -205,6 +211,7 @@ export async function getCrawlRunSummary(crawlRunId: string): Promise<CrawlRunSu
     status: row.status,
     hostname: website?.hostname ?? "",
     seedUrl: row.seed_url,
+    purpose: row.purpose ?? null,
     maxPages: row.max_pages,
     pagesCrawled: row.pages_crawled,
     pagesDiscovered: row.pages_discovered,
@@ -222,6 +229,7 @@ export async function claimNextQueuedRun(preferredRunId?: string): Promise<Crawl
     .from("crawl_runs")
     .select("id")
     .eq("status", "queued")
+    .eq("purpose", CRAWL_RUN_PURPOSE_SITE_SAMPLE)
     .order("created_at", { ascending: true })
     .limit(1);
 
@@ -231,6 +239,7 @@ export async function claimNextQueuedRun(preferredRunId?: string): Promise<Crawl
       .select("id")
       .eq("id", preferredRunId)
       .eq("status", "queued")
+      .eq("purpose", CRAWL_RUN_PURPOSE_SITE_SAMPLE)
       .limit(1);
   }
 
@@ -253,8 +262,9 @@ export async function claimNextQueuedRun(preferredRunId?: string): Promise<Crawl
     })
     .eq("id", candidate.id)
     .eq("status", "queued")
+    .eq("purpose", CRAWL_RUN_PURPOSE_SITE_SAMPLE)
     .select(
-      "id, website_id, status, seed_url, max_pages, pages_crawled, pages_discovered, error_message, started_at, completed_at, created_at, websites(id, url, hostname)",
+      "id, website_id, status, seed_url, purpose, max_pages, pages_crawled, pages_discovered, error_message, started_at, completed_at, created_at, websites(id, url, hostname)",
     )
     .maybeSingle();
 
@@ -304,7 +314,7 @@ export async function markCrawlRunCompleted(
   runQuery = applyStartedAtGuard(runQuery, options?.expectedStartedAt);
 
   const { data: completedRow, error: runError } = await runQuery
-    .select("id")
+    .select("id, purpose")
     .maybeSingle();
 
   if (runError) {
@@ -313,6 +323,10 @@ export async function markCrawlRunCompleted(
 
   if (!completedRow) {
     return false;
+  }
+
+  if (isNonSiteSamplePurpose((completedRow as { purpose?: string | null }).purpose)) {
+    return true;
   }
 
   const { error: websiteError } = await supabase
@@ -370,6 +384,7 @@ export async function requeueStaleRunningCrawlRun(
     })
     .eq("id", crawlRunId)
     .eq("status", "running")
+    .eq("purpose", CRAWL_RUN_PURPOSE_SITE_SAMPLE)
     .or(`started_at.lt.${staleStartedBefore},started_at.is.null`)
     .select("id")
     .maybeSingle();

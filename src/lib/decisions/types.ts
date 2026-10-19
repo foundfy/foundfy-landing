@@ -15,9 +15,22 @@ export const DECISION_TYPES = [...DECISION_V1_TYPES, RESEARCH_INSPECT_DECISION_T
 export type DecisionV1Type = (typeof DECISION_V1_TYPES)[number];
 export type DecisionType = (typeof DECISION_TYPES)[number];
 
+export const RESEARCH_INSPECT_T0_STATES = [
+  "clear_existing_page_evidence",
+  "no_obvious_match_in_current_crawl",
+  "ambiguous",
+] as const;
+
+export const RESEARCH_INSPECT_T1_STATES = [
+  "clear_existing_page_evidence",
+  "no_obvious_match_after_targeted_observation",
+  "ambiguous",
+] as const;
+
 export const RESEARCH_INSPECT_STATES = [
   "clear_existing_page_evidence",
   "no_obvious_match_in_current_crawl",
+  "no_obvious_match_after_targeted_observation",
   "ambiguous",
 ] as const;
 
@@ -53,7 +66,8 @@ export type DecisionEvidenceKind =
   | "site_model"
   | "goal"
   | "research_run"
-  | "research_idea";
+  | "research_idea"
+  | "targeted_observation";
 
 export type DecisionEvidenceRef = {
   kind: DecisionEvidenceKind;
@@ -156,6 +170,7 @@ export type DecisionRunRecord = {
   createdAt: string;
   completedAt: string | null;
   researchIdeaId: string | null;
+  targetedObservationId?: string | null;
 };
 
 export type DecisionV1RunRecord = DecisionRunRecord & {

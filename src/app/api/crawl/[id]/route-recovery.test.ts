@@ -249,4 +249,33 @@ describe("GET /api/crawl/[id] recovery integration", () => {
     expect(processCrawlRunMock).toHaveBeenCalledWith(RUN_ID);
     expect(scheduleExplanationEnrichmentIfNeededMock).not.toHaveBeenCalled();
   });
+
+  it("does not process or recover targeted_observe crawls as normal scans", async () => {
+    getCrawlRunSummaryMock.mockResolvedValue({
+      id: RUN_ID,
+      websiteId: "website-1",
+      status: "running",
+      purpose: "targeted_observe",
+      hostname: "arngren.net",
+      seedUrl: "https://www.arngren.net/es/pintura-en-seda",
+      maxPages: 1,
+      pagesCrawled: 1,
+      pagesDiscovered: 1,
+      errorMessage: null,
+      startedAt: "2026-09-10T15:00:00.000Z",
+      completedAt: null,
+      createdAt: "2026-09-10T14:59:59.000Z",
+    });
+
+    const response = await GET(new Request("https://example.test"), {
+      params: Promise.resolve({ id: RUN_ID }),
+    });
+    const payload = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(payload.error).toBe("Crawl run not found.");
+    expect(maybeRecoverStaleCrawlRunMock).not.toHaveBeenCalled();
+    expect(processCrawlRunMock).not.toHaveBeenCalled();
+    expect(loadCompletedCrawlResultsMock).not.toHaveBeenCalled();
+  });
 });

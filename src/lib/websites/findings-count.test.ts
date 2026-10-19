@@ -75,4 +75,18 @@ describe("loadTrustworthyFindingsCount", () => {
       }),
     ).resolves.toBeNull();
   });
+
+  it("ignores non-site_sample crawls", async () => {
+    await expect(
+      loadTrustworthyFindingsCount({
+        crawlRunId: "run-targeted",
+        status: "completed",
+        pagesCrawled: 1,
+        purpose: "targeted_observe",
+      }),
+    ).resolves.toBeNull();
+
+    expect(areObservationsMaterializedMock).not.toHaveBeenCalled();
+    expect(generateObservationsForCrawlRunMock).not.toHaveBeenCalled();
+  });
 });

@@ -90,6 +90,7 @@ export type CrawlRunSummary = {
   status: CrawlRunStatus;
   hostname: string;
   seedUrl: string;
+  purpose?: string | null;
   maxPages: number;
   pagesCrawled: number;
   pagesDiscovered: number;
