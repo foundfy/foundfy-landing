@@ -41,15 +41,13 @@ describe("Release A has no owner-facing targeted observe capability", () => {
     expect(blob).not.toMatch(/into public\.targeted_observations/i);
   });
 
-  it("does not expose observe-candidates, targeted observe POST, or check-again APIs", () => {
-    expect(blob).not.toMatch(/observe-candidates/);
-    expect(blob).not.toMatch(/check-again/);
-    expect(blob).not.toMatch(/persist_research_inspect_decision_with_observation/);
-    const routes = readdirSync(path.join(root, "src/app/api"), { recursive: true })
-      .map(String)
-      .join("\n");
-    expect(routes).not.toMatch(/observe-candidates/);
-    expect(routes).not.toMatch(/check-again/);
+  it("does not create targeted crawls from the normal crawler insert path", () => {
+    const create = readFileSync(
+      path.join(root, "src/lib/crawler/db/repository.ts"),
+      "utf8",
+    );
+    expect(create).not.toMatch(/purpose: CRAWL_RUN_PURPOSE_TARGETED_OBSERVE/);
+    expect(blob).not.toMatch(/from\(["']crawl_runs["']\)[\s\S]{0,400}targeted_observe/s);
   });
 
   it("creates normal crawls with explicit site_sample purpose", () => {

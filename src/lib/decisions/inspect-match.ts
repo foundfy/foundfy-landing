@@ -81,6 +81,14 @@ export function inspectPageStrength(page: InspectPageEvidence, phrase: string): 
   return "none";
 }
 
+export function inspectionStateAfterTargetedObservation(
+  state: RelatedDemandInspectState,
+): RelatedDemandInspectState {
+  return state === "no_obvious_match_in_current_crawl"
+    ? "no_obvious_match_after_targeted_observation"
+    : state;
+}
+
 export function inspectRelatedDemandPages(input: {
   phrase: string;
   languageCode: string;
