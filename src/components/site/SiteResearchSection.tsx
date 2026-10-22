@@ -36,6 +36,7 @@ import {
 } from "@/lib/research/display";
 import { INSPECT_CTA_LABEL } from "@/lib/decisions/inspect-display";
 import type { ResearchIdeaView, ResearchOwnerView, ResearchRunView } from "@/lib/research/types";
+import SiteObserveIdeaPanel from "./SiteObserveIdeaPanel";
 import styles from "./SitePageView.module.css";
 
 type SiteResearchSectionProps = {
@@ -397,12 +398,15 @@ export default function SiteResearchSection({
 
       {run ? (
         <ResearchRunEvidence
+          websiteId={websiteId}
           run={run}
           showLifecycle
           executionAvailable={view.readiness.executionAvailable}
           isSaving={isSaving}
           inspectingIdeaId={inspectingIdeaId}
           onInspect={inspectIdea}
+          onReload={load}
+          onBusy={setIsSaving}
           onRecover={recover}
           onClose={closeRun}
         />
@@ -410,12 +414,15 @@ export default function SiteResearchSection({
       {persistedRuns.map((persistedRun) => (
         <ResearchRunEvidence
           key={persistedRun.id}
+          websiteId={websiteId}
           run={persistedRun}
           showLifecycle={false}
           executionAvailable={false}
           isSaving={isSaving}
           inspectingIdeaId={inspectingIdeaId}
           onInspect={inspectIdea}
+          onReload={load}
+          onBusy={setIsSaving}
         />
       ))}
     </section>
@@ -423,12 +430,15 @@ export default function SiteResearchSection({
 }
 
 function ResearchRunEvidence(input: {
+  websiteId: string;
   run: ResearchRunView;
   showLifecycle: boolean;
   executionAvailable: boolean;
   isSaving: boolean;
   inspectingIdeaId: string | null;
   onInspect: (ideaId: string) => void;
+  onReload: () => Promise<void>;
+  onBusy: (busy: boolean) => void;
   onRecover?: () => void;
   onClose?: () => void;
 }) {
@@ -549,6 +559,14 @@ function ResearchRunEvidence(input: {
                       </button>
                     </div>
                   ) : null}
+                  <SiteObserveIdeaPanel
+                    websiteId={input.websiteId}
+                    ideaId={idea.id}
+                    enabled={idea.inspection?.state === "no_obvious_match_in_current_crawl"}
+                    isSaving={input.isSaving}
+                    onBusy={input.onBusy}
+                    onReload={input.onReload}
+                  />
                   <details className={styles.evidenceDetails}>
                     <summary className={styles.evidenceSummary}>{RESEARCH_EVIDENCE_LABEL}</summary>
                     <div className={styles.decisionWhyBody}>

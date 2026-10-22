@@ -113,6 +113,85 @@ export async function listInspectPagesForCrawl(crawlRunId: string): Promise<Insp
   }));
 }
 
+export async function findInspectRunById(input: {
+  websiteId: string;
+  runId: string;
+}): Promise<DecisionRunRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("decision_runs")
+    .select(RUN_COLUMNS)
+    .eq("website_id", input.websiteId)
+    .eq("id", input.runId)
+    .eq("engine_version", INSPECT_RELATED_DEMAND_ENGINE)
+    .eq("status", "completed")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load inspection run: ${error.message}`);
+  }
+
+  return data ? mapRun(data as RunRow) : null;
+}
+
+export async function findLatestT0InspectRunForIdeaAndCrawl(input: {
+  websiteId: string;
+  researchIdeaId: string;
+  crawlRunId: string;
+}): Promise<DecisionRunRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("decision_runs")
+    .select(RUN_COLUMNS)
+    .eq("website_id", input.websiteId)
+    .eq("research_idea_id", input.researchIdeaId)
+    .eq("crawl_run_id", input.crawlRunId)
+    .eq("engine_version", INSPECT_RELATED_DEMAND_ENGINE)
+    .eq("status", "completed")
+    .is("targeted_observation_id", null)
+    .order("completed_at", { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load related-demand inspection: ${error.message}`);
+  }
+
+  return data ? mapRun(data as RunRow) : null;
+}
+
+export async function listInspectPageById(pageId: string): Promise<InspectPageEvidence | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("pages")
+    .select(
+      "id, requested_url, final_url, title, h1, meta_description, main_excerpt, html_lang, url_locale, canonical",
+    )
+    .eq("id", pageId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load targeted observation page: ${error.message}`);
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return {
+    id: data.id,
+    requestedUrl: data.requested_url,
+    finalUrl: data.final_url,
+    title: data.title ?? null,
+    h1: Array.isArray(data.h1) ? data.h1.filter((item): item is string => typeof item === "string") : [],
+    metaDescription: data.meta_description ?? null,
+    excerpt: data.main_excerpt ?? null,
+    htmlLang: data.html_lang ?? null,
+    urlLocale: data.url_locale ?? null,
+    canonical: data.canonical ?? null,
+  };
+}
+
 export async function findCompletedInspectRun(input: {
   websiteId: string;
   researchIdeaId: string;
@@ -162,7 +241,6 @@ export async function listCompletedInspectRunsForIdeas(input: {
     .eq("website_id", input.websiteId)
     .eq("engine_version", INSPECT_RELATED_DEMAND_ENGINE)
     .eq("status", "completed")
-    .is("targeted_observation_id", null)
     .in("research_idea_id", input.ideaIds)
     .order("completed_at", { ascending: false, nullsFirst: false });
 

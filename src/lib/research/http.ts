@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { observeErrorResponse, observeJson } from "@/lib/gsc/http";
 import { RelatedDemandInspectError } from "@/lib/decisions/inspect";
+import { ObserveError } from "@/lib/observe/observe";
 import {
   ResearchExecutionSupersededError,
   ResearchGateError,
@@ -8,6 +9,18 @@ import {
 } from "./errors";
 
 export function researchErrorResponse(error: unknown, fallback: string): NextResponse {
+  if (error instanceof ObserveError) {
+    return NextResponse.json(
+      { error: error.message, code: error.code },
+      {
+        status: error.status,
+        headers: {
+          "Cache-Control": "private, no-store, no-cache, must-revalidate",
+        },
+      },
+    );
+  }
+
   if (error instanceof RelatedDemandInspectError) {
     return NextResponse.json(
       { error: error.message, code: error.code },

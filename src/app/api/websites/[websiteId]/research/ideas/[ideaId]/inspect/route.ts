@@ -1,4 +1,7 @@
-import { inspectRelatedDemandForOwner } from "@/lib/decisions/inspect";
+import {
+  inspectRelatedDemandAfterObservationForOwner,
+  inspectRelatedDemandForOwner,
+} from "@/lib/decisions/inspect";
 import { readObserveSessionToken } from "@/lib/gsc/cookie";
 import { researchErrorResponse, observeJson } from "@/lib/research/http";
 import { isValidUuid } from "@/lib/websites/uuid";
@@ -17,12 +20,28 @@ export async function POST(request: Request, context: RouteContext) {
     return observeJson({ error: "Invalid id." }, 400);
   }
 
+  let targetedObservationId: string | null = null;
   try {
-    const inspection = await inspectRelatedDemandForOwner({
-      websiteId,
-      ideaId,
-      sessionToken: readObserveSessionToken(request),
-    });
+    const body = (await request.json()) as { targetedObservationId?: unknown };
+    targetedObservationId =
+      typeof body.targetedObservationId === "string" ? body.targetedObservationId : null;
+  } catch {
+    targetedObservationId = null;
+  }
+
+  try {
+    const inspection = targetedObservationId
+      ? await inspectRelatedDemandAfterObservationForOwner({
+          websiteId,
+          ideaId,
+          sessionToken: readObserveSessionToken(request),
+          targetedObservationId,
+        })
+      : await inspectRelatedDemandForOwner({
+          websiteId,
+          ideaId,
+          sessionToken: readObserveSessionToken(request),
+        });
     return observeJson({ inspection });
   } catch (error) {
     return researchErrorResponse(error, "Unable to check existing pages right now.");

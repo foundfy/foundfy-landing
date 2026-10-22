@@ -2,9 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ObserveAuthError } from "@/lib/gsc/types";
 
 const inspectRelatedDemandForOwnerMock = vi.fn();
+const inspectRelatedDemandAfterObservationForOwnerMock = vi.fn();
 
 vi.mock("@/lib/decisions/inspect", () => ({
   inspectRelatedDemandForOwner: (...args: unknown[]) => inspectRelatedDemandForOwnerMock(...args),
+  inspectRelatedDemandAfterObservationForOwner: (...args: unknown[]) =>
+    inspectRelatedDemandAfterObservationForOwnerMock(...args),
   RelatedDemandInspectError: class RelatedDemandInspectError extends Error {
     code: string;
     status: number;
@@ -73,5 +76,33 @@ describe("/api/websites/[websiteId]/research/ideas/[ideaId]/inspect", () => {
     });
     expect(response.status).toBe(400);
     expect(inspectRelatedDemandForOwnerMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps T0 when the body has no observation id and uses T1 when it does", async () => {
+    inspectRelatedDemandForOwnerMock.mockResolvedValue({ state: "no_obvious_match_in_current_crawl" });
+    inspectRelatedDemandAfterObservationForOwnerMock.mockResolvedValue({
+      state: "no_obvious_match_after_targeted_observation",
+    });
+
+    await POST(new Request("https://www.foundfy.me/inspect", { method: "POST" }), {
+      params: Promise.resolve({ websiteId: WEBSITE_ID, ideaId: IDEA_ID }),
+    });
+    expect(inspectRelatedDemandForOwnerMock).toHaveBeenCalledTimes(1);
+    expect(inspectRelatedDemandAfterObservationForOwnerMock).not.toHaveBeenCalled();
+
+    await POST(
+      new Request("https://www.foundfy.me/inspect", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ targetedObservationId: "obs-1" }),
+      }),
+      { params: Promise.resolve({ websiteId: WEBSITE_ID, ideaId: IDEA_ID }) },
+    );
+    expect(inspectRelatedDemandAfterObservationForOwnerMock).toHaveBeenCalledWith({
+      websiteId: WEBSITE_ID,
+      ideaId: IDEA_ID,
+      sessionToken: "owner-session",
+      targetedObservationId: "obs-1",
+    });
   });
 });

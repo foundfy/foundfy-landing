@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  inspectionStateAfterTargetedObservation,
   inspectLanguageScope,
   inspectPageStrength,
   inspectRelatedDemandPages,
@@ -169,5 +170,17 @@ describe("related demand page inspection matching", () => {
       ],
     });
     expect(result.state).toBe("ambiguous");
+  });
+});
+
+describe("inspectionStateAfterTargetedObservation", () => {
+  it("maps T0 empty to the T1 no-match state and leaves other states", () => {
+    expect(inspectionStateAfterTargetedObservation("no_obvious_match_in_current_crawl")).toBe(
+      "no_obvious_match_after_targeted_observation",
+    );
+    expect(inspectionStateAfterTargetedObservation("clear_existing_page_evidence")).toBe(
+      "clear_existing_page_evidence",
+    );
+    expect(inspectionStateAfterTargetedObservation("ambiguous")).toBe("ambiguous");
   });
 });
