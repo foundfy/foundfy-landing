@@ -95,6 +95,8 @@ export async function syncSearchAnalytics(input: {
   }
 
   const window = searchAnalyticsWindow(input.now);
+  // EXISTING NON-BLOCKING SYNC CONCURRENCY LIMITATION:
+  // there is no unique "one running sync per website" database invariant.
   const sync = await insertRunningSearchSync({
     websiteId: input.websiteId,
     propertyConnectionId: context.connection.id,

@@ -59,7 +59,12 @@ vi.mock("@/lib/actions/google-privacy", () => ({
 
 import { encryptSecret } from "./crypto";
 import { hashSessionToken } from "./cookie";
-import { disconnectObserveOwner, requireSearchConsoleConnection, resolveObserveOwnerView } from "./observe";
+const startGoogleOAuthMock = vi.fn();
+vi.mock("./oauth", () => ({
+  startGoogleOAuth: (...args: unknown[]) => startGoogleOAuthMock(...args),
+}));
+
+import { disconnectObserveOwner, requireSearchConsoleConnection, resolveObserveOwnerView, switchPreBindGoogleAccount } from "./observe";
 
 const WEBSITE_ID = "388c5109-fa75-4ba7-af55-f7c95a69122b";
 const SESSION_TOKEN = "owner-session-token";
@@ -287,5 +292,96 @@ describe("observe owner authorization", () => {
 
     expect(revokeObserveOwnerMock).toHaveBeenCalledWith("owner-1");
     expect(disableGoogleOAuthTokenMock).toHaveBeenCalledWith("token-1");
+  });
+
+  it("switches a pre-bind Google identity without destructive Google-derived cleanup", async () => {
+    findActivePropertyConnectionMock.mockResolvedValue(null);
+    startGoogleOAuthMock.mockResolvedValue({
+      redirectUrl: "https://accounts.google.com/o/oauth2/v2/auth?state=new",
+    });
+
+    const result = await switchPreBindGoogleAccount({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION_TOKEN,
+      requestUrl: "http://localhost:3000/api/websites/id/observe/switch-account",
+    });
+
+    expect(removeGoogleDerivedOwnerDataForWebsiteMock).not.toHaveBeenCalled();
+    expect(deleteDecisionEngineForWebsiteMock).not.toHaveBeenCalled();
+    expect(deleteSearchAnalyticsForWebsiteMock).not.toHaveBeenCalled();
+    expect(revokeActivePropertyConnectionsForWebsiteMock).not.toHaveBeenCalled();
+    expect(revokeObserveOwnerMock).toHaveBeenCalledWith("owner-1");
+    expect(disableGoogleOAuthTokenMock).toHaveBeenCalledWith("token-1");
+    expect(startGoogleOAuthMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        websiteId: WEBSITE_ID,
+        purpose: "connect",
+      }),
+    );
+    expect(result.redirectUrl).toContain("accounts.google.com");
+  });
+
+  it("does not allow pre-bind account switching after a property is bound", async () => {
+    findActivePropertyConnectionMock.mockResolvedValue({
+      id: "connection-1",
+      websiteId: WEBSITE_ID,
+      status: "connected",
+      propertyUri: "sc-domain:foundfy.me",
+    });
+
+    await expect(
+      switchPreBindGoogleAccount({
+        websiteId: WEBSITE_ID,
+        sessionToken: SESSION_TOKEN,
+        requestUrl: "http://localhost:3000/switch",
+      }),
+    ).rejects.toMatchObject({ name: "ObserveOwnerConflictError" });
+    expect(removeGoogleDerivedOwnerDataForWebsiteMock).not.toHaveBeenCalled();
+    expect(startGoogleOAuthMock).not.toHaveBeenCalled();
+  });
+
+  it("does not revoke a shared identity token when another website still uses it", async () => {
+    const websiteTwo = "7c2d0f3a-1b9e-4d55-9c8a-2e6f4b1a0d77";
+    getWebsiteByIdMock.mockResolvedValue({
+      id: websiteTwo,
+      hostname: "gez.studio",
+      displayUrl: "https://gez.studio/",
+    });
+    findOwnerSessionByTokenHashMock.mockResolvedValue({
+      id: "session-2",
+      googleIdentityId: "identity-1",
+      websiteId: websiteTwo,
+      expiresAt: "2099-01-01T00:00:00.000Z",
+    });
+    findActiveObserveOwnerMock.mockResolvedValue({
+      id: "owner-2",
+      websiteId: websiteTwo,
+      googleIdentityId: "identity-1",
+      googleOAuthTokenId: "token-1",
+      status: "google_connected",
+    });
+    findActivePropertyConnectionMock.mockResolvedValue(null);
+    countActiveOwnersForIdentityMock.mockResolvedValue(1);
+    startGoogleOAuthMock.mockResolvedValue({
+      redirectUrl: "https://accounts.google.com/o/oauth2/v2/auth?state=website-2",
+    });
+
+    await switchPreBindGoogleAccount({
+      websiteId: websiteTwo,
+      sessionToken: SESSION_TOKEN,
+      requestUrl: "http://localhost:3000/api/websites/website-2/observe/switch-account",
+    });
+
+    expect(countActiveOwnersForIdentityMock).toHaveBeenCalledWith("identity-1");
+    expect(revokeObserveOwnerMock).toHaveBeenCalledWith("owner-2");
+    expect(revokeOwnerSessionsForWebsiteIdentityMock).toHaveBeenCalledWith({
+      websiteId: websiteTwo,
+      googleIdentityId: "identity-1",
+    });
+    expect(revokeGoogleTokenMock).not.toHaveBeenCalled();
+    expect(disableGoogleOAuthTokenMock).not.toHaveBeenCalled();
+    expect(removeGoogleDerivedOwnerDataForWebsiteMock).not.toHaveBeenCalled();
+    expect(deleteDecisionEngineForWebsiteMock).not.toHaveBeenCalled();
+    expect(deleteSearchAnalyticsForWebsiteMock).not.toHaveBeenCalled();
   });
 });

@@ -231,6 +231,32 @@ export async function deleteEvidenceForSync(syncId: string): Promise<void> {
   }
 }
 
+export async function findRunningSearchSync(
+  websiteId: string,
+  propertyConnectionId: string,
+): Promise<GscSearchSyncRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("gsc_search_syncs")
+    .select(SYNC_COLUMNS)
+    .eq("website_id", websiteId)
+    .eq("property_connection_id", propertyConnectionId)
+    .eq("status", "running")
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load running Search Analytics sync: ${error.message}`);
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return mapSync(data as SyncRow);
+}
+
 export async function findLatestCompletedSearchSync(
   websiteId: string,
   propertyConnectionId: string,

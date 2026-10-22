@@ -17,8 +17,51 @@ export type GoogleSiteEntry = {
   permissionLevel: string | null;
 };
 
+export const USABLE_GSC_PERMISSIONS = [
+  "siteOwner",
+  "siteFullUser",
+  "siteRestrictedUser",
+] as const;
+
+export const UNVERIFIED_GSC_PERMISSION = "siteUnverifiedUser";
+
 export function stripWww(host: string): string {
   return host.trim().toLowerCase().replace(/^www\./, "");
+}
+
+export function isUsableGscPermission(permissionLevel: string | null): boolean {
+  return (
+    permissionLevel === "siteOwner" ||
+    permissionLevel === "siteFullUser" ||
+    permissionLevel === "siteRestrictedUser"
+  );
+}
+
+export function isUnverifiedGscPermission(permissionLevel: string | null): boolean {
+  return permissionLevel === UNVERIFIED_GSC_PERMISSION;
+}
+
+export function normalizedWebsiteHost(
+  website: Pick<WebsiteRecord, "hostname">,
+): string {
+  return stripWww(website.hostname);
+}
+
+export function authoritativeDomainPropertyUri(
+  website: Pick<WebsiteRecord, "hostname">,
+): string {
+  return `sc-domain:${normalizedWebsiteHost(website)}`;
+}
+
+export function isExactC0DomainUnverified(
+  siteUrl: string,
+  permissionLevel: string | null,
+  website: Pick<WebsiteRecord, "hostname">,
+): boolean {
+  return (
+    siteUrl.trim().toLowerCase() === authoritativeDomainPropertyUri(website) &&
+    isUnverifiedGscPermission(permissionLevel)
+  );
 }
 
 export function propertyTypeFromSiteUrl(siteUrl: string): GscPropertyType {
@@ -105,6 +148,25 @@ export function partitionRankedProperties(ranked: RankedGscProperty[]): {
 } {
   const likely = ranked.filter((property) => property.match !== "not_a_match");
   const other = ranked.filter((property) => property.match === "not_a_match");
+
+  return {
+    recommendedSiteUrl: likely[0]?.siteUrl ?? null,
+    likely,
+    other,
+  };
+}
+
+export function partitionBindableProperties(ranked: RankedGscProperty[]): {
+  recommendedSiteUrl: string | null;
+  likely: RankedGscProperty[];
+  other: RankedGscProperty[];
+} {
+  const likely = ranked.filter(
+    (property) => property.match !== "not_a_match" && isUsableGscPermission(property.permissionLevel),
+  );
+  const other = ranked.filter(
+    (property) => property.match === "not_a_match" && isUsableGscPermission(property.permissionLevel),
+  );
 
   return {
     recommendedSiteUrl: likely[0]?.siteUrl ?? null,

@@ -76,10 +76,29 @@ export type ObserveOwnerView = {
   property: GscPropertySummary | null;
 };
 
+export type SearchPresenceState =
+  | "GOOGLE_NOT_CONNECTED"
+  | "MATCHING_GSC_PROPERTY_AVAILABLE"
+  | "NO_MATCHING_PROPERTY_IN_CONNECTED_ACCOUNT"
+  | "PROPERTY_SETUP_AUTH_REQUIRED"
+  | "PROPERTY_ADDED_VERIFICATION_PENDING"
+  | "VERIFIED_SYNC_PENDING"
+  | "GSC_CONNECTED";
+
 export type ObservePropertyList = {
   recommendedSiteUrl: string | null;
   likely: RankedGscProperty[];
   other: RankedGscProperty[];
+  presenceState: SearchPresenceState;
+  domain: string;
+  domainPropertyUri: string;
+};
+
+export type SearchPresenceView = ObservePropertyList & {
+  dnsTxtToken: string | null;
+  retryMessage: string | null;
+  property: GscPropertySummary | null;
+  searchAnalytics: SearchAnalyticsView | null;
 };
 
 export class OAuthStateError extends Error {
@@ -113,6 +132,20 @@ export class GoogleAuthExpiredError extends Error {
   constructor() {
     super("Google access expired. Connect Google again.");
     this.name = "GoogleAuthExpiredError";
+  }
+}
+
+export type SearchPresenceGoogleErrorKind = "permission" | "transient" | "invalid";
+
+export class SearchPresenceGoogleError extends Error {
+  readonly kind: SearchPresenceGoogleErrorKind;
+  readonly status: number;
+
+  constructor(kind: SearchPresenceGoogleErrorKind, message: string, status: number) {
+    super(message);
+    this.name = "SearchPresenceGoogleError";
+    this.kind = kind;
+    this.status = status;
   }
 }
 

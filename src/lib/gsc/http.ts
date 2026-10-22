@@ -4,7 +4,9 @@ import {
   GoogleAuthExpiredError,
   GoogleSearchAnalyticsError,
   ObserveAuthError,
+  ObserveOwnerConflictError,
   SearchConsoleNotConnectedError,
+  SearchPresenceGoogleError,
   UnverifiedPropertyError,
 } from "@/lib/gsc/types";
 
@@ -22,6 +24,15 @@ export function observeErrorResponse(error: unknown, fallback: string): NextResp
 
   if (error instanceof GoogleAuthExpiredError) {
     return NextResponse.json({ error: error.message }, { status: 401 });
+  }
+
+  if (error instanceof SearchPresenceGoogleError) {
+    const status = error.kind === "permission" ? 403 : error.kind === "transient" ? 503 : 502;
+    return NextResponse.json({ error: error.message }, { status });
+  }
+
+  if (error instanceof ObserveOwnerConflictError) {
+    return NextResponse.json({ error: error.message }, { status: 409 });
   }
 
   if (error instanceof UnverifiedPropertyError || error instanceof SearchConsoleNotConnectedError) {

@@ -325,6 +325,29 @@ export async function disableGoogleOAuthToken(tokenId: string): Promise<void> {
   }
 }
 
+export async function findGoogleOAuthTokenByIdentity(
+  googleIdentityId: string,
+): Promise<GoogleOAuthTokenRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("google_oauth_tokens")
+    .select(
+      "id, google_identity_id, encryption_key_id, refresh_token_ciphertext, scopes, revoked_at",
+    )
+    .eq("google_identity_id", googleIdentityId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load Google OAuth token: ${error.message}`);
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return mapToken(data as GoogleOAuthTokenRow);
+}
+
 export async function findGoogleOAuthTokenById(
   tokenId: string,
 ): Promise<GoogleOAuthTokenRecord | null> {

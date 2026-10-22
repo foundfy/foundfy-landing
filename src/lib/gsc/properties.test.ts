@@ -228,4 +228,46 @@ describe("Search Console property discovery and binding", () => {
     expect(deleteDecisionEngineForWebsiteMock).not.toHaveBeenCalled();
     expect(deleteSearchAnalyticsForWebsiteMock).not.toHaveBeenCalled();
   });
+
+  it("does not call destructive cleanup on the first C0 bind", async () => {
+    findActivePropertyConnectionMock.mockResolvedValue(null);
+
+    await bindObserveProperty({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION_TOKEN,
+      siteUrl: "sc-domain:foundfy.me",
+    });
+
+    expect(removeGoogleDerivedOwnerDataForWebsiteMock).not.toHaveBeenCalled();
+  });
+
+  it("does not bind a siteUnverifiedUser property as connected", async () => {
+    listSearchConsoleSitesMock.mockResolvedValue([
+      { siteUrl: "sc-domain:foundfy.me", permissionLevel: "siteUnverifiedUser" },
+    ]);
+
+    await expect(
+      bindObserveProperty({
+        websiteId: WEBSITE_ID,
+        sessionToken: SESSION_TOKEN,
+        siteUrl: "sc-domain:foundfy.me",
+      }),
+    ).rejects.toBeInstanceOf(UnverifiedPropertyError);
+    expect(upsertActivePropertyConnectionMock).not.toHaveBeenCalled();
+  });
+
+  it("does not offer an unverified URL-prefix property as a usable match", async () => {
+    listSearchConsoleSitesMock.mockResolvedValue([
+      { siteUrl: "https://www.foundfy.me/", permissionLevel: "siteUnverifiedUser" },
+    ]);
+
+    const list = await listObserveProperties({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION_TOKEN,
+    });
+
+    expect(list.likely).toEqual([]);
+    expect(list.presenceState).toBe("NO_MATCHING_PROPERTY_IN_CONNECTED_ACCOUNT");
+    expect(list.presenceState).not.toBe("PROPERTY_ADDED_VERIFICATION_PENDING");
+  });
 });

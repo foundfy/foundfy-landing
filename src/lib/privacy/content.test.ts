@@ -45,5 +45,11 @@ describe("privacy page content", () => {
     expect(googleSection?.body).toContain("keeps the record that an approved change was executed or verified");
     expect(googleSection?.body).toContain("without retaining Google performance numbers");
     expect(googleSection?.body).not.toMatch(/does not import Search Console performance data yet/i);
+    expect(googleSection?.body).toContain("set up Search Console");
+    expect(googleSection?.body).toContain("add a Search Console property");
+    expect(googleSection?.body).toContain("ownership verification");
+    expect(googleSection?.body).toContain("does not change your DNS");
+    expect(googleSection?.body).toContain("you add the verification record yourself");
+    expect(googleSection?.body).not.toMatch(/writes DNS|Cloudflare|registrar API/i);
   });
 });

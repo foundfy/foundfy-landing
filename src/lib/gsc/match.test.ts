@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  authoritativeDomainPropertyUri,
   classifyGscProperty,
+  isExactC0DomainUnverified,
+  isUsableGscPermission,
+  partitionBindableProperties,
   partitionRankedProperties,
   rankGscProperties,
 } from "./match";
@@ -84,5 +88,59 @@ describe("Search Console property matching", () => {
       likely: [],
       other: [],
     });
+  });
+
+  it("derives a host-exact Domain property and does not walk to the parent domain", () => {
+    expect(authoritativeDomainPropertyUri({ hostname: "gez.studio" })).toBe(
+      "sc-domain:gez.studio",
+    );
+    expect(authoritativeDomainPropertyUri({ hostname: "www.gez.studio" })).toBe(
+      "sc-domain:gez.studio",
+    );
+    expect(authoritativeDomainPropertyUri({ hostname: "shop.example.com" })).toBe(
+      "sc-domain:shop.example.com",
+    );
+    expect(authoritativeDomainPropertyUri({ hostname: "shop.example.com" })).not.toBe(
+      "sc-domain:example.com",
+    );
+  });
+
+  it("treats siteOwner, siteFullUser, and siteRestrictedUser as usable", () => {
+    expect(isUsableGscPermission("siteOwner")).toBe(true);
+    expect(isUsableGscPermission("siteFullUser")).toBe(true);
+    expect(isUsableGscPermission("siteRestrictedUser")).toBe(true);
+    expect(isUsableGscPermission("siteUnverifiedUser")).toBe(false);
+  });
+
+  it("treats only the exact host-Domain unverified property as C0 verification pending", () => {
+    const website = { hostname: "gez.studio" };
+    expect(
+      isExactC0DomainUnverified("sc-domain:gez.studio", "siteUnverifiedUser", website),
+    ).toBe(true);
+    expect(
+      isExactC0DomainUnverified("https://gez.studio/", "siteUnverifiedUser", website),
+    ).toBe(false);
+    expect(
+      isExactC0DomainUnverified("sc-domain:other.example", "siteUnverifiedUser", website),
+    ).toBe(false);
+    expect(isExactC0DomainUnverified("sc-domain:gez.studio", "siteOwner", website)).toBe(false);
+  });
+
+  it("does not offer unverified properties as bindable matches", () => {
+    const website = { hostname: "gez.studio", displayUrl: "https://gez.studio/" };
+    const ranked = rankGscProperties(
+      [
+        { siteUrl: "sc-domain:gez.studio", permissionLevel: "siteUnverifiedUser" },
+        { siteUrl: "https://gez.studio/", permissionLevel: "siteUnverifiedUser" },
+        { siteUrl: "https://other.example/", permissionLevel: "siteOwner" },
+      ],
+      website,
+    );
+    const bindable = partitionBindableProperties(ranked);
+    expect(bindable.likely).toEqual([]);
+    expect(bindable.recommendedSiteUrl).toBeNull();
+    expect(bindable.other.map((property) => property.siteUrl)).toEqual([
+      "https://other.example/",
+    ]);
   });
 });

@@ -7,6 +7,7 @@ import {
   countActiveOwnersForIdentity,
   disableGoogleOAuthToken,
   findActiveObserveOwner,
+  findActivePropertyConnection,
   findGoogleIdentityById,
   findGoogleOAuthTokenById,
   findOwnerSessionByTokenHash,
@@ -16,8 +17,10 @@ import {
 } from "./db";
 import { removeGoogleDerivedOwnerDataForWebsite } from "@/lib/actions/google-privacy";
 import { revokeGoogleToken } from "./google";
+import { startGoogleOAuth } from "./oauth";
 import {
   ObserveAuthError,
+  ObserveOwnerConflictError,
   SearchConsoleNotConnectedError,
   type GoogleIdentityRecord,
   type GoogleOAuthTokenRecord,
@@ -115,6 +118,43 @@ export async function disconnectObserveOwner(input: {
   websiteId: string;
   sessionToken: string | null;
 }): Promise<void> {
+  await releaseGoogleIdentityForWebsite({
+    ...input,
+    wipeGoogleDerivedData: true,
+    revokePropertyConnections: true,
+  });
+}
+
+export async function switchPreBindGoogleAccount(input: {
+  websiteId: string;
+  sessionToken: string | null;
+  requestUrl: string;
+}): Promise<{ redirectUrl: string }> {
+  const connection = await findActivePropertyConnection(input.websiteId);
+  if (connection) {
+    throw new ObserveOwnerConflictError();
+  }
+
+  await releaseGoogleIdentityForWebsite({
+    websiteId: input.websiteId,
+    sessionToken: input.sessionToken,
+    wipeGoogleDerivedData: false,
+    revokePropertyConnections: false,
+  });
+
+  return startGoogleOAuth({
+    websiteId: input.websiteId,
+    requestUrl: input.requestUrl,
+    purpose: "connect",
+  });
+}
+
+async function releaseGoogleIdentityForWebsite(input: {
+  websiteId: string;
+  sessionToken: string | null;
+  wipeGoogleDerivedData: boolean;
+  revokePropertyConnections: boolean;
+}): Promise<void> {
   const context = await requireObserveOwner(input);
   const token = context.token;
   let refreshToken: string | null = null;
@@ -126,14 +166,21 @@ export async function disconnectObserveOwner(input: {
     }
   }
 
-  await removeGoogleDerivedOwnerDataForWebsite(input.websiteId);
-  await revokeActivePropertyConnectionsForWebsite(input.websiteId);
+  if (input.wipeGoogleDerivedData) {
+    await removeGoogleDerivedOwnerDataForWebsite(input.websiteId);
+  }
+  if (input.revokePropertyConnections) {
+    await revokeActivePropertyConnectionsForWebsite(input.websiteId);
+  }
   await revokeObserveOwner(context.owner.id);
   await revokeOwnerSessionsForWebsiteIdentity({
     websiteId: input.websiteId,
     googleIdentityId: context.owner.googleIdentityId,
   });
 
+  // google_oauth_tokens is Google-identity-scoped, not website-scoped.
+  // Disable/revoke the shared refresh token only when no other website still
+  // references this identity.
   const remaining = await countActiveOwnersForIdentity(context.owner.googleIdentityId);
   if (remaining === 0 && token) {
     if (refreshToken) {
