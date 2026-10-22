@@ -17,6 +17,8 @@ vi.mock("@/lib/websites/repository", () => ({
   getWebsiteById: (...args: unknown[]) => getWebsiteByIdMock(...args),
 }));
 
+const findGoogleOAuthTokenByIdentityMock = vi.fn();
+
 vi.mock("./db", () => ({
   insertOAuthState: (...args: unknown[]) => insertOAuthStateMock(...args),
   consumeOAuthState: (...args: unknown[]) => consumeOAuthStateMock(...args),
@@ -25,6 +27,8 @@ vi.mock("./db", () => ({
   insertOwnerSession: (...args: unknown[]) => insertOwnerSessionMock(...args),
   upsertGoogleIdentity: (...args: unknown[]) => upsertGoogleIdentityMock(...args),
   upsertGoogleOAuthToken: (...args: unknown[]) => upsertGoogleOAuthTokenMock(...args),
+  findGoogleOAuthTokenByIdentity: (...args: unknown[]) =>
+    findGoogleOAuthTokenByIdentityMock(...args),
 }));
 
 vi.mock("./google", () => ({
@@ -34,6 +38,12 @@ vi.mock("./google", () => ({
   revokeGoogleToken: (...args: unknown[]) => revokeGoogleTokenMock(...args),
 }));
 
+const requireObserveOwnerMock = vi.fn();
+vi.mock("./observe", () => ({
+  requireObserveOwner: (...args: unknown[]) => requireObserveOwnerMock(...args),
+}));
+
+import { encryptSecret } from "./crypto";
 import { completeGoogleOAuth, startGoogleOAuth } from "./oauth";
 
 const WEBSITE_ID = "388c5109-fa75-4ba7-af55-f7c95a69122b";
@@ -91,9 +101,11 @@ describe("Google OAuth ownership flow", () => {
       expiresAt: "2099-01-01T00:00:00.000Z",
       consumedAt: "2026-09-20T00:00:00.000Z",
     });
+    findGoogleOAuthTokenByIdentityMock.mockResolvedValue(null);
     exchangeGoogleAuthorizationCodeMock.mockResolvedValue({
       accessToken: "access-token",
       refreshToken: "refresh-token-plain",
+      grantedScopes: "openid email https://www.googleapis.com/auth/webmasters.readonly",
     });
     fetchGoogleUserInfoMock.mockResolvedValue({
       sub: "google-sub-1",
@@ -123,6 +135,13 @@ describe("Google OAuth ownership flow", () => {
     expect(started.redirectUrl).toContain("accounts.google.com");
     expect(started.redirectUrl).toContain(`state=${stored.state}`);
     expect(started.redirectUrl).not.toContain("test-client-secret");
+    const connectScopes = new URL(started.redirectUrl).searchParams.get("scope")?.split(" ") ?? [];
+    expect(connectScopes).toContain("https://www.googleapis.com/auth/webmasters.readonly");
+    expect(connectScopes).not.toContain("https://www.googleapis.com/auth/webmasters");
+    expect(connectScopes.join(" ")).not.toContain("siteverification");
+    expect(insertOAuthStateMock.mock.calls[0]?.[0]).toMatchObject({
+      returnPath: `/site/${WEBSITE_ID}`,
+    });
   });
 
   it("rejects start when the website does not exist", async () => {
@@ -153,9 +172,13 @@ describe("Google OAuth ownership flow", () => {
     });
     const tokenInsert = upsertGoogleOAuthTokenMock.mock.calls[0]?.[0] as {
       refreshTokenCiphertext: string;
+      scopes: string;
     };
     expect(tokenInsert.refreshTokenCiphertext).not.toContain("refresh-token-plain");
     expect(tokenInsert.refreshTokenCiphertext.startsWith("v1.")).toBe(true);
+    expect(tokenInsert.scopes).toBe(
+      "email https://www.googleapis.com/auth/webmasters.readonly openid",
+    );
     expect(insertObserveOwnerMock).toHaveBeenCalledWith({
       websiteId: WEBSITE_ID,
       googleIdentityId: "identity-1",
@@ -238,5 +261,264 @@ describe("Google OAuth ownership flow", () => {
     expect(upsertGoogleOAuthTokenMock).not.toHaveBeenCalled();
     expect(insertObserveOwnerMock).not.toHaveBeenCalled();
     expect(revokeGoogleTokenMock).toHaveBeenCalledWith("refresh-token-plain");
+  });
+
+  it("requests setup scopes only for incremental Search Console setup", async () => {
+    requireObserveOwnerMock.mockResolvedValue({
+      website: { id: WEBSITE_ID, hostname: "foundfy.me" },
+      owner: { googleIdentityId: "identity-1" },
+    });
+
+    const started = await startGoogleOAuth({
+      websiteId: WEBSITE_ID,
+      requestUrl: "http://localhost:3000/api/websites/id/observe/setup/connect",
+      purpose: "setup",
+      sessionToken: "owner-session",
+    });
+
+    const stored = insertOAuthStateMock.mock.calls[0]?.[0] as { returnPath: string };
+    expect(stored.returnPath).toBe(`/site/${WEBSITE_ID}?observe=setup`);
+    expect(started.redirectUrl).toContain(encodeURIComponent("auth/webmasters"));
+    expect(started.redirectUrl).toContain(
+      encodeURIComponent("siteverification.verify_only"),
+    );
+    expect(started.redirectUrl).not.toContain(
+      encodeURIComponent("auth/siteverification "),
+    );
+    expect(started.redirectUrl).toContain("include_granted_scopes=true");
+    expect(new URL(started.redirectUrl).searchParams.get("scope")).not.toBe(
+      "https://www.googleapis.com/auth/siteverification",
+    );
+    expect(new URL(started.redirectUrl).searchParams.get("scope")?.split(" ")).not.toContain(
+      "https://www.googleapis.com/auth/siteverification",
+    );
+  });
+
+  it("persists Google-granted setup scopes instead of the requested constant", async () => {
+    findActiveObserveOwnerMock.mockResolvedValue({
+      id: "owner-1",
+      websiteId: WEBSITE_ID,
+      googleIdentityId: "identity-1",
+      googleOAuthTokenId: "token-1",
+      status: "google_connected",
+    });
+    consumeOAuthStateMock.mockResolvedValue({
+      id: "state-1",
+      state: "state-value",
+      websiteId: WEBSITE_ID,
+      returnPath: `/site/${WEBSITE_ID}?observe=setup`,
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      consumedAt: "2026-09-20T00:00:00.000Z",
+    });
+    exchangeGoogleAuthorizationCodeMock.mockResolvedValue({
+      accessToken: "access-token",
+      refreshToken: "setup-refresh",
+      grantedScopes:
+        "openid email https://www.googleapis.com/auth/webmasters https://www.googleapis.com/auth/siteverification.verify_only",
+    });
+
+    const result = await completeGoogleOAuth({
+      requestUrl: "http://localhost:3000/api/gsc/oauth/callback",
+      code: "auth-code",
+      state: "state-value",
+      oauthError: null,
+    });
+
+    expect(result.redirectUrl).toBe(`/site/${WEBSITE_ID}?observe=setup`);
+    const tokenInsert = upsertGoogleOAuthTokenMock.mock.calls[0]?.[0] as { scopes: string };
+    expect(tokenInsert.scopes).toContain("https://www.googleapis.com/auth/webmasters");
+    expect(tokenInsert.scopes).toContain(
+      "https://www.googleapis.com/auth/siteverification.verify_only",
+    );
+    expect(tokenInsert.scopes).not.toBe(
+      "openid email https://www.googleapis.com/auth/webmasters.readonly",
+    );
+  });
+
+  it("keeps the same-identity refresh token when incremental auth omits a new one", async () => {
+    const existingCipher = encryptSecret("existing-refresh");
+    findActiveObserveOwnerMock.mockResolvedValue({
+      id: "owner-1",
+      websiteId: WEBSITE_ID,
+      googleIdentityId: "identity-1",
+      googleOAuthTokenId: "token-1",
+      status: "google_connected",
+    });
+    findGoogleOAuthTokenByIdentityMock.mockResolvedValue({
+      id: "token-1",
+      googleIdentityId: "identity-1",
+      encryptionKeyId: "v1",
+      refreshTokenCiphertext: existingCipher,
+      scopes: "email openid https://www.googleapis.com/auth/webmasters.readonly",
+      revokedAt: null,
+    });
+    consumeOAuthStateMock.mockResolvedValue({
+      id: "state-1",
+      state: "state-value",
+      websiteId: WEBSITE_ID,
+      returnPath: `/site/${WEBSITE_ID}?observe=setup`,
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      consumedAt: "2026-09-20T00:00:00.000Z",
+    });
+    exchangeGoogleAuthorizationCodeMock.mockResolvedValue({
+      accessToken: "access-token",
+      refreshToken: null,
+      grantedScopes:
+        "https://www.googleapis.com/auth/webmasters https://www.googleapis.com/auth/siteverification.verify_only",
+    });
+
+    await completeGoogleOAuth({
+      requestUrl: "http://localhost:3000/api/gsc/oauth/callback",
+      code: "auth-code",
+      state: "state-value",
+      oauthError: null,
+    });
+
+    const tokenInsert = upsertGoogleOAuthTokenMock.mock.calls[0]?.[0] as {
+      refreshTokenCiphertext: string;
+    };
+    expect(tokenInsert.refreshTokenCiphertext).toBe(existingCipher);
+  });
+
+  it("does not reuse a refresh token across Google identities", async () => {
+    findActiveObserveOwnerMock.mockResolvedValue({
+      id: "owner-1",
+      websiteId: WEBSITE_ID,
+      googleIdentityId: "identity-1",
+      googleOAuthTokenId: "token-1",
+      status: "google_connected",
+    });
+    upsertGoogleIdentityMock.mockResolvedValue({
+      id: "identity-other",
+      googleSub: "google-sub-other",
+      email: "other@example.com",
+    });
+    consumeOAuthStateMock.mockResolvedValue({
+      id: "state-1",
+      state: "state-value",
+      websiteId: WEBSITE_ID,
+      returnPath: `/site/${WEBSITE_ID}?observe=setup`,
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      consumedAt: "2026-09-20T00:00:00.000Z",
+    });
+    exchangeGoogleAuthorizationCodeMock.mockResolvedValue({
+      accessToken: "access-token",
+      refreshToken: "other-refresh",
+      grantedScopes: "https://www.googleapis.com/auth/webmasters",
+    });
+
+    const result = await completeGoogleOAuth({
+      requestUrl: "http://localhost:3000/api/gsc/oauth/callback",
+      code: "auth-code",
+      state: "state-value",
+      oauthError: null,
+    });
+
+    expect(result.redirectUrl).toBe(`/site/${WEBSITE_ID}?observe=setup_account_mismatch`);
+    expect(upsertGoogleOAuthTokenMock).not.toHaveBeenCalled();
+    expect(findGoogleOAuthTokenByIdentityMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when incremental setup omits a refresh token and none is stored", async () => {
+    findActiveObserveOwnerMock.mockResolvedValue({
+      id: "owner-1",
+      websiteId: WEBSITE_ID,
+      googleIdentityId: "identity-1",
+      googleOAuthTokenId: "token-1",
+      status: "google_connected",
+    });
+    findGoogleOAuthTokenByIdentityMock.mockResolvedValue(null);
+    consumeOAuthStateMock.mockResolvedValue({
+      id: "state-1",
+      state: "state-value",
+      websiteId: WEBSITE_ID,
+      returnPath: `/site/${WEBSITE_ID}?observe=setup`,
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      consumedAt: "2026-09-20T00:00:00.000Z",
+    });
+    exchangeGoogleAuthorizationCodeMock.mockResolvedValue({
+      accessToken: "access-token",
+      refreshToken: null,
+      grantedScopes:
+        "https://www.googleapis.com/auth/webmasters https://www.googleapis.com/auth/siteverification.verify_only",
+    });
+
+    const result = await completeGoogleOAuth({
+      requestUrl: "http://localhost:3000/api/gsc/oauth/callback",
+      code: "auth-code",
+      state: "state-value",
+      oauthError: null,
+    });
+
+    expect(result.redirectUrl).toBe(`/site/${WEBSITE_ID}?observe=error`);
+    expect(upsertGoogleOAuthTokenMock).not.toHaveBeenCalled();
+  });
+
+  it("does not treat partial setup scopes as authorized setup", async () => {
+    findActiveObserveOwnerMock.mockResolvedValue({
+      id: "owner-1",
+      websiteId: WEBSITE_ID,
+      googleIdentityId: "identity-1",
+      googleOAuthTokenId: "token-1",
+      status: "google_connected",
+    });
+    consumeOAuthStateMock.mockResolvedValue({
+      id: "state-1",
+      state: "state-value",
+      websiteId: WEBSITE_ID,
+      returnPath: `/site/${WEBSITE_ID}?observe=setup`,
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      consumedAt: "2026-09-20T00:00:00.000Z",
+    });
+    exchangeGoogleAuthorizationCodeMock.mockResolvedValue({
+      accessToken: "access-token",
+      refreshToken: "setup-refresh",
+      grantedScopes: "https://www.googleapis.com/auth/webmasters",
+    });
+
+    await completeGoogleOAuth({
+      requestUrl: "http://localhost:3000/api/gsc/oauth/callback",
+      code: "auth-code",
+      state: "state-value",
+      oauthError: null,
+    });
+
+    const tokenInsert = upsertGoogleOAuthTokenMock.mock.calls[0]?.[0] as { scopes: string };
+    expect(tokenInsert.scopes).toBe("https://www.googleapis.com/auth/webmasters");
+    expect(tokenInsert.scopes).not.toContain("siteverification");
+  });
+
+  it("binds setup callback state to the originating website only", async () => {
+    consumeOAuthStateMock.mockResolvedValue({
+      id: "state-1",
+      state: "state-value",
+      websiteId: WEBSITE_ID,
+      returnPath: `/site/${WEBSITE_ID}?observe=setup`,
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      consumedAt: "2026-09-20T00:00:00.000Z",
+    });
+    findActiveObserveOwnerMock.mockResolvedValue({
+      id: "owner-1",
+      websiteId: WEBSITE_ID,
+      googleIdentityId: "identity-1",
+      googleOAuthTokenId: "token-1",
+      status: "google_connected",
+    });
+    exchangeGoogleAuthorizationCodeMock.mockResolvedValue({
+      accessToken: "access-token",
+      refreshToken: "setup-refresh",
+      grantedScopes:
+        "https://www.googleapis.com/auth/webmasters https://www.googleapis.com/auth/siteverification.verify_only",
+    });
+
+    const result = await completeGoogleOAuth({
+      requestUrl: "http://localhost:3000/api/gsc/oauth/callback",
+      code: "auth-code",
+      state: "state-value",
+      oauthError: null,
+    });
+
+    expect(result.redirectUrl).toContain(WEBSITE_ID);
+    expect(result.redirectUrl).not.toContain("other-website");
   });
 });

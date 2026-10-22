@@ -7,12 +7,15 @@ import {
   getGoogleClientSecret,
   getOAuthRedirectUri,
 } from "./config";
+import { discardGoogleErrorBody, throwForGoogleSetupFailure, type GoogleSiteAddResult } from "./google-write";
 import type { GoogleSiteEntry } from "./match";
+import { persistableGrantedScopeString } from "./scopes";
 import { GoogleAuthExpiredError } from "./types";
 
 export type GoogleTokenResponse = {
   accessToken: string;
-  refreshToken: string;
+  refreshToken: string | null;
+  grantedScopes: string;
 };
 
 export type GoogleUserInfo = {
@@ -23,6 +26,7 @@ export type GoogleUserInfo = {
 type TokenEndpointJson = {
   access_token?: unknown;
   refresh_token?: unknown;
+  scope?: unknown;
   error?: unknown;
 };
 
@@ -60,17 +64,47 @@ export async function exchangeGoogleAuthorizationCode(input: {
   const accessToken =
     typeof payload.access_token === "string" ? payload.access_token : "";
   const refreshToken =
-    typeof payload.refresh_token === "string" ? payload.refresh_token : "";
+    typeof payload.refresh_token === "string" && payload.refresh_token
+      ? payload.refresh_token
+      : null;
 
   if (!accessToken) {
     throw new Error("Google did not return an access token.");
   }
 
-  if (!refreshToken) {
-    throw new Error("Google did not return a refresh token.");
+  return {
+    accessToken,
+    refreshToken,
+    grantedScopes: persistableGrantedScopeString(
+      typeof payload.scope === "string" ? payload.scope : "",
+    ),
+  };
+}
+
+export async function addSearchConsoleSite(
+  accessToken: string,
+  siteUrl: string,
+): Promise<GoogleSiteAddResult> {
+  const response = await fetch(
+    `${GOOGLE_WEBMASTERS_SITES_URL}/${encodeURIComponent(siteUrl)}`,
+    {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    },
+  );
+
+  if (response.status === 204 || response.status === 200) {
+    return "added";
   }
 
-  return { accessToken, refreshToken };
+  if (response.status === 409) {
+    await discardGoogleErrorBody(response);
+    return "conflict";
+  }
+
+  await discardGoogleErrorBody(response);
+  throwForGoogleSetupFailure(response.status);
 }
 
 export async function fetchGoogleUserInfo(accessToken: string): Promise<GoogleUserInfo> {

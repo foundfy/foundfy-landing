@@ -1,54 +1,28 @@
 import { removeGoogleDerivedOwnerDataForWebsite } from "@/lib/actions/google-privacy";
-import { decryptSecret } from "./crypto";
 import { findActivePropertyConnection, upsertActivePropertyConnection } from "./db";
-import { listSearchConsoleSites, refreshGoogleAccessToken } from "./google";
-import { partitionRankedProperties, propertyTypeFromSiteUrl, rankGscProperties } from "./match";
+import { isUsableGscPermission, propertyTypeFromSiteUrl } from "./match";
 import { requireObserveOwner } from "./observe";
+import { discoverLiveSearchConsole, presenceViewFromDiscovery, toObservePropertyList } from "./presence";
 import {
   GoogleAuthExpiredError,
   UnverifiedPropertyError,
   type ObservePropertyList,
-  type RankedGscProperty,
 } from "./types";
-
-function readRefreshToken(ciphertext: string | undefined): string {
-  if (!ciphertext || ciphertext === "revoked") {
-    throw new GoogleAuthExpiredError();
-  }
-
-  try {
-    return decryptSecret(ciphertext);
-  } catch {
-    throw new GoogleAuthExpiredError();
-  }
-}
-
-async function loadAccessibleProperties(input: {
-  websiteId: string;
-  sessionToken: string | null;
-}): Promise<{
-  context: Awaited<ReturnType<typeof requireObserveOwner>>;
-  ranked: RankedGscProperty[];
-}> {
-  const context = await requireObserveOwner(input);
-  if (!context.token || context.token.revokedAt) {
-    throw new GoogleAuthExpiredError();
-  }
-
-  const refreshToken = readRefreshToken(context.token.refreshTokenCiphertext);
-  const accessToken = await refreshGoogleAccessToken(refreshToken);
-  const sites = await listSearchConsoleSites(accessToken);
-  const ranked = rankGscProperties(sites, context.website);
-
-  return { context, ranked };
-}
 
 export async function listObserveProperties(input: {
   websiteId: string;
   sessionToken: string | null;
 }): Promise<ObservePropertyList> {
-  const { ranked } = await loadAccessibleProperties(input);
-  return partitionRankedProperties(ranked);
+  const context = await requireObserveOwner(input);
+  if (!context.token || context.token.revokedAt) {
+    throw new GoogleAuthExpiredError();
+  }
+
+  const discovery = await discoverLiveSearchConsole({
+    website: context.website,
+    token: context.token,
+  });
+  return toObservePropertyList(presenceViewFromDiscovery(discovery, context.website));
 }
 
 export async function bindObserveProperty(input: {
@@ -61,9 +35,17 @@ export async function bindObserveProperty(input: {
     throw new UnverifiedPropertyError();
   }
 
-  const { context, ranked } = await loadAccessibleProperties(input);
-  const verified = ranked.find((property) => property.siteUrl === siteUrl);
-  if (!verified) {
+  const context = await requireObserveOwner(input);
+  if (!context.token || context.token.revokedAt) {
+    throw new GoogleAuthExpiredError();
+  }
+
+  const discovery = await discoverLiveSearchConsole({
+    website: context.website,
+    token: context.token,
+  });
+  const verified = discovery.ranked.find((property) => property.siteUrl === siteUrl);
+  if (!verified || !isUsableGscPermission(verified.permissionLevel)) {
     throw new UnverifiedPropertyError();
   }
 

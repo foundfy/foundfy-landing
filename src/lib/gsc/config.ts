@@ -1,3 +1,9 @@
+import {
+  GOOGLE_SITE_VERIFICATION_VERIFY_ONLY_SCOPE,
+  GOOGLE_WEBMASTERS_READONLY_SCOPE,
+  GOOGLE_WEBMASTERS_SCOPE,
+} from "./scopes";
+
 export const GOOGLE_OAUTH_AUTHORIZATION_URL =
   "https://accounts.google.com/o/oauth2/v2/auth";
 export const GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -7,6 +13,10 @@ export const GOOGLE_OAUTH_REVOKE_URL = "https://oauth2.googleapis.com/revoke";
 export const GOOGLE_WEBMASTERS_SITES_URL =
   "https://www.googleapis.com/webmasters/v3/sites";
 export const GOOGLE_SEARCH_ANALYTICS_QUERY_PATH = "searchAnalytics/query";
+export const GOOGLE_SITE_VERIFICATION_TOKEN_URL =
+  "https://www.googleapis.com/siteVerification/v1/token";
+export const GOOGLE_SITE_VERIFICATION_WEB_RESOURCE_URL =
+  "https://www.googleapis.com/siteVerification/v1/webResource";
 
 /** Inclusive day count for v0 Search Analytics evidence. Dates use America/Los_Angeles. */
 export const SEARCH_ANALYTICS_WINDOW_DAYS = 28;
@@ -27,10 +37,17 @@ export const SEARCH_ANALYTICS_CAPS = {
 export const GOOGLE_OAUTH_SCOPES = [
   "openid",
   "email",
-  "https://www.googleapis.com/auth/webmasters.readonly",
+  GOOGLE_WEBMASTERS_READONLY_SCOPE,
 ] as const;
 
 export const GOOGLE_OAUTH_SCOPE_STRING = GOOGLE_OAUTH_SCOPES.join(" ");
+
+export const GOOGLE_OAUTH_SETUP_SCOPES = [
+  GOOGLE_WEBMASTERS_SCOPE,
+  GOOGLE_SITE_VERIFICATION_VERIFY_ONLY_SCOPE,
+] as const;
+
+export const GOOGLE_OAUTH_SETUP_SCOPE_STRING = GOOGLE_OAUTH_SETUP_SCOPES.join(" ");
 
 export const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 export const OWNER_SESSION_TTL_MS = 14 * 24 * 60 * 60 * 1000;
@@ -42,8 +59,10 @@ export const OAUTH_CALLBACK_PATH = "/api/gsc/oauth/callback";
 
 export const OBSERVE_NOTICE_VALUES = [
   "connected",
+  "setup",
   "denied",
   "already_connected",
+  "setup_account_mismatch",
   "disconnected",
   "error",
 ] as const;

@@ -22,6 +22,9 @@ describe("OBSERVE Google-connection copy", () => {
     expect(OBSERVE_CONNECTED_TITLE).toBe("Google account connected");
     expect(OBSERVE_CONNECTED_NEXT).toMatch(/choose the Search Console property/i);
     expect(OBSERVE_NO_PROPERTY_COPY).toMatch(/couldn't find a Search Console property/i);
+    expect(OBSERVE_NO_PROPERTY_COPY).toMatch(/connected Google account/i);
+    expect(text).not.toMatch(/No Search Console property exists/i);
+    expect(text).not.toMatch(/NO_GSC_PROPERTY_EXISTS/);
     expect(text).not.toMatch(/search console connected/i);
     expect(OBSERVE_SEARCH_CONSOLE_CONNECTED_TITLE).toBe("Search Console connected");
     expect(OBSERVE_CONNECT_LABEL).toBe("Connect Google");
@@ -39,7 +42,8 @@ describe("OBSERVE Google-connection copy", () => {
     ].join(" ");
 
     expect(OBSERVE_SEARCH_CONSOLE_CONNECTED_NEXT).toMatch(/ready to observe/i);
-    expect(OBSERVE_EVIDENCE_EMPTY_COPY).toMatch(/hasn't reported search performance/i);
+    expect(OBSERVE_EVIDENCE_EMPTY_COPY).toMatch(/doesn't have search performance data available/i);
+    expect(OBSERVE_EVIDENCE_EMPTY_COPY).not.toMatch(/zero visibility|zero impressions|no rankings|setup failed/i);
     expect(text).not.toMatch(/opportunity|high priority|optimize|you should|CTR is too low/i);
   });
 });

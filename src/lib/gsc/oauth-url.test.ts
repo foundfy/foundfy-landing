@@ -41,6 +41,24 @@ describe("Google OAuth start URL", () => {
     expect(state).not.toBe(createOAuthStateValue());
   });
 
+  it("requests write and verify_only scopes for incremental setup, never full siteverification", () => {
+    process.env.GOOGLE_CLIENT_ID = "test-client-id";
+    const url = new URL(
+      buildGoogleAuthorizationUrl({
+        requestUrl: "http://localhost:3000/api/websites/abc/observe/setup/connect",
+        state: "state",
+        purpose: "setup",
+      }),
+    );
+
+    const scopes = url.searchParams.get("scope")?.split(" ") ?? [];
+    expect(scopes).toContain("https://www.googleapis.com/auth/webmasters");
+    expect(scopes).toContain("https://www.googleapis.com/auth/siteverification.verify_only");
+    expect(scopes).not.toContain("https://www.googleapis.com/auth/siteverification");
+    expect(url.searchParams.get("include_granted_scopes")).toBe("true");
+    expect(url.searchParams.get("prompt")).toBe("consent");
+  });
+
   it("strips wrapping newlines from the Google client id", () => {
     process.env.GOOGLE_CLIENT_ID = "1234567890-\nexample.apps.googleusercontent.com";
     const url = new URL(

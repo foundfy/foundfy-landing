@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ObserveNotice } from "@/lib/gsc/config";
 import {
   OBSERVE_APPEARANCES_LABEL,
   OBSERVE_CHANGE_PROPERTY_LABEL,
   OBSERVE_CONNECT_LABEL,
   OBSERVE_CONNECTED_TITLE,
+  OBSERVE_CONTINUE_SETUP_LABEL,
   OBSERVE_DISCONNECT_LABEL,
   OBSERVE_EVIDENCE_DETAIL_LABEL,
   OBSERVE_EVIDENCE_EMPTY_COPY,
@@ -21,6 +22,8 @@ import {
   OBSERVE_LIKELY_HEADING,
   OBSERVE_LOADING_PROPERTIES,
   OBSERVE_NO_PROPERTY_COPY,
+  OBSERVE_NO_PROPERTY_HELP,
+  OBSERVE_NO_PROPERTY_TITLE,
   OBSERVE_NOTICE_COPY,
   OBSERVE_OTHER_HEADING,
   OBSERVE_PAGES_HEADING,
@@ -30,15 +33,26 @@ import {
   OBSERVE_SEARCH_CONSOLE_CONNECTED_NEXT,
   OBSERVE_SEARCH_CONSOLE_CONNECTED_TITLE,
   OBSERVE_SECTION_HEADING,
+  OBSERVE_SETUP_AUTH_COPY,
+  OBSERVE_SETUP_LABEL,
   OBSERVE_SYNC_LABEL,
+  OBSERVE_USE_ANOTHER_ACCOUNT_LABEL,
   OBSERVE_USE_PROPERTY_LABEL,
+  OBSERVE_VERIFIED_SYNC_COPY,
+  OBSERVE_VERIFIED_TITLE,
+  OBSERVE_VERIFY_INTRO,
+  OBSERVE_VERIFY_LABEL,
+  OBSERVE_VERIFY_RETRY_COPY,
   OBSERVE_VISITS_LABEL,
+  verifyDomainTitle,
 } from "@/lib/gsc/display";
 import type {
   ObserveOwnerView,
   ObservePropertyList,
   RankedGscProperty,
   SearchAnalyticsView,
+  SearchPresenceState,
+  SearchPresenceView,
 } from "@/lib/gsc/types";
 import { formatEvidenceDate } from "@/lib/gsc/window";
 import styles from "./SitePageView.module.css";
@@ -57,8 +71,17 @@ type ObserveLoadState =
       view: ObserveOwnerView;
       properties: ObservePropertyList | null;
       selectedSiteUrl: string | null;
+      presenceState: SearchPresenceState | null;
+      domain: string | null;
+      dnsTxtToken: string | null;
+      retryMessage: string | null;
     }
-  | { phase: "search_console_connected"; view: ObserveOwnerView; changing: boolean }
+  | {
+      phase: "search_console_connected";
+      view: ObserveOwnerView;
+      changing: boolean;
+      justVerified: boolean;
+    }
   | { phase: "error"; message: string };
 
 export default function SiteObserveSection({
@@ -70,6 +93,9 @@ export default function SiteObserveSection({
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [isBinding, setIsBinding] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isSettingUp, setIsSettingUp] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const setupNoticeHandled = useRef(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [evidence, setEvidence] = useState<SearchAnalyticsView | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -96,7 +122,12 @@ export default function SiteObserveSection({
       }
 
       if (payload.status === "search_console_connected" && payload.property) {
-        setState({ phase: "search_console_connected", view: payload, changing: false });
+        setState({
+          phase: "search_console_connected",
+          view: payload,
+          changing: false,
+          justVerified: false,
+        });
         setEvidence(null);
         return;
       }
@@ -111,6 +142,10 @@ export default function SiteObserveSection({
         view: payload,
         properties: null,
         selectedSiteUrl: null,
+        presenceState: null,
+        domain: null,
+        dnsTxtToken: null,
+        retryMessage: null,
       });
     } catch {
       setState({
@@ -166,6 +201,10 @@ export default function SiteObserveSection({
                 ...current,
                 properties: payload,
                 selectedSiteUrl: payload.recommendedSiteUrl,
+                presenceState: payload.presenceState,
+                domain: payload.domain,
+                dnsTxtToken: current.dnsTxtToken,
+                retryMessage: current.retryMessage,
               }
             : current,
         );
@@ -294,6 +333,7 @@ export default function SiteObserveSection({
           },
         },
         changing: false,
+        justVerified: false,
       });
       setEvidence(null);
       setDetailsOpen(false);
@@ -321,6 +361,10 @@ export default function SiteObserveSection({
       },
       properties: null,
       selectedSiteUrl: state.view.property?.siteUrl ?? null,
+      presenceState: null,
+      domain: null,
+      dnsTxtToken: null,
+      retryMessage: null,
     });
     onUpdated?.();
   };
@@ -357,6 +401,148 @@ export default function SiteObserveSection({
     }
   };
 
+  const applyPresenceView = (payload: SearchPresenceView, email: string | null) => {
+    if (
+      (payload.presenceState === "GSC_CONNECTED" ||
+        payload.presenceState === "VERIFIED_SYNC_PENDING") &&
+      payload.property
+    ) {
+      setState({
+        phase: "search_console_connected",
+        view: {
+          status: "search_console_connected",
+          email,
+          propertySelected: true,
+          property: payload.property,
+        },
+        changing: false,
+        justVerified: true,
+      });
+      if (payload.searchAnalytics) {
+        setEvidence(payload.searchAnalytics);
+      } else {
+        setEvidence(null);
+      }
+      onUpdated?.();
+      return;
+    }
+
+    setState((current) =>
+      current.phase === "google_connected"
+        ? {
+            ...current,
+            properties: {
+              recommendedSiteUrl: payload.recommendedSiteUrl,
+              likely: payload.likely,
+              other: payload.other,
+              presenceState: payload.presenceState,
+              domain: payload.domain,
+              domainPropertyUri: payload.domainPropertyUri,
+            },
+            selectedSiteUrl: payload.recommendedSiteUrl,
+            presenceState: payload.presenceState,
+            domain: payload.domain,
+            dnsTxtToken: payload.dnsTxtToken,
+            retryMessage: payload.retryMessage,
+          }
+        : current,
+    );
+  };
+
+  const setupSearchConsole = async () => {
+    setIsSettingUp(true);
+    setActionError(null);
+    try {
+      const response = await fetch(`/api/websites/${websiteId}/observe/setup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const payload = (await response.json().catch(() => ({}))) as SearchPresenceView & {
+        error?: string;
+      };
+      if (response.status === 401 && payload.error === OBSERVE_EXPIRED_COPY) {
+        setState({ phase: "disconnected" });
+        setActionError(OBSERVE_EXPIRED_COPY);
+        return;
+      }
+      if (!response.ok) {
+        setActionError(payload.error ?? "Unable to set up Search Console right now.");
+        return;
+      }
+      applyPresenceView(payload, state.phase === "google_connected" ? state.view.email : null);
+    } catch {
+      setActionError("Unable to set up Search Console right now.");
+    } finally {
+      setIsSettingUp(false);
+    }
+  };
+
+  const verifySearchConsole = async () => {
+    setIsVerifying(true);
+    setActionError(null);
+    try {
+      const response = await fetch(`/api/websites/${websiteId}/observe/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const payload = (await response.json().catch(() => ({}))) as SearchPresenceView & {
+        error?: string;
+      };
+      if (response.status === 401 && payload.error === OBSERVE_EXPIRED_COPY) {
+        setState({ phase: "disconnected" });
+        setActionError(OBSERVE_EXPIRED_COPY);
+        return;
+      }
+      if (!response.ok) {
+        setActionError(payload.error ?? OBSERVE_VERIFY_RETRY_COPY);
+        return;
+      }
+      applyPresenceView(payload, state.phase === "google_connected" ? state.view.email : null);
+    } catch {
+      setActionError(OBSERVE_VERIFY_RETRY_COPY);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const switchAccount = async () => {
+    setIsDisconnecting(true);
+    setActionError(null);
+    try {
+      const response = await fetch(`/api/websites/${websiteId}/observe/switch-account`, {
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        redirectUrl?: string;
+        error?: string;
+      };
+      if (!response.ok) {
+        setActionError(payload.error ?? "Unable to switch Google accounts right now.");
+        return;
+      }
+      if (payload.redirectUrl) {
+        window.location.assign(payload.redirectUrl);
+      }
+    } catch {
+      setActionError("Unable to switch Google accounts right now.");
+    } finally {
+      setIsDisconnecting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (setupNoticeHandled.current || notice !== "setup") {
+      return;
+    }
+    if (state.phase !== "google_connected" || !state.properties) {
+      return;
+    }
+    setupNoticeHandled.current = true;
+    void setupSearchConsole();
+  }, [notice, state, setupSearchConsole]);
+
   const noticeCopy = notice ? OBSERVE_NOTICE_COPY[notice] : null;
 
   return (
@@ -390,8 +576,14 @@ export default function SiteObserveSection({
           email={state.view.email}
           properties={state.properties}
           selectedSiteUrl={state.selectedSiteUrl}
+          presenceState={state.presenceState}
+          domain={state.domain}
+          dnsTxtToken={state.dnsTxtToken}
+          retryMessage={state.retryMessage}
           isBinding={isBinding}
           isDisconnecting={isDisconnecting}
+          isSettingUp={isSettingUp}
+          isVerifying={isVerifying}
           onSelect={(siteUrl) =>
             setState((current) =>
               current.phase === "google_connected"
@@ -401,6 +593,12 @@ export default function SiteObserveSection({
           }
           onBind={() => void bind(state.selectedSiteUrl)}
           onDisconnect={() => void disconnect()}
+          onSetup={() => void setupSearchConsole()}
+          onContinueSetup={() => {
+            window.location.assign(`/api/websites/${websiteId}/observe/setup/connect`);
+          }}
+          onVerify={() => void verifySearchConsole()}
+          onSwitchAccount={() => void switchAccount()}
         />
       ) : null}
 
@@ -412,6 +610,7 @@ export default function SiteObserveSection({
           isSyncing={isSyncing}
           isDisconnecting={isDisconnecting}
           isBinding={isBinding}
+          justVerified={state.justVerified}
           onSync={() => void syncEvidence()}
           onToggleDetails={() => setDetailsOpen((open) => !open)}
           onChangeProperty={startChangeProperty}
@@ -425,7 +624,7 @@ export default function SiteObserveSection({
         </p>
       ) : null}
 
-      {noticeCopy && notice && notice !== "connected" ? (
+      {noticeCopy && notice && notice !== "connected" && notice !== "setup" ? (
         <p
           className={
             notice === "disconnected" ? styles.sectionMeta : styles.interpretationError
@@ -449,20 +648,40 @@ function GoogleConnectedPanel({
   email,
   properties,
   selectedSiteUrl,
+  presenceState,
+  domain,
+  dnsTxtToken,
+  retryMessage,
   isBinding,
   isDisconnecting,
+  isSettingUp,
+  isVerifying,
   onSelect,
   onBind,
   onDisconnect,
+  onSetup,
+  onContinueSetup,
+  onVerify,
+  onSwitchAccount,
 }: {
   email: string | null;
   properties: ObservePropertyList | null;
   selectedSiteUrl: string | null;
+  presenceState: SearchPresenceState | null;
+  domain: string | null;
+  dnsTxtToken: string | null;
+  retryMessage: string | null;
   isBinding: boolean;
   isDisconnecting: boolean;
+  isSettingUp: boolean;
+  isVerifying: boolean;
   onSelect: (siteUrl: string) => void;
   onBind: () => void;
   onDisconnect: () => void;
+  onSetup: () => void;
+  onContinueSetup: () => void;
+  onVerify: () => void;
+  onSwitchAccount: () => void;
 }) {
   const recommended = properties?.likely[0] ?? null;
   const singleLikelyOnly =
@@ -472,21 +691,99 @@ function GoogleConnectedPanel({
   const hasSelectableList =
     Boolean(properties) &&
     (properties!.likely.length > 1 || properties!.other.length > 0);
+  const showSetup =
+    presenceState === "NO_MATCHING_PROPERTY_IN_CONNECTED_ACCOUNT" ||
+    (Boolean(properties) && properties!.likely.length === 0);
+  const setupAuthRequired = presenceState === "PROPERTY_SETUP_AUTH_REQUIRED";
+  const verificationPending = presenceState === "PROPERTY_ADDED_VERIFICATION_PENDING";
 
   return (
     <div className={styles.emptyStateBlock}>
-      <p className={styles.emptyStateTitle}>{OBSERVE_CONNECTED_TITLE}</p>
+      <p className={styles.emptyStateTitle}>
+        {verificationPending && domain ? verifyDomainTitle(domain) : OBSERVE_CONNECTED_TITLE}
+      </p>
       {email ? <p className={styles.sectionMeta}>{email}</p> : null}
 
       {!properties ? (
         <p className={styles.emptyStateCopy}>{OBSERVE_LOADING_PROPERTIES}</p>
       ) : null}
 
-      {properties && properties.likely.length === 0 && properties.other.length === 0 ? (
-        <p className={styles.emptyStateCopy}>{OBSERVE_NO_PROPERTY_COPY}</p>
+      {verificationPending ? (
+        <>
+          <p className={styles.emptyStateCopy}>{OBSERVE_VERIFY_INTRO}</p>
+          {dnsTxtToken ? (
+            <p className={styles.observePropertyId}>{dnsTxtToken}</p>
+          ) : (
+            <button
+              type="button"
+              className={styles.observeConnectButton}
+              onClick={onSetup}
+              disabled={isSettingUp}
+            >
+              {isSettingUp ? "Preparing…" : OBSERVE_CONTINUE_SETUP_LABEL}
+            </button>
+          )}
+          {retryMessage ? <p className={styles.emptyStateCopy}>{retryMessage}</p> : null}
+          {dnsTxtToken ? (
+            <button
+              type="button"
+              className={styles.observeConnectButton}
+              onClick={onVerify}
+              disabled={isVerifying}
+            >
+              {isVerifying ? "Verifying…" : OBSERVE_VERIFY_LABEL}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className={styles.textButton}
+            onClick={onSwitchAccount}
+            disabled={isDisconnecting}
+          >
+            {OBSERVE_USE_ANOTHER_ACCOUNT_LABEL}
+          </button>
+        </>
       ) : null}
 
-      {singleLikelyOnly && recommended ? (
+      {setupAuthRequired ? (
+        <>
+          <p className={styles.emptyStateCopy}>{OBSERVE_SETUP_AUTH_COPY}</p>
+          <button
+            type="button"
+            className={styles.observeConnectButton}
+            onClick={onContinueSetup}
+            disabled={isDisconnecting}
+          >
+            {OBSERVE_CONTINUE_SETUP_LABEL}
+          </button>
+        </>
+      ) : null}
+
+      {showSetup && !verificationPending && !setupAuthRequired ? (
+        <>
+          <p className={styles.emptyStateCopy}>{OBSERVE_NO_PROPERTY_TITLE}</p>
+          <p className={styles.emptyStateCopy}>{OBSERVE_NO_PROPERTY_HELP}</p>
+          <p className={styles.emptyStateCopy}>{OBSERVE_NO_PROPERTY_COPY}</p>
+          <button
+            type="button"
+            className={styles.observeConnectButton}
+            onClick={onSetup}
+            disabled={isSettingUp}
+          >
+            {isSettingUp ? "Setting up…" : OBSERVE_SETUP_LABEL}
+          </button>
+          <button
+            type="button"
+            className={styles.textButton}
+            onClick={onSwitchAccount}
+            disabled={isDisconnecting}
+          >
+            {OBSERVE_USE_ANOTHER_ACCOUNT_LABEL}
+          </button>
+        </>
+      ) : null}
+
+      {singleLikelyOnly && recommended && !verificationPending ? (
         <>
           <p className={styles.emptyStateCopy}>{OBSERVE_FOUND_PROPERTY_TITLE}</p>
           <p className={styles.observePropertyId}>{recommended.siteUrl}</p>
@@ -501,7 +798,7 @@ function GoogleConnectedPanel({
         </>
       ) : null}
 
-      {hasSelectableList && (properties?.likely.length ?? 0) > 0 ? (
+      {hasSelectableList && (properties?.likely.length ?? 0) > 0 && !verificationPending ? (
         <PropertyGroup
           heading={OBSERVE_LIKELY_HEADING}
           properties={properties?.likely ?? []}
@@ -510,7 +807,7 @@ function GoogleConnectedPanel({
         />
       ) : null}
 
-      {properties && properties.other.length > 0 ? (
+      {properties && properties.other.length > 0 && !verificationPending ? (
         <PropertyGroup
           heading={OBSERVE_OTHER_HEADING}
           properties={properties.other}
@@ -519,7 +816,7 @@ function GoogleConnectedPanel({
         />
       ) : null}
 
-      {hasSelectableList ? (
+      {hasSelectableList && !verificationPending ? (
         <button
           type="button"
           className={styles.observeConnectButton}
@@ -601,6 +898,7 @@ function SearchConsoleConnectedPanel({
   isSyncing,
   isDisconnecting,
   isBinding,
+  justVerified,
   onSync,
   onToggleDetails,
   onChangeProperty,
@@ -612,6 +910,7 @@ function SearchConsoleConnectedPanel({
   isSyncing: boolean;
   isDisconnecting: boolean;
   isBinding: boolean;
+  justVerified: boolean;
   onSync: () => void;
   onToggleDetails: () => void;
   onChangeProperty: () => void;
@@ -619,21 +918,33 @@ function SearchConsoleConnectedPanel({
 }) {
   const synced = evidence?.status === "completed";
   const syncedAtLabel = formatSyncedAt(evidence?.syncedAt ?? null);
+  const emptyConnected = synced && Boolean(evidence?.empty);
+  const title = emptyConnected
+    ? OBSERVE_SEARCH_CONSOLE_CONNECTED_TITLE
+    : synced
+      ? OBSERVE_EVIDENCE_TITLE
+      : justVerified
+        ? OBSERVE_VERIFIED_TITLE
+        : OBSERVE_SEARCH_CONSOLE_CONNECTED_TITLE;
 
   return (
     <div className={styles.emptyStateBlock}>
-      <p className={styles.emptyStateTitle}>
-        {synced ? OBSERVE_EVIDENCE_TITLE : OBSERVE_SEARCH_CONSOLE_CONNECTED_TITLE}
-      </p>
+      <p className={styles.emptyStateTitle}>{title}</p>
       <p className={styles.observePropertyId}>{siteUrl}</p>
 
-      {!synced ? (
-        <p className={styles.emptyStateCopy}>{OBSERVE_SEARCH_CONSOLE_CONNECTED_NEXT}</p>
-      ) : (
-        <p className={styles.emptyStateCopy}>{OBSERVE_EVIDENCE_PERIOD_LABEL}</p>
-      )}
+      {!synced && justVerified ? (
+        <p className={styles.emptyStateCopy}>{OBSERVE_VERIFIED_SYNC_COPY}</p>
+      ) : null}
 
-      {synced && evidence?.empty ? (
+      {!synced && !justVerified ? (
+        <p className={styles.emptyStateCopy}>{OBSERVE_SEARCH_CONSOLE_CONNECTED_NEXT}</p>
+      ) : null}
+
+      {synced && !emptyConnected ? (
+        <p className={styles.emptyStateCopy}>{OBSERVE_EVIDENCE_PERIOD_LABEL}</p>
+      ) : null}
+
+      {emptyConnected ? (
         <p className={styles.emptyStateCopy}>{OBSERVE_EVIDENCE_EMPTY_COPY}</p>
       ) : null}
 
