@@ -27,7 +27,7 @@ export const DECISION_BLOCKED_COPY = {
   missing_goal:
     "Tell Foundfy what should happen when the right people find this site before prioritizing actions.",
   google_not_connected:
-    "Connect Google Search before Foundfy can combine search demand with website evidence.",
+    "Search Console isn't ready yet. Follow the next step in Google Search so Foundfy can use your search data alongside your website evidence.",
   missing_gsc_sync:
     "Sync Google search data before Foundfy can prioritize cross-signal actions.",
   missing_crawl: "Complete a website crawl before Foundfy can prioritize actions.",
@@ -36,7 +36,7 @@ export const DECISION_BLOCKED_COPY = {
 export const DECISION_BLOCKED_ACTION = {
   missing_site_model: { href: "#site-understanding", label: "Review understanding" },
   missing_goal: { href: "#site-goals", label: "Set a goal" },
-  google_not_connected: { href: "#site-observe", label: "Connect Google Search" },
+  google_not_connected: { href: "#site-observe", label: "Go to Google Search" },
   missing_gsc_sync: { href: "#site-observe", label: "Sync Google search data" },
   missing_crawl: null,
 } as const;
