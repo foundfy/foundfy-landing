@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ObserveAuthError } from "@/lib/gsc/types";
+import { DECISION_BLOCKED_COPY } from "./display";
 import { DecisionPrerequisiteError } from "./types";
 
 const requireObserveOwnerMock = vi.fn();
@@ -216,7 +217,10 @@ describe("Decision Engine generation", () => {
 
     await expect(
       loadDecisionPrerequisites({ websiteId: WEBSITE_ID, sessionToken: SESSION }),
-    ).rejects.toMatchObject({ reason: "google_not_connected" });
+    ).rejects.toMatchObject({
+      reason: "google_not_connected",
+      message: DECISION_BLOCKED_COPY.google_not_connected,
+    });
   });
 
   it("does not return google_not_connected when OBSERVE has a connected property and completed sync", async () => {

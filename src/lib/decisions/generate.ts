@@ -70,7 +70,7 @@ export async function loadDecisionPrerequisites(input: {
   if (!connection) {
     throw new DecisionPrerequisiteError(
       "google_not_connected",
-      "Connect Google Search before Foundfy can combine search demand with website evidence.",
+      "Search Console isn't ready yet. Follow the next step in Google Search so Foundfy can use your search data alongside your website evidence.",
     );
   }
 

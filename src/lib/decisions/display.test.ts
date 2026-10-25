@@ -3,6 +3,7 @@ import {
   DECISION_BLOCKED_ACTION,
   DECISION_BLOCKED_COPY,
   DECISION_EMPTY_GSC_COPY,
+  DECISION_GENERATE_LABEL,
   DECISION_NO_OVERLAP_COPY,
   DECISION_SECTION_HEADING,
 } from "./display";
@@ -20,15 +21,20 @@ describe("DECIDE display copy", () => {
       "Tell Foundfy what should happen when the right people find this site before prioritizing actions.",
     );
     expect(DECISION_BLOCKED_COPY.google_not_connected).toBe(
-      "Connect Google Search before Foundfy can combine search demand with website evidence.",
+      "Search Console isn't ready yet. Follow the next step in Google Search so Foundfy can use your search data alongside your website evidence.",
     );
     expect(DECISION_BLOCKED_COPY.missing_gsc_sync).toBe(
       "Sync Google search data before Foundfy can prioritize cross-signal actions.",
     );
     expect(DECISION_BLOCKED_ACTION.missing_site_model.href).toBe("#site-understanding");
     expect(DECISION_BLOCKED_ACTION.missing_goal.href).toBe("#site-goals");
+    expect(DECISION_BLOCKED_ACTION.google_not_connected.label).toBe("Go to Google Search");
+    expect(DECISION_BLOCKED_ACTION.google_not_connected.label).not.toBe("Connect Google Search");
     expect(DECISION_BLOCKED_ACTION.google_not_connected.href).toBe("#site-observe");
+    expect(DECISION_BLOCKED_ACTION.google_not_connected.href).not.toContain("observe/connect");
     expect(DECISION_BLOCKED_ACTION.missing_gsc_sync.href).toBe("#site-observe");
+    expect(DECISION_BLOCKED_ACTION.missing_gsc_sync.label).toBe("Sync Google search data");
+    expect(DECISION_GENERATE_LABEL).toBe("Prioritize my next actions");
   });
 
   it("keeps completed empty GSC and no-overlap copy distinct", () => {
