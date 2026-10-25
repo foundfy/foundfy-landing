@@ -182,6 +182,40 @@ describe("C0 Search Presence setup", () => {
     expect(view.presenceState).toBe("PROPERTY_ADDED_VERIFICATION_PENDING");
   });
 
+  it("requires setup authorization when an existing Domain is unverified and verification capability is missing", async () => {
+    requireObserveOwnerMock.mockResolvedValue({
+      website: {
+        id: WEBSITE_ID,
+        hostname: "gez.studio",
+        displayUrl: "https://gez.studio/",
+      },
+      owner: { id: "owner-1", googleIdentityId: "identity-1" },
+      token: {
+        id: "token-1",
+        googleIdentityId: "identity-1",
+        refreshTokenCiphertext: encryptSecret("refresh-token-plain"),
+        scopes: "openid email https://www.googleapis.com/auth/webmasters.readonly",
+        revokedAt: null,
+      },
+    });
+    listSearchConsoleSitesMock.mockResolvedValue([
+      { siteUrl: "sc-domain:gez.studio", permissionLevel: "siteUnverifiedUser" },
+    ]);
+
+    const view = await setupSearchPresence({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION_TOKEN,
+    });
+
+    expect(addSearchConsoleSiteMock).not.toHaveBeenCalled();
+    expect(getDnsTxtVerificationTokenMock).not.toHaveBeenCalled();
+    expect(bindObservePropertyMock).not.toHaveBeenCalled();
+    expect(syncSearchAnalyticsMock).not.toHaveBeenCalled();
+    expect(view.presenceState).toBe("PROPERTY_SETUP_AUTH_REQUIRED");
+    expect(view.dnsTxtToken).toBeNull();
+    expect(view.domainPropertyUri).toBe("sc-domain:gez.studio");
+  });
+
   it("requires setup capabilities before creating a Domain property", async () => {
     requireObserveOwnerMock.mockResolvedValue({
       website: {
@@ -347,6 +381,39 @@ describe("C0 Search Presence setup", () => {
     ).rejects.toMatchObject({ kind: "invalid" });
 
     expect(bindObservePropertyMock).not.toHaveBeenCalled();
+  });
+
+  it("does not verify or bind when verification capability is missing for an existing Domain", async () => {
+    requireObserveOwnerMock.mockResolvedValue({
+      website: {
+        id: WEBSITE_ID,
+        hostname: "gez.studio",
+        displayUrl: "https://gez.studio/",
+      },
+      owner: { id: "owner-1", googleIdentityId: "identity-1" },
+      token: {
+        id: "token-1",
+        googleIdentityId: "identity-1",
+        refreshTokenCiphertext: encryptSecret("refresh-token-plain"),
+        scopes: "openid email https://www.googleapis.com/auth/webmasters.readonly",
+        revokedAt: null,
+      },
+    });
+    listSearchConsoleSitesMock.mockResolvedValue([
+      { siteUrl: "sc-domain:gez.studio", permissionLevel: "siteUnverifiedUser" },
+    ]);
+
+    const view = await verifySearchPresence({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION_TOKEN,
+    });
+
+    expect(insertDnsTxtVerificationMock).not.toHaveBeenCalled();
+    expect(getDnsTxtVerificationTokenMock).not.toHaveBeenCalled();
+    expect(bindObservePropertyMock).not.toHaveBeenCalled();
+    expect(syncSearchAnalyticsMock).not.toHaveBeenCalled();
+    expect(addSearchConsoleSiteMock).not.toHaveBeenCalled();
+    expect(view.presenceState).toBe("PROPERTY_SETUP_AUTH_REQUIRED");
   });
 
   it("stays verification pending when live list is still unverified", async () => {

@@ -61,6 +61,19 @@ describe("C0 Search Presence boundaries", () => {
     expect(ui).toContain("OBSERVE_NO_PROPERTY_COPY");
     expect(ui).toContain("OBSERVE_SETUP_LABEL");
     expect(ui).toContain("OBSERVE_USE_ANOTHER_ACCOUNT_LABEL");
+    expect(ui).toContain("OBSERVE_CONTINUE_SETUP_LABEL");
+    expect(ui).toMatch(/observe\/setup\/connect/);
+    expect(ui).toContain("onContinueSetup");
+    expect(ui).toContain("showSetup && !verificationPending && !setupAuthRequired");
+    const connectedPanel = ui.slice(
+      ui.indexOf("function GoogleConnectedPanel"),
+      ui.indexOf("function SearchConsoleConnectedPanel"),
+    );
+    expect(connectedPanel).not.toContain("OBSERVE_CONNECT_LABEL");
+    expect(connectedPanel).not.toMatch(/observe\/connect(?!ed)/);
+    const verifiedPanel = ui.slice(ui.indexOf("function SearchConsoleConnectedPanel"));
+    expect(verifiedPanel).not.toContain("OBSERVE_CONNECT_LABEL");
+    expect(verifiedPanel).not.toMatch(/\/observe\/connect/);
     expect(ui).not.toMatch(/No Search Console property exists/);
     expect(privacy).toContain("does not change your DNS");
     expect(privacy).not.toMatch(/Foundfy writes DNS|Foundfy updates your DNS/);

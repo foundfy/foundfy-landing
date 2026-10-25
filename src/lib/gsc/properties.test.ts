@@ -256,6 +256,23 @@ describe("Search Console property discovery and binding", () => {
     expect(upsertActivePropertyConnectionMock).not.toHaveBeenCalled();
   });
 
+  it("derives setup authorization required for an unverified Domain without verification capability", async () => {
+    listSearchConsoleSitesMock.mockResolvedValue([
+      { siteUrl: "sc-domain:foundfy.me", permissionLevel: "siteUnverifiedUser" },
+    ]);
+
+    const list = await listObserveProperties({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION_TOKEN,
+    });
+
+    expect(list.likely).toEqual([]);
+    expect(list.presenceState).toBe("PROPERTY_SETUP_AUTH_REQUIRED");
+    expect(list.presenceState).not.toBe("PROPERTY_ADDED_VERIFICATION_PENDING");
+    expect(list.presenceState).not.toBe("GSC_CONNECTED");
+    expect(list.domainPropertyUri).toBe("sc-domain:foundfy.me");
+  });
+
   it("does not offer an unverified URL-prefix property as a usable match", async () => {
     listSearchConsoleSitesMock.mockResolvedValue([
       { siteUrl: "https://www.foundfy.me/", permissionLevel: "siteUnverifiedUser" },

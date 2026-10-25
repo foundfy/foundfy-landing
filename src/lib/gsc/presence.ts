@@ -48,6 +48,7 @@ export function deriveSearchPresenceState(input: {
   hasExactDomainUnverified: boolean;
   ownerChoseSetup: boolean;
   hasSetupCapabilities: boolean;
+  canVerifyNewOwnership: boolean;
 }): SearchPresenceState {
   if (input.boundUsable) {
     if (input.hasRunningSync || !input.hasCompletedSync) {
@@ -61,6 +62,9 @@ export function deriveSearchPresenceState(input: {
   }
 
   if (input.hasExactDomainUnverified) {
+    if (!input.hasSetupCapabilities || !input.canVerifyNewOwnership) {
+      return "PROPERTY_SETUP_AUTH_REQUIRED";
+    }
     return "PROPERTY_ADDED_VERIFICATION_PENDING";
   }
 
@@ -134,6 +138,7 @@ export function presenceViewFromDiscovery(
     hasExactDomainUnverified: hasExactC0DomainUnverifiedProperty(discovery.ranked, website),
     ownerChoseSetup: options?.ownerChoseSetup ?? false,
     hasSetupCapabilities: discovery.hasSetupCapabilities,
+    canVerifyNewOwnership: discovery.capabilities.canVerifyNewOwnership,
   });
 
   return {

@@ -20,6 +20,7 @@ describe("derived C0 Search Presence state", () => {
         hasExactDomainUnverified: true,
         ownerChoseSetup: true,
         hasSetupCapabilities: true,
+        canVerifyNewOwnership: true,
       }),
     ).toBe("PROPERTY_ADDED_VERIFICATION_PENDING");
   });
@@ -39,6 +40,7 @@ describe("derived C0 Search Presence state", () => {
         hasExactDomainUnverified: false,
         ownerChoseSetup: false,
         hasSetupCapabilities: false,
+        canVerifyNewOwnership: false,
       }),
     ).toBe("NO_MATCHING_PROPERTY_IN_CONNECTED_ACCOUNT");
   });
@@ -61,6 +63,7 @@ describe("derived C0 Search Presence state", () => {
         hasExactDomainUnverified: true,
         ownerChoseSetup: true,
         hasSetupCapabilities: true,
+        canVerifyNewOwnership: true,
       }),
     ).toBe("MATCHING_GSC_PROPERTY_AVAILABLE");
   });
@@ -75,6 +78,7 @@ describe("derived C0 Search Presence state", () => {
         hasExactDomainUnverified: false,
         ownerChoseSetup: false,
         hasSetupCapabilities: false,
+        canVerifyNewOwnership: false,
       }),
     ).toBe("NO_MATCHING_PROPERTY_IN_CONNECTED_ACCOUNT");
     expect(
@@ -86,6 +90,7 @@ describe("derived C0 Search Presence state", () => {
         hasExactDomainUnverified: false,
         ownerChoseSetup: true,
         hasSetupCapabilities: false,
+        canVerifyNewOwnership: false,
       }),
     ).toBe("PROPERTY_SETUP_AUTH_REQUIRED");
   });
@@ -100,6 +105,7 @@ describe("derived C0 Search Presence state", () => {
         hasExactDomainUnverified: false,
         ownerChoseSetup: false,
         hasSetupCapabilities: true,
+        canVerifyNewOwnership: true,
       }),
     ).toBe("GSC_CONNECTED");
   });
@@ -114,7 +120,86 @@ describe("derived C0 Search Presence state", () => {
         hasExactDomainUnverified: false,
         ownerChoseSetup: false,
         hasSetupCapabilities: true,
+        canVerifyNewOwnership: true,
       }),
     ).toBe("VERIFIED_SYNC_PENDING");
+  });
+
+  it("requires setup authorization when the exact Domain is unverified and verification capability is missing", () => {
+    expect(
+      deriveSearchPresenceState({
+        boundUsable: false,
+        hasCompletedSync: false,
+        hasRunningSync: false,
+        hasUsableMatchingProperty: false,
+        hasExactDomainUnverified: true,
+        ownerChoseSetup: false,
+        hasSetupCapabilities: false,
+        canVerifyNewOwnership: false,
+      }),
+    ).toBe("PROPERTY_SETUP_AUTH_REQUIRED");
+    expect(
+      deriveSearchPresenceState({
+        boundUsable: false,
+        hasCompletedSync: false,
+        hasRunningSync: false,
+        hasUsableMatchingProperty: false,
+        hasExactDomainUnverified: true,
+        ownerChoseSetup: false,
+        hasSetupCapabilities: false,
+        canVerifyNewOwnership: false,
+      }),
+    ).not.toBe("PROPERTY_ADDED_VERIFICATION_PENDING");
+    expect(
+      deriveSearchPresenceState({
+        boundUsable: false,
+        hasCompletedSync: false,
+        hasRunningSync: false,
+        hasUsableMatchingProperty: false,
+        hasExactDomainUnverified: true,
+        ownerChoseSetup: false,
+        hasSetupCapabilities: false,
+        canVerifyNewOwnership: false,
+      }),
+    ).not.toBe("GSC_CONNECTED");
+  });
+
+  it("requires both write and verify capabilities before treating an exact Domain as verification pending", () => {
+    expect(
+      deriveSearchPresenceState({
+        boundUsable: false,
+        hasCompletedSync: false,
+        hasRunningSync: false,
+        hasUsableMatchingProperty: false,
+        hasExactDomainUnverified: true,
+        ownerChoseSetup: false,
+        hasSetupCapabilities: false,
+        canVerifyNewOwnership: true,
+      }),
+    ).toBe("PROPERTY_SETUP_AUTH_REQUIRED");
+    expect(
+      deriveSearchPresenceState({
+        boundUsable: false,
+        hasCompletedSync: false,
+        hasRunningSync: false,
+        hasUsableMatchingProperty: false,
+        hasExactDomainUnverified: true,
+        ownerChoseSetup: false,
+        hasSetupCapabilities: false,
+        canVerifyNewOwnership: false,
+      }),
+    ).toBe("PROPERTY_SETUP_AUTH_REQUIRED");
+    expect(
+      deriveSearchPresenceState({
+        boundUsable: false,
+        hasCompletedSync: false,
+        hasRunningSync: false,
+        hasUsableMatchingProperty: false,
+        hasExactDomainUnverified: true,
+        ownerChoseSetup: false,
+        hasSetupCapabilities: true,
+        canVerifyNewOwnership: true,
+      }),
+    ).toBe("PROPERTY_ADDED_VERIFICATION_PENDING");
   });
 });
