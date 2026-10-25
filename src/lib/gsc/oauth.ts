@@ -15,13 +15,14 @@ import {
   insertOAuthState,
   insertOwnerSession,
   upsertGoogleIdentity,
-  upsertGoogleOAuthToken,
+  writeGoogleOAuthTokenIfUnchanged,
 } from "./db";
 import {
   exchangeGoogleAuthorizationCode,
   fetchGoogleUserInfo,
   revokeGoogleToken,
 } from "./google";
+import { resolveGoogleGrantReplacement } from "./oauth-grant";
 import type { GoogleOAuthPurpose } from "./oauth-purpose";
 import { oauthPurposeFromReturnPath } from "./oauth-purpose";
 import { buildGoogleAuthorizationUrl, createOAuthStateValue } from "./oauth-url";
@@ -29,7 +30,7 @@ import {
   googleCapabilitiesFromScopes,
   persistableGrantedScopeString,
 } from "./scopes";
-import { OAuthStateError } from "./types";
+import { OAuthStateError, type GoogleOAuthTokenRecord } from "./types";
 
 export class GoogleOAuthNotConfiguredError extends Error {
   constructor() {
@@ -135,24 +136,20 @@ export async function completeGoogleOAuth(input: {
       };
     }
 
-    const refreshCiphertext = await resolveRefreshTokenCiphertext({
-      purpose,
+    const newRefreshCiphertext = tokens.refreshToken ? encryptSecret(tokens.refreshToken) : null;
+    const storedToken = await persistGoogleGrantForIdentity({
       googleIdentityId: identity.id,
-      refreshToken: tokens.refreshToken,
+      returnedScopes: grantedScopes,
+      newRefreshCiphertext,
     });
-    if (!refreshCiphertext) {
+    if (!storedToken) {
       await safeRevoke(tokens.refreshToken);
       return { redirectUrl: siteObservePath(websiteId, "error") };
     }
 
     if (purpose === "setup") {
-      const capabilities = googleCapabilitiesFromScopes(grantedScopes);
+      const capabilities = googleCapabilitiesFromScopes(storedToken.scopes);
       if (!capabilities.canWriteSearchConsole || !capabilities.canVerifyNewOwnership) {
-        await persistGrantedToken({
-          googleIdentityId: identity.id,
-          refreshCiphertext,
-          grantedScopes,
-        });
         const sessionToken = await createOwnerSession({
           googleIdentityId: identity.id,
           websiteId,
@@ -160,12 +157,6 @@ export async function completeGoogleOAuth(input: {
         return { redirectUrl: siteObservePath(websiteId, "setup"), sessionToken };
       }
     }
-
-    const storedToken = await persistGrantedToken({
-      googleIdentityId: identity.id,
-      refreshCiphertext,
-      grantedScopes,
-    });
 
     if (!existingOwner) {
       const reserved = await insertObserveOwner({
@@ -205,17 +196,65 @@ export async function completeGoogleOAuth(input: {
   }
 }
 
-async function persistGrantedToken(input: {
+const GOOGLE_GRANT_PERSIST_ATTEMPTS = 8;
+
+export const oauthGrantPersistTestBridge = {
+  beforeWrite: async (_existing: GoogleOAuthTokenRecord | null): Promise<void> => {},
+};
+
+async function persistGoogleGrantForIdentity(input: {
   googleIdentityId: string;
-  refreshCiphertext: string;
-  grantedScopes: string;
-}) {
-  return upsertGoogleOAuthToken({
-    googleIdentityId: input.googleIdentityId,
-    encryptionKeyId: encryptionKeyIdFromCiphertext(input.refreshCiphertext),
-    refreshTokenCiphertext: input.refreshCiphertext,
-    scopes: input.grantedScopes,
-  });
+  returnedScopes: string;
+  newRefreshCiphertext: string | null;
+}): Promise<GoogleOAuthTokenRecord | null> {
+  for (let attempt = 0; attempt < GOOGLE_GRANT_PERSIST_ATTEMPTS; attempt += 1) {
+    const existingRow = await findGoogleOAuthTokenByIdentity(input.googleIdentityId);
+    const usableExisting = isUsableStoredGrant(existingRow) ? existingRow : null;
+    await oauthGrantPersistTestBridge.beforeWrite(usableExisting ?? existingRow);
+
+    const resolvedGrant = resolveGoogleGrantReplacement({
+      existingScopes: usableExisting?.scopes ?? null,
+      existingRefreshCiphertext: usableExisting?.refreshTokenCiphertext ?? null,
+      returnedScopes: input.returnedScopes,
+      newRefreshCiphertext: input.newRefreshCiphertext,
+    });
+    if (!resolvedGrant) {
+      return null;
+    }
+
+    const written = await writeGoogleOAuthTokenIfUnchanged({
+      googleIdentityId: input.googleIdentityId,
+      expectedScopes: existingRow?.scopes ?? null,
+      expectedRefreshTokenCiphertext: existingRow?.refreshTokenCiphertext ?? null,
+      encryptionKeyId: encryptionKeyIdFromCiphertext(resolvedGrant.refreshTokenCiphertext),
+      refreshTokenCiphertext: resolvedGrant.refreshTokenCiphertext,
+      scopes: resolvedGrant.scopes,
+    });
+    if (written.status === "written") {
+      return written.token;
+    }
+  }
+
+  throw new Error("Failed to store Google OAuth token: concurrent update.");
+}
+
+function isUsableStoredGrant(
+  token: GoogleOAuthTokenRecord | null,
+): token is GoogleOAuthTokenRecord {
+  if (
+    !token ||
+    token.revokedAt ||
+    token.refreshTokenCiphertext === "revoked"
+  ) {
+    return false;
+  }
+
+  try {
+    decryptSecret(token.refreshTokenCiphertext);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function createOwnerSession(input: {
@@ -230,38 +269,6 @@ async function createOwnerSession(input: {
     expiresAt: new Date(Date.now() + OWNER_SESSION_TTL_MS).toISOString(),
   });
   return sessionToken;
-}
-
-async function resolveRefreshTokenCiphertext(input: {
-  purpose: GoogleOAuthPurpose;
-  googleIdentityId: string;
-  refreshToken: string | null;
-}): Promise<string | null> {
-  if (input.refreshToken) {
-    return encryptSecret(input.refreshToken);
-  }
-
-  if (input.purpose !== "setup") {
-    return null;
-  }
-
-  const existing = await findGoogleOAuthTokenByIdentity(input.googleIdentityId);
-  if (
-    !existing ||
-    existing.revokedAt ||
-    existing.refreshTokenCiphertext === "revoked" ||
-    existing.googleIdentityId !== input.googleIdentityId
-  ) {
-    return null;
-  }
-
-  try {
-    decryptSecret(existing.refreshTokenCiphertext);
-  } catch {
-    return null;
-  }
-
-  return existing.refreshTokenCiphertext;
 }
 
 async function safeRevoke(refreshToken: string | null): Promise<void> {

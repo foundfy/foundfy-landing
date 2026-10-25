@@ -1,5 +1,4 @@
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
-import { GOOGLE_OAUTH_SCOPE_STRING } from "./config";
 import { OAuthStateError, type GoogleIdentityRecord, type GoogleOAuthTokenRecord, type GscPropertyConnectionRecord, type GscPropertyType, type ObserveOwnerRecord, type OAuthStateRecord, type OwnerSessionRecord } from "./types";
 
 type GoogleIdentityRow = {
@@ -186,38 +185,69 @@ export async function upsertGoogleIdentity(input: {
   return mapIdentity(data as GoogleIdentityRow);
 }
 
-export async function upsertGoogleOAuthToken(input: {
+export type GoogleOAuthTokenWriteResult =
+  | { status: "written"; token: GoogleOAuthTokenRecord }
+  | { status: "conflict" };
+
+export async function writeGoogleOAuthTokenIfUnchanged(input: {
   googleIdentityId: string;
+  expectedScopes: string | null;
+  expectedRefreshTokenCiphertext: string | null;
   encryptionKeyId: string;
   refreshTokenCiphertext: string;
-  scopes?: string;
-}): Promise<GoogleOAuthTokenRecord> {
+  scopes: string;
+}): Promise<GoogleOAuthTokenWriteResult> {
   const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
+  const nextRow = {
+    encryption_key_id: input.encryptionKeyId,
+    refresh_token_ciphertext: input.refreshTokenCiphertext,
+    scopes: input.scopes,
+    updated_at: now,
+    revoked_at: null,
+  };
 
-  const { data, error } = await supabase
-    .from("google_oauth_tokens")
-    .upsert(
-      {
+  if (input.expectedRefreshTokenCiphertext === null) {
+    const { data, error } = await supabase
+      .from("google_oauth_tokens")
+      .insert({
         google_identity_id: input.googleIdentityId,
-        encryption_key_id: input.encryptionKeyId,
-        refresh_token_ciphertext: input.refreshTokenCiphertext,
-        scopes: input.scopes ?? GOOGLE_OAUTH_SCOPE_STRING,
-        updated_at: now,
-        revoked_at: null,
-      },
-      { onConflict: "google_identity_id" },
-    )
+        ...nextRow,
+      })
+      .select(
+        "id, google_identity_id, encryption_key_id, refresh_token_ciphertext, scopes, revoked_at",
+      )
+      .maybeSingle();
+
+    if (error?.code === "23505") {
+      return { status: "conflict" };
+    }
+    if (error || !data) {
+      throw new Error(`Failed to store Google OAuth token: ${error?.message ?? "unknown error"}`);
+    }
+    return { status: "written", token: mapToken(data as GoogleOAuthTokenRow) };
+  }
+
+  const query = supabase
+    .from("google_oauth_tokens")
+    .update(nextRow)
+    .eq("google_identity_id", input.googleIdentityId)
+    .eq("refresh_token_ciphertext", input.expectedRefreshTokenCiphertext)
+    .eq("scopes", input.expectedScopes ?? "");
+
+  const { data, error } = await query
     .select(
       "id, google_identity_id, encryption_key_id, refresh_token_ciphertext, scopes, revoked_at",
     )
     .maybeSingle();
 
-  if (error || !data) {
-    throw new Error(`Failed to store Google OAuth token: ${error?.message ?? "unknown error"}`);
+  if (error) {
+    throw new Error(`Failed to store Google OAuth token: ${error.message}`);
   }
-
-  return mapToken(data as GoogleOAuthTokenRow);
+  if (!data) {
+    return { status: "conflict" };
+  }
+  return { status: "written", token: mapToken(data as GoogleOAuthTokenRow) };
 }
 
 export async function findActiveObserveOwner(

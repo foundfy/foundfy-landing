@@ -32,7 +32,7 @@ describe("Google OAuth start URL", () => {
     expect(url.searchParams.get("scope")).toBe(GOOGLE_OAUTH_SCOPE_STRING);
     expect(url.searchParams.get("access_type")).toBe("offline");
     expect(url.searchParams.get("prompt")).toBe("consent");
-    expect(url.searchParams.get("include_granted_scopes")).toBe("false");
+    expect(url.searchParams.get("include_granted_scopes")).toBe("true");
     expect(url.searchParams.get("state")).toBe(state);
     expect(url.searchParams.get("scope")?.split(" ")).not.toContain(
       "https://www.googleapis.com/auth/webmasters",
@@ -57,6 +57,24 @@ describe("Google OAuth start URL", () => {
     expect(scopes).not.toContain("https://www.googleapis.com/auth/siteverification");
     expect(url.searchParams.get("include_granted_scopes")).toBe("true");
     expect(url.searchParams.get("prompt")).toBe("consent");
+  });
+
+  it("uses combined-authorization reconnect semantics without requesting setup scopes", () => {
+    process.env.GOOGLE_CLIENT_ID = "test-client-id";
+    const url = new URL(
+      buildGoogleAuthorizationUrl({
+        requestUrl: "http://localhost:3000/api/websites/abc/observe/connect",
+        state: "state",
+        includeGrantedScopes: true,
+      }),
+    );
+
+    expect(url.searchParams.get("scope")).toBe(GOOGLE_OAUTH_SCOPE_STRING);
+    expect(url.searchParams.get("include_granted_scopes")).toBe("true");
+    expect(url.searchParams.get("scope")?.split(" ")).not.toContain(
+      "https://www.googleapis.com/auth/webmasters",
+    );
+    expect(url.searchParams.get("scope")).not.toContain("siteverification");
   });
 
   it("strips wrapping newlines from the Google client id", () => {

@@ -17,8 +17,10 @@ export function buildGoogleAuthorizationUrl(input: {
   requestUrl: string;
   state: string;
   purpose?: GoogleOAuthPurpose;
+  includeGrantedScopes?: boolean;
 }): string {
   const purpose = input.purpose ?? "connect";
+  const includeGrantedScopes = input.includeGrantedScopes ?? true;
   const url = new URL(GOOGLE_OAUTH_AUTHORIZATION_URL);
   url.searchParams.set("client_id", getGoogleClientId());
   url.searchParams.set("redirect_uri", getOAuthRedirectUri(input.requestUrl));
@@ -29,7 +31,7 @@ export function buildGoogleAuthorizationUrl(input: {
   );
   url.searchParams.set("access_type", "offline");
   url.searchParams.set("prompt", "consent");
-  url.searchParams.set("include_granted_scopes", purpose === "setup" ? "true" : "false");
+  url.searchParams.set("include_granted_scopes", includeGrantedScopes ? "true" : "false");
   url.searchParams.set("state", input.state);
   if (purpose === "setup") {
     const requested = url.searchParams.get("scope") ?? "";
