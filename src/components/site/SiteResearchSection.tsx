@@ -29,12 +29,20 @@ import {
   RESEARCH_STALE_COPY,
   RESEARCH_TEST_DATA_COPY,
   RESEARCH_TRUNCATED_COPY,
+  RESEARCH_VOLUME_HELP_COPY,
   RESEARCH_VOLUME_LABEL,
   currentGscSampleCopy,
   formatEstimatedMonthlySearches,
   formatResearchRetrievedAt,
 } from "@/lib/research/display";
-import { INSPECT_CTA_LABEL } from "@/lib/decisions/inspect-display";
+import {
+  INSPECT_CTA_LABEL,
+  INSPECT_EVIDENCE_LABEL,
+  INSPECT_NEXT_REVIEW_LABEL,
+  INSPECT_OPPORTUNITY_LABEL,
+  INSPECT_PAGES_LABEL,
+  INSPECT_STALE_NEXT_STEP_COPY,
+} from "@/lib/decisions/inspect-display";
 import type { ResearchIdeaView, ResearchOwnerView, ResearchRunView } from "@/lib/research/types";
 import SiteObserveIdeaPanel from "./SiteObserveIdeaPanel";
 import styles from "./SitePageView.module.css";
@@ -532,17 +540,48 @@ function ResearchRunEvidence(input: {
                   ) : (
                     <p className={styles.opportunityMetrics}>{RESEARCH_VOLUME_LABEL}</p>
                   )}
+                  <p className={styles.sectionMeta}>{RESEARCH_VOLUME_HELP_COPY}</p>
                   <p className={styles.understandingCopy}>
                     {currentGscSampleCopy(idea.currentGscSampleStatus)}
                   </p>
                   {idea.inspection ? (
                     <div className={styles.understandingBlock}>
-                      <p className={styles.understandingCopy}>{idea.inspection.resultCopy}</p>
-                      <p className={styles.sectionMeta}>{idea.inspection.gscCopy}</p>
-                      {idea.inspection.crawlBoundedCopy ? (
-                        <p className={styles.sectionMeta}>{idea.inspection.crawlBoundedCopy}</p>
-                      ) : null}
-                      <p className={styles.sectionMeta}>{idea.inspection.nextStepCopy}</p>
+                      <div className={styles.decisionWhyBlock}>
+                        <p className={styles.decisionWhyLabel}>{INSPECT_OPPORTUNITY_LABEL}</p>
+                        <p className={styles.understandingCopy}>
+                          {idea.inspection.opportunityCopy}
+                        </p>
+                      </div>
+                      <div className={styles.decisionWhyBlock}>
+                        <p className={styles.decisionWhyLabel}>{INSPECT_PAGES_LABEL}</p>
+                        <p className={styles.understandingCopy}>
+                          {idea.inspection.pageRelationshipCopy}
+                        </p>
+                        {idea.inspection.pageUrl ? (
+                          <p className={styles.opportunityPage}>
+                            <a className={styles.textLink} href={idea.inspection.pageUrl}>
+                              {idea.inspection.pageTitle ?? idea.inspection.pageUrl}
+                            </a>
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className={styles.decisionWhyBlock}>
+                        <p className={styles.decisionWhyLabel}>{INSPECT_EVIDENCE_LABEL}</p>
+                        <p className={styles.understandingCopy}>{idea.inspection.evidenceCopy}</p>
+                        <p className={styles.sectionMeta}>{idea.inspection.gscCopy}</p>
+                        {idea.inspection.limitationCopy ? (
+                          <p className={styles.sectionMeta}>{idea.inspection.limitationCopy}</p>
+                        ) : null}
+                        <p className={styles.sectionMeta}>{idea.inspection.cannotConcludeCopy}</p>
+                      </div>
+                      <div className={styles.decisionWhyBlock}>
+                        <p className={styles.decisionWhyLabel}>{INSPECT_NEXT_REVIEW_LABEL}</p>
+                        <p className={styles.sectionMeta}>
+                          {idea.inspection.current
+                            ? idea.inspection.nextStepCopy
+                            : INSPECT_STALE_NEXT_STEP_COPY}
+                        </p>
+                      </div>
                     </div>
                   ) : null}
                   {idea.canInspect ? (

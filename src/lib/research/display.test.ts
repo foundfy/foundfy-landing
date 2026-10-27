@@ -15,6 +15,8 @@ import {
   RESEARCH_NO_SAVED_EVIDENCE_COPY,
   RESEARCH_TEST_DATA_COPY,
   RESEARCH_TRUNCATED_COPY,
+  RESEARCH_VOLUME_HELP_COPY,
+  RESEARCH_VOLUME_LABEL,
   hasPersistedResearchEvidence,
   currentGscSampleCopy,
   formatEstimatedMonthlySearches,
@@ -36,6 +38,11 @@ describe("RESEARCH wording", () => {
     expect(formatEstimatedMonthlySearches(1200, "sandbox")).toBe("1,200 (test data)");
     expect(formatEstimatedMonthlySearches(1200, "live")).toBe("1,200");
     expect(formatEstimatedMonthlySearches(null, "live")).toBeNull();
+    expect(RESEARCH_VOLUME_LABEL).toBe("Estimated monthly searches");
+    expect(RESEARCH_VOLUME_HELP_COPY).toBe(
+      "External estimate. This is not Google Search Console impressions.",
+    );
+    expect(RESEARCH_VOLUME_HELP_COPY.toLowerCase()).not.toContain("impressions from google");
     expect(RESEARCH_TEST_DATA_COPY).toMatch(/not real market demand/);
     expect(RESEARCH_TRUNCATED_COPY).toMatch(/bounded set of Google Search data/);
     expect(RESEARCH_INTERRUPTED_COPY).toBe("This research run was interrupted.");

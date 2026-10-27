@@ -1,3 +1,4 @@
+import { withInspectionCurrency } from "@/lib/decisions/inspect-display";
 import { listInspectionsForResearchIdeas } from "@/lib/decisions/inspect";
 import {
   listCompletedSearchSyncsForWebsite,
@@ -5,6 +6,7 @@ import {
 } from "@/lib/gsc/db-search";
 import { requireObserveOwner } from "@/lib/gsc/observe";
 import { findLatestConfirmedSiteModelForWebsite } from "@/lib/site-model/repository";
+import { findLatestUsableCrawlRun } from "@/lib/websites/repository";
 import { researchReadEnvironment } from "./config";
 import {
   isResearchTestData,
@@ -64,25 +66,35 @@ function toIdeaViews(input: {
   staleReasons: ResearchRunView["staleReasons"];
   queryKeys: Set<string> | null;
   inspections: Map<string, NonNullable<ResearchIdeaView["inspection"]>>;
+  latestCrawlId: string | null;
 }): ResearchIdeaView[] {
-  return input.records.map((idea) => ({
-    id: idea.id,
-    runId: idea.runId,
-    keyword: idea.keyword,
-    estimatedMonthlySearches: idea.estimatedMonthlySearches,
-    seedOffering: idea.seedOffering,
-    languageCode: idea.languageCode,
-    countryKey: input.run.countryKey,
-    countryName: input.run.countryName,
-    retrievedAt: idea.createdAt,
-    initialGscSampleStatus: idea.initialGscSampleStatus,
-    currentGscSampleStatus: currentGscSampleStatus({
+  const researchCurrent = input.staleReasons.length === 0 && input.run.status === "completed";
+  return input.records.map((idea) => {
+    const inspection = input.inspections.get(idea.id) ?? null;
+    return {
+      id: idea.id,
+      runId: idea.runId,
       keyword: idea.keyword,
-      queryKeys: input.queryKeys,
-    }),
-    canInspect: input.staleReasons.length === 0 && input.run.status === "completed",
-    inspection: input.inspections.get(idea.id) ?? null,
-  }));
+      estimatedMonthlySearches: idea.estimatedMonthlySearches,
+      seedOffering: idea.seedOffering,
+      languageCode: idea.languageCode,
+      countryKey: input.run.countryKey,
+      countryName: input.run.countryName,
+      retrievedAt: idea.createdAt,
+      initialGscSampleStatus: idea.initialGscSampleStatus,
+      currentGscSampleStatus: currentGscSampleStatus({
+        keyword: idea.keyword,
+        queryKeys: input.queryKeys,
+      }),
+      canInspect: researchCurrent,
+      inspection: inspection
+        ? withInspectionCurrency(inspection, {
+            researchCurrent,
+            latestCrawlId: input.latestCrawlId,
+          })
+        : null,
+    };
+  });
 }
 
 function toRunView(input: {
@@ -195,6 +207,7 @@ export async function loadResearchForOwner(input: {
     websiteId: input.websiteId,
     ideaIds: [...recordsByRunId.values()].flatMap((records) => records.map((idea) => idea.id)),
   });
+  const latestCrawl = await findLatestUsableCrawlRun(input.websiteId);
 
   const toView = (run: ResearchRunRecord): ResearchRunView => {
     const currentFingerprintRun = currentCompletedRunForFingerprint({
@@ -215,6 +228,7 @@ export async function loadResearchForOwner(input: {
         staleReasons,
         queryKeys: gsc.queryKeys,
         inspections,
+        latestCrawlId: latestCrawl?.id ?? null,
       }),
       staleReasons,
       currentGscQueriesTruncated: gsc.truncated,

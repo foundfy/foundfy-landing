@@ -21,6 +21,7 @@ const listInspectPagesForCrawlMock = vi.fn();
 const findCompletedInspectRunMock = vi.fn();
 const loadInspectDecisionMock = vi.fn();
 const persistResearchInspectDecisionMock = vi.fn();
+const listCompletedInspectRunsForIdeasMock = vi.fn();
 
 vi.mock("@/lib/gsc/observe", () => ({
   requireObserveOwner: (...args: unknown[]) => requireObserveOwnerMock(...args),
@@ -54,10 +55,11 @@ vi.mock("./inspect-db", () => ({
   findCompletedInspectRun: (...args: unknown[]) => findCompletedInspectRunMock(...args),
   loadInspectDecision: (...args: unknown[]) => loadInspectDecisionMock(...args),
   persistResearchInspectDecision: (...args: unknown[]) => persistResearchInspectDecisionMock(...args),
-  listCompletedInspectRunsForIdeas: vi.fn(),
+  listCompletedInspectRunsForIdeas: (...args: unknown[]) =>
+    listCompletedInspectRunsForIdeasMock(...args),
 }));
 
-import { inspectRelatedDemandForOwner } from "./inspect";
+import { inspectRelatedDemandForOwner, listInspectionsForResearchIdeas } from "./inspect";
 
 const WEBSITE_ID = "388c5109-fa75-4ba7-af55-f7c95a69122b";
 const IDEA_ID = "477889f4-ce3e-401b-88f6-57fd25e30df2";
@@ -789,5 +791,181 @@ describe("inspectRelatedDemandForOwner", () => {
       websiteId: WEBSITE_ID,
       fingerprint: "fp",
     });
+  });
+});
+
+describe("listInspectionsForResearchIdeas", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("uses the completed T1 selected for an idea instead of an earlier T0 payload", async () => {
+    listCompletedInspectRunsForIdeasMock.mockResolvedValue([
+      {
+        id: "inspect-t1",
+        websiteId: WEBSITE_ID,
+        siteModelId: MODEL_ID,
+        crawlRunId: CRAWL_ID,
+        gscSearchSyncId: "gsc-original",
+        engineVersion: "decision_research_inspect_v0",
+        status: "completed",
+        goalId: null,
+        goalSnapshot: {},
+        gscTruncated: false,
+        errorCode: null,
+        createdAt: "2026-10-16T01:00:00.000Z",
+        completedAt: "2026-10-16T01:00:00.000Z",
+        researchIdeaId: IDEA_ID,
+        targetedObservationId: "obs-1",
+      },
+    ]);
+    loadInspectDecisionMock.mockResolvedValue(
+      storedDecision(
+        {
+          title: "Check whether current pages cover “como pintar en seda”",
+          explanation: "t1",
+          inspectionState: "clear_existing_page_evidence",
+          pageId: "page-t1",
+          pageUrl: "https://www.dbhobby.com/es/pintar-en-seda",
+          evidenceRefs: [
+            {
+              kind: "research_idea",
+              recordId: IDEA_ID,
+              snapshot: {
+                keyword: "como pintar en seda",
+                gscCopy: "This related search is not present in the current Google Search sample.",
+              },
+            },
+            { kind: "gsc_sync", recordId: "gsc-original", snapshot: {} },
+            { kind: "crawl_run", recordId: CRAWL_ID, snapshot: { bounded: true } },
+            { kind: "targeted_observation", recordId: "obs-1", snapshot: {} },
+            {
+              kind: "page",
+              recordId: "page-t1",
+              snapshot: {
+                pageUrl: "https://www.dbhobby.com/es/pintar-en-seda",
+                title: "Pintar en seda",
+              },
+            },
+          ],
+        },
+        "inspect-t1",
+      ),
+    );
+
+    const views = await listInspectionsForResearchIdeas({
+      websiteId: WEBSITE_ID,
+      ideaIds: [IDEA_ID],
+    });
+    const view = views.get(IDEA_ID);
+    expect(view?.runId).toBe("inspect-t1");
+    expect(view?.state).toBe("clear_existing_page_evidence");
+    expect(view?.targetedObservationId).toBe("obs-1");
+    expect(view?.gscCopy).toBe(
+      "This related search is not present in the current Google Search sample.",
+    );
+    expect(loadInspectDecisionMock).toHaveBeenCalledWith("inspect-t1");
+    expect(loadInspectDecisionMock).not.toHaveBeenCalledWith("inspect-t0");
+  });
+
+  it("does not masquerade a completed run with no decision as an interpretation", async () => {
+    listCompletedInspectRunsForIdeasMock.mockResolvedValue([
+      {
+        id: "inspect-incomplete",
+        websiteId: WEBSITE_ID,
+        siteModelId: MODEL_ID,
+        crawlRunId: CRAWL_ID,
+        gscSearchSyncId: null,
+        engineVersion: "decision_research_inspect_v0",
+        status: "completed",
+        goalId: null,
+        goalSnapshot: {},
+        gscTruncated: false,
+        errorCode: null,
+        createdAt: "2026-10-16T00:00:00.000Z",
+        completedAt: "2026-10-16T00:00:00.000Z",
+        researchIdeaId: IDEA_ID,
+      },
+    ]);
+    loadInspectDecisionMock.mockResolvedValue(null);
+
+    const views = await listInspectionsForResearchIdeas({
+      websiteId: WEBSITE_ID,
+      ideaIds: [IDEA_ID],
+    });
+    expect(views.size).toBe(0);
+  });
+
+  it("keeps inspections attached to their own research ideas", async () => {
+    const ideaB = "idea-b";
+    listCompletedInspectRunsForIdeasMock.mockResolvedValue([
+      {
+        id: "inspect-a",
+        websiteId: WEBSITE_ID,
+        siteModelId: MODEL_ID,
+        crawlRunId: CRAWL_ID,
+        gscSearchSyncId: null,
+        engineVersion: "decision_research_inspect_v0",
+        status: "completed",
+        goalId: null,
+        goalSnapshot: {},
+        gscTruncated: false,
+        errorCode: null,
+        createdAt: "2026-10-16T00:00:00.000Z",
+        completedAt: "2026-10-16T00:00:00.000Z",
+        researchIdeaId: IDEA_ID,
+      },
+      {
+        id: "inspect-b",
+        websiteId: WEBSITE_ID,
+        siteModelId: MODEL_ID,
+        crawlRunId: CRAWL_ID,
+        gscSearchSyncId: null,
+        engineVersion: "decision_research_inspect_v0",
+        status: "completed",
+        goalId: null,
+        goalSnapshot: {},
+        gscTruncated: false,
+        errorCode: null,
+        createdAt: "2026-10-16T00:00:00.000Z",
+        completedAt: "2026-10-16T00:00:00.000Z",
+        researchIdeaId: ideaB,
+      },
+    ]);
+    loadInspectDecisionMock.mockImplementation(async (runId: string) => {
+      if (runId === "inspect-a") {
+        return storedDecision(
+          {
+            title: "Check whether current pages cover “como pintar en seda”",
+            explanation: "a",
+            evidenceRefs: [
+              { kind: "research_idea", recordId: IDEA_ID, snapshot: { keyword: "como pintar en seda" } },
+              { kind: "crawl_run", recordId: CRAWL_ID, snapshot: { bounded: false } },
+            ],
+          },
+          "inspect-a",
+        );
+      }
+      return storedDecision(
+        {
+          title: "Check whether current pages cover “gutta para seda”",
+          explanation: "b",
+          evidenceRefs: [
+            { kind: "research_idea", recordId: ideaB, snapshot: { keyword: "gutta para seda" } },
+            { kind: "crawl_run", recordId: CRAWL_ID, snapshot: { bounded: false } },
+          ],
+        },
+        "inspect-b",
+      );
+    });
+
+    const views = await listInspectionsForResearchIdeas({
+      websiteId: WEBSITE_ID,
+      ideaIds: [IDEA_ID, ideaB],
+    });
+    expect(views.get(IDEA_ID)?.researchIdeaId).toBe(IDEA_ID);
+    expect(views.get(ideaB)?.researchIdeaId).toBe(ideaB);
+    expect(views.get(IDEA_ID)?.opportunityCopy).toContain("como pintar en seda");
+    expect(views.get(ideaB)?.opportunityCopy).toContain("gutta para seda");
   });
 });
