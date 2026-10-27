@@ -574,6 +574,81 @@ describe("Release C v0 read-time inspection interpretation", () => {
     expect(view.pageTitle).toBeNull();
   });
 
+  it("does not fall back to decision.pageUrl when the matching page ref has no snapshot URL", () => {
+    const view = inspectionViewFromDecision(
+      inspectRecord({
+        inspectionState: "clear_existing_page_evidence",
+        pageId: "page-1",
+        pageUrl: "https://unrelated.example/other",
+        evidenceRefs: [
+          {
+            kind: "research_idea",
+            recordId: "idea-1",
+            snapshot: { keyword: "como pintar en seda", gscStatus: "gsc_unavailable" },
+          },
+          {
+            kind: "page",
+            recordId: "page-1",
+            snapshot: { title: "Pintura en seda" },
+          },
+        ],
+      }),
+    );
+    expect(view.pageRelationship).toBe("clear_existing_page");
+    expect(view.pageUrl).toBeNull();
+    expect(view.pageTitle).toBe("Pintura en seda");
+  });
+
+  it("uses the matching snapshot URL when decision.pageUrl agrees", () => {
+    const view = inspectionViewFromDecision(
+      inspectRecord({
+        inspectionState: "clear_existing_page_evidence",
+        pageId: "page-1",
+        pageUrl: "https://www.dbhobby.com/es/seda",
+        evidenceRefs: [
+          {
+            kind: "research_idea",
+            recordId: "idea-1",
+            snapshot: { keyword: "como pintar en seda", gscStatus: "gsc_unavailable" },
+          },
+          {
+            kind: "page",
+            recordId: "page-1",
+            snapshot: { pageUrl: "https://www.dbhobby.com/es/seda", title: "Pintura en seda" },
+          },
+        ],
+      }),
+    );
+    expect(view.pageRelationship).toBe("clear_existing_page");
+    expect(view.pageUrl).toBe("https://www.dbhobby.com/es/seda");
+    expect(view.pageTitle).toBe("Pintura en seda");
+  });
+
+  it("uses the matching snapshot URL when decision.pageUrl is missing", () => {
+    const view = inspectionViewFromDecision(
+      inspectRecord({
+        inspectionState: "clear_existing_page_evidence",
+        pageId: "page-1",
+        pageUrl: null,
+        evidenceRefs: [
+          {
+            kind: "research_idea",
+            recordId: "idea-1",
+            snapshot: { keyword: "como pintar en seda", gscStatus: "gsc_unavailable" },
+          },
+          {
+            kind: "page",
+            recordId: "page-1",
+            snapshot: { pageUrl: "https://www.dbhobby.com/es/seda", title: "Pintura en seda" },
+          },
+        ],
+      }),
+    );
+    expect(view.pageRelationship).toBe("clear_existing_page");
+    expect(view.pageUrl).toBe("https://www.dbhobby.com/es/seda");
+    expect(view.pageTitle).toBe("Pintura en seda");
+  });
+
   it("does not navigate javascript URLs even when a clear match exists", () => {
     const view = inspectionViewFromDecision(
       inspectRecord({
@@ -596,5 +671,6 @@ describe("Release C v0 read-time inspection interpretation", () => {
     );
     expect(view.pageRelationship).toBe("clear_existing_page");
     expect(view.pageUrl).toBeNull();
+    expect(view.pageTitle).toBe("Unsafe");
   });
 });

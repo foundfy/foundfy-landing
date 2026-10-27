@@ -261,20 +261,20 @@ function supportedInspectPage(decision: ResearchInspectDecisionRecord): {
     return { pageUrl: null, pageTitle: null };
   }
 
+  const pageTitle = snapshotString(pageRef.snapshot.title);
   const fromSnapshot = snapshotString(pageRef.snapshot.pageUrl);
-  const fromDecision = snapshotString(decision.pageUrl);
-  if (fromSnapshot && fromDecision && fromSnapshot !== fromDecision) {
-    return { pageUrl: null, pageTitle: snapshotString(pageRef.snapshot.title) };
+  if (!fromSnapshot || !isNavigableHttpUrl(fromSnapshot)) {
+    return { pageUrl: null, pageTitle };
   }
 
-  const pageUrl = fromSnapshot ?? fromDecision;
-  if (!pageUrl || !isNavigableHttpUrl(pageUrl)) {
-    return { pageUrl: null, pageTitle: snapshotString(pageRef.snapshot.title) };
+  const fromDecision = snapshotString(decision.pageUrl);
+  if (fromDecision && fromDecision !== fromSnapshot) {
+    return { pageUrl: null, pageTitle };
   }
 
   return {
-    pageUrl,
-    pageTitle: snapshotString(pageRef.snapshot.title),
+    pageUrl: fromSnapshot,
+    pageTitle,
   };
 }
 
