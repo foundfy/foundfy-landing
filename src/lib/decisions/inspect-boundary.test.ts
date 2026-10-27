@@ -46,7 +46,13 @@ describe("RESEARCH inspect engine isolation and side-effect boundary", () => {
     expect(read("./inspect.ts")).not.toMatch(/insertInspectDecisionRun|completeInspectDecisionRun|failDecisionRun/);
     expect(read("./inspect.ts")).not.toMatch(/rank:\s*1|priorityBand:\s*"next"|inspectScoring/);
     expect(read("./inspect-display.ts")).toMatch(/decision\.inspectionState/);
+    expect(read("./inspect-db.ts")).toMatch(/export async function listCompletedInspectRunsForIdeas/);
+    expect(read("./inspect-db.ts")).toMatch(/latestByIdea\.has\(ideaId\)/);
+    expect(read("./inspect.ts")).toMatch(/views\.set\(run\.researchIdeaId, inspectionViewFromDecision\(decision\)\)/);
     expect(read("./inspect-display.ts")).not.toMatch(/scoring\.resultState|DECISION_BAND_LABELS|matchingConfidenceCopy/);
+    expect(read("./inspect-display.ts")).not.toMatch(/issueImportance|searchDemand|supportedActionType/);
+    expect(read("../../components/site/SiteResearchSection.tsx")).not.toContain("SiteDecisionsSection");
+    expect(read("../../components/site/SiteResearchSection.tsx")).toContain("SiteObserveIdeaPanel");
     expect(read("./inspect.ts")).not.toMatch(/from \"@\/lib\/goals/);
   });
 

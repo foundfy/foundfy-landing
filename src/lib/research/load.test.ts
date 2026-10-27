@@ -32,10 +32,15 @@ vi.mock("./repository", () => ({
 }));
 
 const listInspectionsForResearchIdeasMock = vi.fn();
+const findLatestUsableCrawlRunMock = vi.fn();
 
 vi.mock("@/lib/decisions/inspect", () => ({
   listInspectionsForResearchIdeas: (...args: unknown[]) =>
     listInspectionsForResearchIdeasMock(...args),
+}));
+
+vi.mock("@/lib/websites/repository", () => ({
+  findLatestUsableCrawlRun: (...args: unknown[]) => findLatestUsableCrawlRunMock(...args),
 }));
 
 import { RESEARCH_REUSE_WINDOW_MS } from "./config";
@@ -102,6 +107,7 @@ describe("loadResearchForOwner", () => {
     ]);
     listCompletedSearchSyncsForWebsiteMock.mockResolvedValue([]);
     listInspectionsForResearchIdeasMock.mockResolvedValue(new Map());
+    findLatestUsableCrawlRunMock.mockResolvedValue({ id: "crawl-1", pagesCrawled: 10 });
   });
 
   it("recomputes current GSC status without treating a new sync as research staleness", async () => {
@@ -135,13 +141,31 @@ describe("loadResearchForOwner", () => {
           {
             decisionId: "d-1",
             runId: "inspect-1",
+            websiteId: "site-1",
+            researchIdeaId: "idea-1",
+            crawlRunId: "crawl-1",
+            targetedObservationId: null,
             state: "no_obvious_match_in_current_crawl",
+            pageRelationship: "none_in_crawl_sample",
+            opportunityCopy: "Check whether current pages cover “fixture related term one”",
+            pageRelationshipCopy:
+              "Foundfy did not find an obvious match in the current crawl sample.",
+            pageUrl: null,
+            pageTitle: null,
             resultCopy: "Foundfy did not find an obvious match in the current crawl sample.",
+            evidenceCopy:
+              "Foundfy compared this search with fetched pages in the current crawl sample.",
+            limitationCopy:
+              "This inspection used the current crawl sample: 10 pages fetched from 347 discovered URLs.",
+            cannotConcludeCopy:
+              "This check covers fetched pages in the current crawl sample, not the whole site. Foundfy is not recommending that you add content.",
             gscCopy: "Google Search evidence is not available for this inspection.",
+            gscAvailable: false,
             crawlBounded: true,
             crawlBoundedCopy:
               "This inspection used the current crawl sample: 10 pages fetched from 347 discovered URLs.",
-            nextStepCopy: "Review current pages and evidence. Foundfy is not recommending a change yet.",
+            nextStepCopy: "Review the current crawl sample. Foundfy is not recommending a new page.",
+            current: true,
           },
         ],
       ]),
@@ -149,10 +173,207 @@ describe("loadResearchForOwner", () => {
     const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
     expect(view.run?.ideas[0]?.inspection?.state).toBe("no_obvious_match_in_current_crawl");
     expect(view.run?.ideas[0]?.inspection?.gscCopy).toMatch(/not available/);
+    expect(view.run?.ideas[0]?.inspection?.current).toBe(true);
     expect(view.run?.ideas[0]?.canInspect).toBe(true);
     expect(listInspectionsForResearchIdeasMock).toHaveBeenCalledWith({
       websiteId: "site-1",
       ideaIds: ["idea-1"],
+    });
+  });
+
+  it("does not treat a newer usable crawl as a current inspection recommendation", async () => {
+    findLatestUsableCrawlRunMock.mockResolvedValue({ id: "crawl-2", pagesCrawled: 12 });
+    listInspectionsForResearchIdeasMock.mockResolvedValue(
+      new Map([
+        [
+          "idea-1",
+          {
+            decisionId: "d-1",
+            runId: "inspect-1",
+            websiteId: "site-1",
+            researchIdeaId: "idea-1",
+            crawlRunId: "crawl-1",
+            targetedObservationId: null,
+            state: "no_obvious_match_in_current_crawl",
+            pageRelationship: "none_in_crawl_sample",
+            opportunityCopy: "Check whether current pages cover “fixture related term one”",
+            pageRelationshipCopy: "Foundfy did not find an obvious match in the current crawl sample.",
+            pageUrl: null,
+            pageTitle: null,
+            resultCopy: "Foundfy did not find an obvious match in the current crawl sample.",
+            evidenceCopy: "Foundfy compared this search with fetched pages in the current crawl sample.",
+            limitationCopy: null,
+            cannotConcludeCopy: "not the whole site",
+            gscCopy: "Google Search evidence is not available for this inspection.",
+            gscAvailable: false,
+            crawlBounded: false,
+            crawlBoundedCopy: null,
+            nextStepCopy: "Review the current crawl sample. Foundfy is not recommending a new page.",
+            current: true,
+          },
+        ],
+      ]),
+    );
+
+    const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
+    expect(view.run?.ideas[0]?.inspection?.resultCopy).toMatch(/did not find an obvious match/);
+    expect(view.run?.ideas[0]?.inspection?.current).toBe(false);
+    expect(view.run?.ideas[0]?.canInspect).toBe(true);
+  });
+
+  it("does not treat offering-removed research as a current inspection recommendation", async () => {
+    findLatestConfirmedSiteModelForWebsiteMock.mockResolvedValue({
+      id: "model-1",
+      status: "confirmed",
+      understanding: { hostname: "example.com", languages: { htmlLangs: ["en"] } },
+      confirmed: {
+        confirmedAt: "2026-10-01T00:00:00.000Z",
+        offers: ["other offering"],
+      },
+    });
+    listInspectionsForResearchIdeasMock.mockResolvedValue(
+      new Map([
+        [
+          "idea-1",
+          {
+            decisionId: "d-1",
+            runId: "inspect-1",
+            websiteId: "site-1",
+            researchIdeaId: "idea-1",
+            crawlRunId: "crawl-1",
+            targetedObservationId: null,
+            state: "clear_existing_page_evidence",
+            pageRelationship: "clear_existing_page",
+            opportunityCopy: "Check whether current pages cover “fixture related term one”",
+            pageRelationshipCopy: "Foundfy found a current crawled page with clear text matching this related search.",
+            pageUrl: "https://www.example.com/guide",
+            pageTitle: "Guide",
+            resultCopy: "Foundfy found a current crawled page with clear text matching this related search.",
+            evidenceCopy: "Foundfy identified this page from crawled text.",
+            limitationCopy: null,
+            cannotConcludeCopy: "A text match does not mean this page needs optimization.",
+            gscCopy: "Google Search evidence is not available for this inspection.",
+            gscAvailable: false,
+            crawlBounded: false,
+            crawlBoundedCopy: null,
+            nextStepCopy: "Review whether this page adequately addresses what the searcher would expect.",
+            current: true,
+          },
+        ],
+      ]),
+    );
+
+    const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
+    expect(view.run?.staleReasons).toContain("offerings_changed");
+    expect(view.run?.ideas[0]?.canInspect).toBe(false);
+    expect(view.run?.ideas[0]?.inspection?.pageUrl).toBe("https://www.example.com/guide");
+    expect(view.run?.ideas[0]?.inspection?.current).toBe(false);
+  });
+
+  it("keeps inspections on their own ideas and does not rebase frozen GSC copy from a newer sync", async () => {
+    listResearchIdeasForRunMock.mockResolvedValue([
+      {
+        id: "idea-1",
+        runId: "run-1",
+        keyword: "fixture related term one",
+        estimatedMonthlySearches: 50,
+        seedOffering: "silk paint",
+        languageCode: "en",
+        createdAt: "2026-10-10T00:00:00.000Z",
+        initialGscSampleStatus: "not_in_current_gsc_sample",
+      },
+      {
+        id: "idea-2",
+        runId: "run-1",
+        keyword: "fixture related term two",
+        estimatedMonthlySearches: 40,
+        seedOffering: "silk paint",
+        languageCode: "en",
+        createdAt: "2026-10-10T00:00:00.000Z",
+        initialGscSampleStatus: "not_in_current_gsc_sample",
+      },
+    ]);
+    listCompletedSearchSyncsForWebsiteMock.mockResolvedValue([
+      { id: "sync-newer", queriesTruncated: false },
+    ]);
+    listEvidenceForSyncMock.mockResolvedValue([
+      { evidenceType: "query", queryText: "fixture related term one" },
+    ]);
+    listInspectionsForResearchIdeasMock.mockResolvedValue(
+      new Map([
+        [
+          "idea-1",
+          {
+            decisionId: "d-a",
+            runId: "inspect-a",
+            websiteId: "site-1",
+            researchIdeaId: "idea-1",
+            crawlRunId: "crawl-1",
+            targetedObservationId: "obs-1",
+            state: "clear_existing_page_evidence",
+            pageRelationship: "clear_existing_page",
+            opportunityCopy: "Check whether current pages cover “fixture related term one”",
+            pageRelationshipCopy: "Foundfy found a current crawled page with clear text matching this related search.",
+            pageUrl: "https://www.example.com/one",
+            pageTitle: "One",
+            resultCopy: "Foundfy found a current crawled page with clear text matching this related search.",
+            evidenceCopy: "Foundfy identified this page from crawled text.",
+            limitationCopy: null,
+            cannotConcludeCopy: "A text match does not mean this page needs optimization.",
+            gscCopy: "This related search is not present in the current Google Search sample.",
+            gscAvailable: true,
+            crawlBounded: false,
+            crawlBoundedCopy: null,
+            nextStepCopy: "Review whether this page adequately addresses what the searcher would expect.",
+            current: true,
+          },
+        ],
+        [
+          "idea-2",
+          {
+            decisionId: "d-b",
+            runId: "inspect-b",
+            websiteId: "site-1",
+            researchIdeaId: "idea-2",
+            crawlRunId: "crawl-1",
+            targetedObservationId: null,
+            state: "no_obvious_match_in_current_crawl",
+            pageRelationship: "none_in_crawl_sample",
+            opportunityCopy: "Check whether current pages cover “fixture related term two”",
+            pageRelationshipCopy: "Foundfy did not find an obvious match in the current crawl sample.",
+            pageUrl: null,
+            pageTitle: null,
+            resultCopy: "Foundfy did not find an obvious match in the current crawl sample.",
+            evidenceCopy: "Foundfy compared this search with fetched pages in the current crawl sample.",
+            limitationCopy: null,
+            cannotConcludeCopy: "not the whole site",
+            gscCopy: "Google Search evidence is not available for this inspection.",
+            gscAvailable: false,
+            crawlBounded: false,
+            crawlBoundedCopy: null,
+            nextStepCopy: "Review the current crawl sample. Foundfy is not recommending a new page.",
+            current: true,
+          },
+        ],
+      ]),
+    );
+
+    const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
+    expect(view.run?.ideas[0]?.id).toBe("idea-1");
+    expect(view.run?.ideas[0]?.inspection?.decisionId).toBe("d-a");
+    expect(view.run?.ideas[0]?.inspection?.pageUrl).toBe("https://www.example.com/one");
+    expect(view.run?.ideas[0]?.currentGscSampleStatus).toBe("in_current_gsc_sample");
+    expect(view.run?.ideas[0]?.inspection?.gscCopy).toBe(
+      "This related search is not present in the current Google Search sample.",
+    );
+    expect(view.run?.ideas[0]?.inspection?.current).toBe(true);
+    expect(view.run?.ideas[1]?.id).toBe("idea-2");
+    expect(view.run?.ideas[1]?.inspection?.decisionId).toBe("d-b");
+    expect(view.run?.ideas[1]?.inspection?.pageUrl).toBeNull();
+    expect(view.run?.ideas[1]?.inspection?.gscCopy).toMatch(/not available/);
+    expect(listInspectionsForResearchIdeasMock).toHaveBeenCalledWith({
+      websiteId: "site-1",
+      ideaIds: ["idea-1", "idea-2"],
     });
   });
 

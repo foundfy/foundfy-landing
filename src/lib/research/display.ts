@@ -22,6 +22,8 @@ export const RESEARCH_SECTION_COPY =
 export const RESEARCH_CTA_LABEL = "Research related demand";
 export const RESEARCH_TEST_DATA_COPY = "Test data — this is not real market demand.";
 export const RESEARCH_VOLUME_LABEL = "Estimated monthly searches";
+export const RESEARCH_VOLUME_HELP_COPY =
+  "External estimate. This is not Google Search Console impressions.";
 export const RESEARCH_SOURCE_OFFERING_LABEL = "Confirmed offering";
 export const RESEARCH_COUNTRY_LABEL = "Country";
 export const RESEARCH_LANGUAGE_LABEL = "Language";
