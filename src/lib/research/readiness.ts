@@ -11,6 +11,7 @@ import { selectResearchCountry } from "./countries";
 import { researchGate } from "./display";
 import { ResearchGateError } from "./errors";
 import { researchLanguageCandidates, selectResearchLanguages } from "./languages";
+import { isNoGscLiveSpendAllowed } from "./no-gsc-live-allowlist";
 import { selectResearchOfferings, validConfirmedOfferings } from "./offerings";
 import { FIXTURE_RESEARCH_COUNTRIES, FIXTURE_RESEARCH_LANGUAGES } from "./provider/fixture-metadata";
 import type {
@@ -58,6 +59,8 @@ function providerGate(env?: NodeJS.ProcessEnv): ResearchGate | null {
 export function evaluateResearchReadiness(input: {
   model: SiteModelRecord | null;
   hasCompletedGscSync: boolean;
+  websiteId?: string;
+  googleIdentityId?: string | null;
   htmlLangs?: string[];
   env?: NodeJS.ProcessEnv;
 }): ResearchReadinessView {
@@ -80,16 +83,31 @@ export function evaluateResearchReadiness(input: {
     gate = researchGate("no_valid_offering");
   } else if (languages.length === 0) {
     gate = researchGate("unsupported_language");
-  } else if (!input.hasCompletedGscSync) {
-    gate = researchGate("no_gsc_sync");
   } else {
     gate = providerGate(input.env);
+    if (
+      !gate &&
+      !input.hasCompletedGscSync &&
+      mode === "live" &&
+      isResearchLiveEnabled(input.env)
+    ) {
+      if (
+        !isNoGscLiveSpendAllowed({
+          websiteId: input.websiteId ?? "",
+          googleIdentityId: input.googleIdentityId,
+          env: input.env,
+        })
+      ) {
+        gate = researchGate("no_gsc_live_not_authorized");
+      }
+    }
   }
 
   return {
     gate,
     executionAvailable: gate == null && researchExecutionAvailable(input.env),
     surfaceVisible: researchSurfaceVisible(input.env),
+    hasCompletedGscSync: input.hasCompletedGscSync,
     providerMode: mode,
     requiresOfferingSelection: validOfferings.length > RESEARCH_MAX_OFFERINGS_PER_RUN,
     validOfferings,

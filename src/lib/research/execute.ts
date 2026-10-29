@@ -10,6 +10,8 @@ import {
 import { filterRelatedIdeas } from "./filter";
 import type { ResearchFilterReasonCounts } from "./filter-reasons";
 import { classifyGscSampleStatus } from "./gsc-join";
+import { assertNoGscLiveSpendAllowed } from "./no-gsc-live-allowlist";
+import { researchRunMayCallProvider } from "./query-keys";
 import {
   buildRequestPlan,
   findLedgerEntryByRequestKey,
@@ -118,10 +120,24 @@ export async function executeResearchLedger(input: {
   run: ResearchRunRecord;
   websiteId: string;
   hostname: string;
-  queryKeys: Set<string>;
+  queryKeys: Set<string> | null;
   provider: ResearchProvider;
+  ownerGoogleIdentityId?: string | null;
+  env?: NodeJS.ProcessEnv;
   store?: ResearchExecutionStore;
 }): Promise<void> {
+  if (
+    input.run.gscSyncId == null &&
+    input.provider.environment === "live" &&
+    researchRunMayCallProvider(input.run)
+  ) {
+    assertNoGscLiveSpendAllowed({
+      websiteId: input.websiteId,
+      googleIdentityId: input.ownerGoogleIdentityId,
+      env: input.env,
+    });
+  }
+
   const store = input.store ?? liveExecutionStore;
   const generation = input.run.executionGeneration;
   const startedAt = input.run.startedAt ?? new Date().toISOString();
@@ -201,6 +217,13 @@ export async function executeResearchLedger(input: {
       let failureCode: string | null = null;
 
       try {
+        if (input.run.gscSyncId == null && input.provider.environment === "live") {
+          assertNoGscLiveSpendAllowed({
+            websiteId: input.websiteId,
+            googleIdentityId: input.ownerGoogleIdentityId,
+            env: input.env,
+          });
+        }
         result = await input.provider.relatedKeywordIdeas({
           offering: current.seedOffering,
           locationCode: current.locationCode,

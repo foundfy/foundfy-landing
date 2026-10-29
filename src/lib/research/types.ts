@@ -38,6 +38,7 @@ export type ResearchRequestStatus = (typeof RESEARCH_REQUEST_STATUSES)[number];
 export const INITIAL_GSC_SAMPLE_STATUSES = [
   "in_current_gsc_sample",
   "not_in_current_gsc_sample",
+  "gsc_unavailable",
 ] as const;
 export type InitialGscSampleStatus = (typeof INITIAL_GSC_SAMPLE_STATUSES)[number];
 
@@ -225,6 +226,7 @@ export type ResearchGateCode =
   | "no_research_language"
   | "unsupported_language"
   | "no_gsc_sync"
+  | "no_gsc_live_not_authorized"
   | "provider_disabled"
   | "live_not_enabled"
   | "credentials_missing"
@@ -245,6 +247,7 @@ export type ResearchReadinessView = {
   gate: ResearchGate | null;
   executionAvailable: boolean;
   surfaceVisible: boolean;
+  hasCompletedGscSync: boolean;
   providerMode: ResearchProviderMode;
   requiresOfferingSelection: boolean;
   validOfferings: string[];

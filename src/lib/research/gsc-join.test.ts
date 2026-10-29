@@ -29,4 +29,17 @@ describe("RESEARCH GSC join", () => {
       }),
     ).toBe("gsc_unavailable");
   });
+
+  it("keeps null queryKeys distinct from an empty completed sample", () => {
+    expect(classifyGscSampleStatus("fixture related term", null)).toBe("gsc_unavailable");
+    expect(classifyGscSampleStatus("fixture related term", new Set())).toBe(
+      "not_in_current_gsc_sample",
+    );
+    expect(
+      currentGscSampleStatus({
+        keyword: "fixture related term",
+        queryKeys: new Set(),
+      }),
+    ).toBe("not_in_current_gsc_sample");
+  });
 });

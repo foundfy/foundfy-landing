@@ -94,7 +94,7 @@ describe("RESEARCH readiness", () => {
     expect(readiness.countries.some((country) => country.key === "ES")).toBe(true);
   });
 
-  it("fails closed without confirmed payload, offerings, languages, or GSC", () => {
+  it("fails closed without confirmed payload or offerings, but not solely for missing GSC", () => {
     expect(
       evaluateResearchReadiness({
         model: null,
@@ -123,12 +123,47 @@ describe("RESEARCH readiness", () => {
       }).gate?.code,
     ).toBe("no_valid_offering");
 
-    expect(
-      evaluateResearchReadiness({
-        model: model(),
-        hasCompletedGscSync: false,
-        env: { RESEARCH_PROVIDER_MODE: "fixture" },
-      }).gate?.code,
-    ).toBe("no_gsc_sync");
+    const fixtureNoGsc = evaluateResearchReadiness({
+      model: model(),
+      hasCompletedGscSync: false,
+      env: { RESEARCH_PROVIDER_MODE: "fixture" },
+    });
+    expect(fixtureNoGsc.gate).toBeNull();
+    expect(fixtureNoGsc.executionAvailable).toBe(true);
+    expect(fixtureNoGsc.hasCompletedGscSync).toBe(false);
+  });
+
+  it("does not present unauthorized live no-GSC research as executable", () => {
+    const websiteId = "11111111-1111-4111-8111-111111111111";
+    const googleIdentityId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const liveEnv = {
+      RESEARCH_PROVIDER_MODE: "live",
+      RESEARCH_LIVE_ENABLED: "true",
+      DATAFORSEO_LOGIN: "login",
+      DATAFORSEO_PASSWORD: "password",
+    };
+    const denied = evaluateResearchReadiness({
+      model: model(),
+      hasCompletedGscSync: false,
+      websiteId,
+      googleIdentityId,
+      env: liveEnv,
+    });
+    expect(denied.gate?.code).toBe("no_gsc_live_not_authorized");
+    expect(denied.executionAvailable).toBe(false);
+    expect(denied.surfaceVisible).toBe(true);
+
+    const allowed = evaluateResearchReadiness({
+      model: model(),
+      hasCompletedGscSync: false,
+      websiteId,
+      googleIdentityId,
+      env: {
+        ...liveEnv,
+        RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteId}:${googleIdentityId}`,
+      },
+    });
+    expect(allowed.gate).toBeNull();
+    expect(allowed.executionAvailable).toBe(true);
   });
 });

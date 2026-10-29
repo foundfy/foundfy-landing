@@ -155,13 +155,15 @@ export async function loadResearchForOwner(input: {
   sessionToken: string | null;
   env?: NodeJS.ProcessEnv;
 }): Promise<ResearchOwnerView> {
-  await requireObserveOwner(input);
+  const context = await requireObserveOwner(input);
   const env = input.env ?? process.env;
   const model = await findLatestConfirmedSiteModelForWebsite(input.websiteId);
   const gsc = await latestGscQueryState(input.websiteId);
   const readiness = evaluateResearchReadiness({
     model,
     hasCompletedGscSync: gsc.syncId != null,
+    websiteId: input.websiteId,
+    googleIdentityId: context.owner?.googleIdentityId ?? null,
     htmlLangs: model?.understanding.languages.htmlLangs,
     env,
   });

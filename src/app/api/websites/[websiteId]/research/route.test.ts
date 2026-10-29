@@ -48,6 +48,32 @@ describe("/api/websites/[websiteId]/research", () => {
     expect(postResponse.status).toBe(401);
   });
 
+  it("does not pass client allowlist or identity fields into start", async () => {
+    startResearchForOwnerMock.mockResolvedValue({ readiness: { gate: null }, run: null });
+    await POST(
+      new Request("https://www.foundfy.me/research", {
+        method: "POST",
+        body: JSON.stringify({
+          selectedOfferings: ["silk paint"],
+          googleIdentityId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          RESEARCH_NO_GSC_LIVE_ALLOWLIST: "11111111-1111-4111-8111-111111111111:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          env: {
+            RESEARCH_NO_GSC_LIVE_ALLOWLIST:
+              "11111111-1111-4111-8111-111111111111:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          },
+        }),
+      }),
+      { params: Promise.resolve({ websiteId: WEBSITE_ID }) },
+    );
+    expect(startResearchForOwnerMock).toHaveBeenCalledWith({
+      websiteId: WEBSITE_ID,
+      sessionToken: null,
+      selectedOfferings: ["silk paint"],
+      countryKey: undefined,
+      languages: undefined,
+    });
+  });
+
   it("does not invoke startResearch on GET", async () => {
     loadResearchForOwnerMock.mockResolvedValue({ readiness: { gate: null }, run: null });
     await GET(new Request("https://www.foundfy.me/research"), {

@@ -81,7 +81,7 @@ describe("C0 Search Presence boundaries", () => {
 
   it("does not add a C0 SQL migration", () => {
     const migrations = readdirSync(path.join(__dirname, "../../../supabase/migrations"));
-    expect(migrations.some((name) => name.includes("027"))).toBe(false);
+    expect(migrations.filter((name) => /c0|search.presence/i.test(name))).toEqual([]);
   });
 
   it("keeps identity-scoped tokens and does not treat every Google write failure as DNS pending", () => {

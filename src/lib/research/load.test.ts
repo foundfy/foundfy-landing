@@ -65,7 +65,10 @@ describe("loadResearchForOwner", () => {
     vi.clearAllMocks();
     process.env.RESEARCH_PROVIDER_MODE = "fixture";
     process.env.NODE_ENV = "test";
-    requireObserveOwnerMock.mockResolvedValue({ website: { hostname: "example.com" } });
+    requireObserveOwnerMock.mockResolvedValue({
+      website: { hostname: "example.com" },
+      owner: { googleIdentityId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
+    });
     findLatestConfirmedSiteModelForWebsiteMock.mockResolvedValue({
       id: "model-1",
       status: "confirmed",
@@ -1326,5 +1329,55 @@ describe("loadResearchForOwner", () => {
     expect(spanish?.ideas[0]?.keyword).toBe("como pintar en seda");
     expect(spanish?.ideas[0]?.canInspect).toBe(true);
     expect(view.persistedRuns.some((run) => run.id === view.run?.id)).toBe(false);
+  });
+
+  it("keeps historical gsc_unavailable when current GSC later becomes available", async () => {
+    listResearchIdeasForRunMock.mockResolvedValue([
+      {
+        id: "idea-1",
+        runId: "run-1",
+        keyword: "fixture related term one",
+        estimatedMonthlySearches: 50,
+        seedOffering: "silk paint",
+        languageCode: "en",
+        createdAt: "2026-10-10T00:00:00.000Z",
+        initialGscSampleStatus: "gsc_unavailable",
+      },
+    ]);
+    listCompletedSearchSyncsForWebsiteMock.mockResolvedValue([
+      { id: "sync-new", queriesTruncated: false },
+    ]);
+    listEvidenceForSyncMock.mockResolvedValue([
+      { evidenceType: "query", queryText: "fixture related term one" },
+    ]);
+
+    const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
+    expect(view.run?.ideas[0]?.initialGscSampleStatus).toBe("gsc_unavailable");
+    expect(view.run?.ideas[0]?.currentGscSampleStatus).toBe("in_current_gsc_sample");
+  });
+
+  it("keeps persisted research readable when live no-GSC spend is not allowlisted", async () => {
+    const websiteId = "11111111-1111-4111-8111-111111111111";
+    const googleIdentityId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    requireObserveOwnerMock.mockResolvedValue({
+      website: { hostname: "example.com" },
+      owner: { googleIdentityId },
+    });
+    listCompletedSearchSyncsForWebsiteMock.mockResolvedValue([]);
+    const view = await loadResearchForOwner({
+      websiteId,
+      sessionToken: "session",
+      env: {
+        NODE_ENV: "test",
+        RESEARCH_PROVIDER_MODE: "live",
+        RESEARCH_LIVE_ENABLED: "true",
+        DATAFORSEO_LOGIN: "login",
+        DATAFORSEO_PASSWORD: "password",
+      },
+    });
+    expect(view.readiness.gate?.code).toBe("no_gsc_live_not_authorized");
+    expect(view.readiness.executionAvailable).toBe(false);
+    expect(view.readiness.surfaceVisible).toBe(true);
+    expect(view.run?.ideas[0]?.keyword).toBe("fixture related term one");
   });
 });

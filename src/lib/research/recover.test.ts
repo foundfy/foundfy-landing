@@ -11,6 +11,7 @@ const finalizeFencedResearchRunMock = vi.fn();
 const loadResearchForOwnerMock = vi.fn();
 const listCompletedSearchSyncsForWebsiteMock = vi.fn();
 const listEvidenceForSyncMock = vi.fn();
+const findSearchSyncByIdMock = vi.fn();
 
 vi.mock("@/lib/gsc/observe", () => ({
   requireObserveOwner: (...args: unknown[]) => requireObserveOwnerMock(...args),
@@ -20,6 +21,7 @@ vi.mock("@/lib/gsc/db-search", () => ({
   listCompletedSearchSyncsForWebsite: (...args: unknown[]) =>
     listCompletedSearchSyncsForWebsiteMock(...args),
   listEvidenceForSync: (...args: unknown[]) => listEvidenceForSyncMock(...args),
+  findSearchSyncById: (...args: unknown[]) => findSearchSyncByIdMock(...args),
 }));
 
 vi.mock("./repository", () => ({
@@ -97,9 +99,10 @@ describe("recoverResearchForOwner", () => {
     const fence = createFencedResearchStore({ runs: ownedRuns, ideas: ownedIdeas });
     requireObserveOwnerMock.mockResolvedValue({
       website: { id: "site-1", hostname: "example.com" },
-      owner: { id: "owner-1" },
+      owner: { id: "owner-1", googleIdentityId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
     });
-    listCompletedSearchSyncsForWebsiteMock.mockResolvedValue([{ id: "sync-1", queriesTruncated: false }]);
+    listCompletedSearchSyncsForWebsiteMock.mockResolvedValue([{ id: "sync-new", queriesTruncated: false }]);
+    findSearchSyncByIdMock.mockImplementation(async (id: string) => ({ id }));
     listEvidenceForSyncMock.mockResolvedValue([]);
     persistResearchRequestPlanMock.mockImplementation((input) => fence.persistPlan(input));
     claimResearchRequestMock.mockImplementation((input) => fence.claimRequest(input));
@@ -238,5 +241,300 @@ describe("recoverResearchForOwner", () => {
       }),
     ).rejects.toThrow(/already continuing/i);
     expect(related).not.toHaveBeenCalled();
+  });
+
+  it("recovers a no-GSC run as gsc_unavailable even after a newer sync exists", async () => {
+    const existing = interruptedRun({ gscSyncId: null });
+    bindClaimed(existing);
+    listCompletedSearchSyncsForWebsiteMock.mockResolvedValue([
+      { id: "sync-new", queriesTruncated: false },
+    ]);
+    const provider = new FixtureResearchProvider();
+
+    await recoverResearchForOwner({
+      websiteId: "site-1",
+      runId: existing.id,
+      sessionToken: "session",
+      provider,
+      env: fixtureEnv,
+    });
+
+    expect(findSearchSyncByIdMock).not.toHaveBeenCalled();
+    expect(listEvidenceForSyncMock).not.toHaveBeenCalled();
+    expect(existing.gscSyncId).toBeNull();
+    expect(ownedIdeas.length).toBeGreaterThan(0);
+    expect(ownedIdeas.every((idea) => idea.initialGscSampleStatus === "gsc_unavailable")).toBe(true);
+  });
+
+  it("classifies recovery against the original run sync, not the latest website sync", async () => {
+    const existing = interruptedRun({ gscSyncId: "sync-original" });
+    bindClaimed(existing);
+    listCompletedSearchSyncsForWebsiteMock.mockResolvedValue([
+      { id: "sync-new", queriesTruncated: false },
+    ]);
+    findSearchSyncByIdMock.mockResolvedValue({ id: "sync-original" });
+    listEvidenceForSyncMock.mockImplementation(async (syncId: string) =>
+      syncId === "sync-original"
+        ? [{ evidenceType: "query", queryText: "fixture related term one" }]
+        : [{ evidenceType: "query", queryText: "unrelated later query" }],
+    );
+    const provider = new FixtureResearchProvider();
+
+    await recoverResearchForOwner({
+      websiteId: "site-1",
+      runId: existing.id,
+      sessionToken: "session",
+      provider,
+      env: fixtureEnv,
+    });
+
+    expect(findSearchSyncByIdMock).toHaveBeenCalledWith("sync-original");
+    expect(listEvidenceForSyncMock).toHaveBeenCalledWith("sync-original");
+    expect(listEvidenceForSyncMock).not.toHaveBeenCalledWith("sync-new");
+    expect(
+      ownedIdeas.some((idea) => idea.initialGscSampleStatus === "in_current_gsc_sample"),
+    ).toBe(true);
+  });
+
+  it("fails safely when the original GSC sync cannot be loaded", async () => {
+    const existing = interruptedRun({ gscSyncId: "sync-missing" });
+    findResearchRunForWebsiteMock.mockResolvedValue(existing);
+    findSearchSyncByIdMock.mockResolvedValue(null);
+    const provider = new FixtureResearchProvider();
+    const related = vi.spyOn(provider, "relatedKeywordIdeas");
+
+    await expect(
+      recoverResearchForOwner({
+        websiteId: "site-1",
+        runId: existing.id,
+        sessionToken: "session",
+        provider,
+        env: fixtureEnv,
+      }),
+    ).rejects.toMatchObject({ code: "not_recoverable" });
+    expect(claimResearchRecoveryMock).not.toHaveBeenCalled();
+    expect(related).not.toHaveBeenCalled();
+  });
+
+  it("denies live no-GSC recovery before claim and provider calls", async () => {
+    const websiteId = "11111111-1111-4111-8111-111111111111";
+    const googleIdentityId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const existing = interruptedRun({
+      websiteId,
+      gscSyncId: null,
+      provider: "dataforseo",
+      providerEnvironment: "live",
+    });
+    findResearchRunForWebsiteMock.mockResolvedValue(existing);
+    requireObserveOwnerMock.mockResolvedValue({
+      website: { id: websiteId, hostname: "example.com" },
+      owner: { id: "owner-1", googleIdentityId },
+    });
+    const provider = {
+      id: "dataforseo" as const,
+      environment: "live" as const,
+      listCountries: vi.fn(async () => [{ key: "US", name: "United States", locationCode: 2840 }]),
+      listLanguages: vi.fn(async () => [{ code: "en", name: "English" }]),
+      relatedKeywordIdeas: vi.fn(async () => {
+        throw new Error("live keywords must not run");
+      }),
+    };
+
+    await expect(
+      recoverResearchForOwner({
+        websiteId,
+        runId: existing.id,
+        sessionToken: "session",
+        provider,
+        env: {
+          RESEARCH_PROVIDER_MODE: "live",
+          RESEARCH_LIVE_ENABLED: "true",
+          DATAFORSEO_LOGIN: "login",
+          DATAFORSEO_PASSWORD: "password",
+        },
+      }),
+    ).rejects.toMatchObject({ code: "no_gsc_live_not_authorized" });
+    expect(claimResearchRecoveryMock).not.toHaveBeenCalled();
+    expect(provider.relatedKeywordIdeas).not.toHaveBeenCalled();
+    expect(provider.listCountries).not.toHaveBeenCalled();
+  });
+
+  const websiteId = "11111111-1111-4111-8111-111111111111";
+  const googleIdentityId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const liveEnv = {
+    RESEARCH_PROVIDER_MODE: "live",
+    RESEARCH_LIVE_ENABLED: "true",
+    DATAFORSEO_LOGIN: "login",
+    DATAFORSEO_PASSWORD: "password",
+  };
+
+  function rateLimitedThenSkipped(run: ResearchRunRecord): ResearchRunRecord {
+    return {
+      ...run,
+      requestLedger: [
+        {
+          ...run.requestLedger[0]!,
+          status: "rate_limited",
+          attemptedAt: "2026-10-11T00:00:01.000Z",
+          failureCode: "rate_limited",
+        },
+        {
+          ...run.requestLedger[1]!,
+          status: "skipped",
+          attemptedAt: null,
+        },
+      ],
+    };
+  }
+
+  function liveSpyProvider() {
+    return {
+      id: "dataforseo" as const,
+      environment: "live" as const,
+      listCountries: vi.fn(async () => [{ key: "US", name: "United States", locationCode: 2840 }]),
+      listLanguages: vi.fn(async () => [{ code: "en", name: "English" }]),
+      relatedKeywordIdeas: vi.fn(async () => ({
+        taskId: "live-task",
+        ideas: [
+          { keyword: "silk paint", searchVolume: 12, providerOrder: 0 },
+          { keyword: "fixture related term one", searchVolume: 50, providerOrder: 1 },
+        ],
+        providerCost: 0.01,
+        providerResultCount: 2,
+      })),
+    };
+  }
+
+  it("denies live no-GSC recovery of skipped unattempted work after the allowlist is removed", async () => {
+    const existing = rateLimitedThenSkipped(
+      interruptedRun({
+        websiteId,
+        gscSyncId: null,
+        provider: "dataforseo",
+        providerEnvironment: "live",
+      }),
+    );
+    findResearchRunForWebsiteMock.mockResolvedValue(existing);
+    requireObserveOwnerMock.mockResolvedValue({
+      website: { id: websiteId, hostname: "example.com" },
+      owner: { id: "owner-1", googleIdentityId },
+    });
+    const provider = liveSpyProvider();
+
+    await expect(
+      recoverResearchForOwner({
+        websiteId,
+        runId: existing.id,
+        sessionToken: "session",
+        provider,
+        env: liveEnv,
+      }),
+    ).rejects.toMatchObject({ code: "no_gsc_live_not_authorized" });
+    expect(claimResearchRecoveryMock).not.toHaveBeenCalled();
+    expect(provider.relatedKeywordIdeas).not.toHaveBeenCalled();
+    expect(provider.listCountries).not.toHaveBeenCalled();
+    expect(ownedIdeas).toHaveLength(0);
+    expect(existing.gscSyncId).toBeNull();
+    expect(existing.requestLedger[0]?.status).toBe("rate_limited");
+    expect(existing.requestLedger[1]?.status).toBe("skipped");
+  });
+
+  it("resumes only skipped unattempted live no-GSC work when the pair remains allowlisted", async () => {
+    const existing = rateLimitedThenSkipped(
+      interruptedRun({
+        websiteId,
+        gscSyncId: null,
+        provider: "dataforseo",
+        providerEnvironment: "live",
+      }),
+    );
+    bindClaimed(existing);
+    requireObserveOwnerMock.mockResolvedValue({
+      website: { id: websiteId, hostname: "example.com" },
+      owner: { id: "owner-1", googleIdentityId },
+    });
+    const provider = liveSpyProvider();
+
+    await recoverResearchForOwner({
+      websiteId,
+      runId: existing.id,
+      sessionToken: "session",
+      provider,
+      env: {
+        ...liveEnv,
+        RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteId}:${googleIdentityId}`,
+      },
+    });
+
+    expect(provider.relatedKeywordIdeas).toHaveBeenCalledTimes(1);
+    expect(provider.relatedKeywordIdeas.mock.calls[0]?.[0]).toMatchObject({
+      offering: "gutta resist",
+    });
+    expect(existing.gscSyncId).toBeNull();
+    expect(existing.requestLedger[0]?.status).toBe("rate_limited");
+    expect(ownedIdeas.length).toBeGreaterThan(0);
+    expect(ownedIdeas.every((idea) => idea.initialGscSampleStatus === "gsc_unavailable")).toBe(
+      true,
+    );
+  });
+
+  it("does not require the no-GSC allowlist to recover a GSC-backed live run", async () => {
+    const existing = rateLimitedThenSkipped(
+      interruptedRun({
+        websiteId,
+        gscSyncId: "sync-1",
+        provider: "dataforseo",
+        providerEnvironment: "live",
+      }),
+    );
+    bindClaimed(existing);
+    requireObserveOwnerMock.mockResolvedValue({
+      website: { id: websiteId, hostname: "example.com" },
+      owner: { id: "owner-1", googleIdentityId },
+    });
+    const provider = liveSpyProvider();
+
+    await recoverResearchForOwner({
+      websiteId,
+      runId: existing.id,
+      sessionToken: "session",
+      provider,
+      env: liveEnv,
+    });
+
+    expect(findSearchSyncByIdMock).toHaveBeenCalledWith("sync-1");
+    expect(provider.relatedKeywordIdeas).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails closed on skipped live no-GSC recovery when the allowlist is malformed", async () => {
+    const existing = rateLimitedThenSkipped(
+      interruptedRun({
+        websiteId,
+        gscSyncId: null,
+        provider: "dataforseo",
+        providerEnvironment: "live",
+      }),
+    );
+    findResearchRunForWebsiteMock.mockResolvedValue(existing);
+    requireObserveOwnerMock.mockResolvedValue({
+      website: { id: websiteId, hostname: "example.com" },
+      owner: { id: "owner-1", googleIdentityId },
+    });
+    const provider = liveSpyProvider();
+
+    await expect(
+      recoverResearchForOwner({
+        websiteId,
+        runId: existing.id,
+        sessionToken: "session",
+        provider,
+        env: {
+          ...liveEnv,
+          RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteId}:${googleIdentityId},not-a-uuid:${googleIdentityId}`,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "no_gsc_live_not_authorized" });
+    expect(claimResearchRecoveryMock).not.toHaveBeenCalled();
+    expect(provider.relatedKeywordIdeas).not.toHaveBeenCalled();
   });
 });

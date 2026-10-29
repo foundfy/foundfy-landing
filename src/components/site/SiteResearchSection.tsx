@@ -7,6 +7,7 @@ import {
   RESEARCH_CLOSED_COPY,
   RESEARCH_COUNTRY_LABEL,
   RESEARCH_CTA_LABEL,
+  RESEARCH_NO_GSC_START_COPY,
   RESEARCH_NO_SAVED_EVIDENCE_COPY,
   hasPersistedResearchEvidence,
   researchEmptyCopy,
@@ -316,6 +317,9 @@ export default function SiteResearchSection({
             void submit();
           }}
         >
+          {!view.readiness.hasCompletedGscSync ? (
+            <p className={styles.understandingCopy}>{RESEARCH_NO_GSC_START_COPY}</p>
+          ) : null}
           {requiresSelection ? (
             <fieldset className={styles.goalOptions}>
               <legend className={styles.goalLegend}>Confirmed offerings</legend>

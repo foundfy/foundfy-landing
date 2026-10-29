@@ -47,6 +47,7 @@ vi.mock("./load", () => ({
 import { createSerializedResearchClaim } from "./claim";
 import { ResearchGateError, ResearchProviderError } from "./errors";
 import { createFencedResearchStore, type FencedResearchStore } from "./fence";
+import { researchRequestFingerprint } from "./fingerprint";
 import { DataForSeoLiveResearchProvider } from "./provider/dataforseo-live";
 import { FixtureResearchProvider } from "./provider/fixture";
 import { startResearchForOwner } from "./start";
@@ -76,7 +77,7 @@ function claimedRunFromInput(input: {
   siteModelId: string;
   siteModelConfirmedAt: string;
   requestedBy: string;
-  gscSyncId: string;
+  gscSyncId: string | null;
   gscQueriesTruncated: boolean;
   provider: "fixture" | "dataforseo";
   providerEnvironment: "fixture" | "sandbox" | "live";
@@ -137,7 +138,7 @@ describe("startResearchForOwner", () => {
     fence = createFencedResearchStore({ runs: ownedRuns, ideas: ownedIdeas });
     requireObserveOwnerMock.mockResolvedValue({
       website: { id: "site-1", hostname: "example.com" },
-      owner: { id: "owner-1" },
+      owner: { id: "owner-1", googleIdentityId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
     });
     findLatestConfirmedSiteModelForWebsiteMock.mockResolvedValue(confirmedModel);
     listCompletedSearchSyncsForWebsiteMock.mockResolvedValue([
@@ -470,19 +471,6 @@ describe("startResearchForOwner", () => {
     expect(listLanguages).not.toHaveBeenCalled();
 
     findLatestConfirmedSiteModelForWebsiteMock.mockResolvedValue(confirmedModel);
-    listCompletedSearchSyncsForWebsiteMock.mockResolvedValue([]);
-
-    await expect(
-      startResearchForOwner({
-        websiteId: "site-1",
-        sessionToken: "session",
-        countryKey: "ES",
-        languages: ["en"],
-        provider,
-      }),
-    ).rejects.toThrow(/Sync Google Search data/i);
-    expect(listCountries).not.toHaveBeenCalled();
-    expect(listLanguages).not.toHaveBeenCalled();
   });
 
   it("lets two same-context starts execute the provider only once", async () => {
@@ -1020,5 +1008,229 @@ describe("startResearchForOwner", () => {
     ).rejects.toMatchObject({ name: "ResearchGateError", code: "live_not_enabled" });
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(claimResearchRunMock).not.toHaveBeenCalled();
+  });
+
+  const websiteId = "11111111-1111-4111-8111-111111111111";
+  const otherWebsiteId = "22222222-2222-4222-8222-222222222222";
+  const googleIdentityId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const otherIdentityId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+  function liveSpyProvider(): ResearchProvider & {
+    listCountries: ReturnType<typeof vi.fn>;
+    listLanguages: ReturnType<typeof vi.fn>;
+    relatedKeywordIdeas: ReturnType<typeof vi.fn>;
+  } {
+    return {
+      id: "dataforseo",
+      environment: "live",
+      listCountries: vi.fn(async () => [{ key: "ES", name: "Spain", locationCode: 2724 }]),
+      listLanguages: vi.fn(async () => [{ code: "en", name: "English" }]),
+      relatedKeywordIdeas: vi.fn(async () => ({
+        taskId: "live-task",
+        ideas: [
+          { keyword: "silk paint", searchVolume: 12, providerOrder: 0 },
+          { keyword: "fixture related term one", searchVolume: 50, providerOrder: 1 },
+        ],
+        providerCost: 0.01,
+        providerResultCount: 2,
+      })),
+    };
+  }
+
+  it("starts fixture research without a completed GSC sync", async () => {
+    listCompletedSearchSyncsForWebsiteMock.mockResolvedValue([]);
+    const provider = new FixtureResearchProvider();
+    await startResearchForOwner({
+      websiteId: "site-1",
+      sessionToken: "session",
+      countryKey: "ES",
+      languages: ["en"],
+      selectedOfferings: ["silk paint"],
+      provider,
+    });
+    expect(claimResearchRunMock).toHaveBeenCalledWith(
+      expect.objectContaining({ gscSyncId: null, gscQueriesTruncated: false }),
+    );
+    expect(listEvidenceForSyncMock).not.toHaveBeenCalled();
+    expect(ownedIdeas.length).toBeGreaterThan(0);
+    expect(ownedIdeas.every((idea) => idea.initialGscSampleStatus === "gsc_unavailable")).toBe(true);
+  });
+
+  it("keeps an empty completed GSC sample distinct from missing GSC", async () => {
+    listCompletedSearchSyncsForWebsiteMock.mockResolvedValue([
+      { id: "sync-empty", queriesTruncated: false },
+    ]);
+    listEvidenceForSyncMock.mockResolvedValue([]);
+    await startResearchForOwner({
+      websiteId: "site-1",
+      sessionToken: "session",
+      countryKey: "ES",
+      languages: ["en"],
+      selectedOfferings: ["silk paint"],
+      provider: new FixtureResearchProvider(),
+    });
+    expect(claimResearchRunMock).toHaveBeenCalledWith(
+      expect.objectContaining({ gscSyncId: "sync-empty" }),
+    );
+    expect(ownedIdeas.length).toBeGreaterThan(0);
+    expect(
+      ownedIdeas.every((idea) => idea.initialGscSampleStatus === "not_in_current_gsc_sample"),
+    ).toBe(true);
+  });
+
+  it("reuses a completed no-GSC run after GSC appears without another provider call", async () => {
+    const fingerprint = researchRequestFingerprint({
+      websiteId: "site-1",
+      siteModelId: "model-1",
+      confirmedAt: "2026-10-01T00:00:00.000Z",
+      offerings: ["silk paint"],
+      countryKey: "US",
+      languages: ["en"],
+      provider: "fixture",
+      environment: "fixture",
+    });
+    listResearchRunsForFingerprintMock.mockResolvedValue([
+      {
+        id: "run-historical",
+        websiteId: "site-1",
+        status: "completed",
+        completedAt: "2026-10-20T00:00:00.000Z",
+        gscSyncId: null,
+        requestFingerprint: fingerprint,
+        requestLedger: [],
+        createdAt: "2026-10-20T00:00:00.000Z",
+      },
+    ]);
+    const provider = new FixtureResearchProvider();
+    const listCountries = vi.spyOn(provider, "listCountries");
+    const related = vi.spyOn(provider, "relatedKeywordIdeas");
+    await startResearchForOwner({
+      websiteId: "site-1",
+      sessionToken: "session",
+      countryKey: "US",
+      languages: ["en"],
+      selectedOfferings: ["silk paint"],
+      provider,
+    });
+    expect(claimResearchRunMock).not.toHaveBeenCalled();
+    expect(listCountries).not.toHaveBeenCalled();
+    expect(related).not.toHaveBeenCalled();
+    expect(loadResearchForOwnerMock).toHaveBeenCalled();
+  });
+
+  it("denies live no-GSC start before claim and provider metadata", async () => {
+    listCompletedSearchSyncsForWebsiteMock.mockResolvedValue([]);
+    requireObserveOwnerMock.mockResolvedValue({
+      website: { id: websiteId, hostname: "example.com" },
+      owner: { id: "owner-1", googleIdentityId },
+    });
+    const provider = liveSpyProvider();
+    await expect(
+      startResearchForOwner({
+        websiteId,
+        sessionToken: "session",
+        countryKey: "ES",
+        languages: ["en"],
+        selectedOfferings: ["silk paint"],
+        provider,
+        env: {
+          RESEARCH_PROVIDER_MODE: "live",
+          RESEARCH_LIVE_ENABLED: "true",
+          DATAFORSEO_LOGIN: "login",
+          DATAFORSEO_PASSWORD: "password",
+        },
+      }),
+    ).rejects.toMatchObject({ code: "no_gsc_live_not_authorized" });
+    expect(provider.listCountries).not.toHaveBeenCalled();
+    expect(provider.listLanguages).not.toHaveBeenCalled();
+    expect(provider.relatedKeywordIdeas).not.toHaveBeenCalled();
+    expect(claimResearchRunMock).not.toHaveBeenCalled();
+  });
+
+  it("allows live no-GSC start only for the matching website and identity pair", async () => {
+    listCompletedSearchSyncsForWebsiteMock.mockResolvedValue([]);
+    requireObserveOwnerMock.mockResolvedValue({
+      website: { id: websiteId, hostname: "example.com" },
+      owner: { id: "owner-1", googleIdentityId },
+    });
+    const provider = liveSpyProvider();
+    await startResearchForOwner({
+      websiteId,
+      sessionToken: "session",
+      countryKey: "ES",
+      languages: ["en"],
+      selectedOfferings: ["silk paint"],
+      provider,
+      env: {
+        RESEARCH_PROVIDER_MODE: "live",
+        RESEARCH_LIVE_ENABLED: "true",
+        DATAFORSEO_LOGIN: "login",
+        DATAFORSEO_PASSWORD: "password",
+        RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteId}:${googleIdentityId}`,
+      },
+    });
+    expect(claimResearchRunMock).toHaveBeenCalledWith(expect.objectContaining({ gscSyncId: null }));
+    expect(provider.relatedKeywordIdeas).toHaveBeenCalled();
+    expect(ownedIdeas.every((idea) => idea.initialGscSampleStatus === "gsc_unavailable")).toBe(true);
+
+    vi.clearAllMocks();
+    ownedRuns.length = 0;
+    ownedIdeas.length = 0;
+    fence = createFencedResearchStore({ runs: ownedRuns, ideas: ownedIdeas });
+    bindFenceStore();
+    listCompletedSearchSyncsForWebsiteMock.mockResolvedValue([]);
+    listResearchRunsForFingerprintMock.mockResolvedValue([]);
+    claimResearchRunMock.mockImplementation(async (input: Parameters<typeof claimedRunFromInput>[0]) => {
+      const result = claimedRunFromInput(input);
+      ownedRuns.push(result.run);
+      return result;
+    });
+    requireObserveOwnerMock.mockResolvedValue({
+      website: { id: otherWebsiteId, hostname: "example.com" },
+      owner: { id: "owner-1", googleIdentityId },
+    });
+    const otherSiteProvider = liveSpyProvider();
+    await expect(
+      startResearchForOwner({
+        websiteId: otherWebsiteId,
+        sessionToken: "session",
+        countryKey: "ES",
+        languages: ["en"],
+        selectedOfferings: ["silk paint"],
+        provider: otherSiteProvider,
+        env: {
+          RESEARCH_PROVIDER_MODE: "live",
+          RESEARCH_LIVE_ENABLED: "true",
+          DATAFORSEO_LOGIN: "login",
+          DATAFORSEO_PASSWORD: "password",
+          RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteId}:${googleIdentityId}`,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "no_gsc_live_not_authorized" });
+    expect(otherSiteProvider.listCountries).not.toHaveBeenCalled();
+
+    requireObserveOwnerMock.mockResolvedValue({
+      website: { id: websiteId, hostname: "example.com" },
+      owner: { id: "owner-1", googleIdentityId: otherIdentityId },
+    });
+    const otherIdentityProvider = liveSpyProvider();
+    await expect(
+      startResearchForOwner({
+        websiteId,
+        sessionToken: "session",
+        countryKey: "ES",
+        languages: ["en"],
+        selectedOfferings: ["silk paint"],
+        provider: otherIdentityProvider,
+        env: {
+          RESEARCH_PROVIDER_MODE: "live",
+          RESEARCH_LIVE_ENABLED: "true",
+          DATAFORSEO_LOGIN: "login",
+          DATAFORSEO_PASSWORD: "password",
+          RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteId}:${googleIdentityId}`,
+        },
+      }),
+    ).rejects.toMatchObject({ code: "no_gsc_live_not_authorized" });
+    expect(otherIdentityProvider.relatedKeywordIdeas).not.toHaveBeenCalled();
   });
 });
