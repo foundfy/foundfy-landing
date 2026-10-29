@@ -29,12 +29,11 @@ describe("migration 026 targeted observation claim", () => {
     );
   });
 
-  it("uses the exact 026 filename and does not introduce 027", () => {
+  it("uses the exact 026 filename", () => {
     const files = readdirSync(migrationsDir).filter((name) => name.endsWith(".sql"));
     expect(files.filter((name) => name.startsWith("026"))).toEqual([
       "026_targeted_observation_claim.sql",
     ]);
-    expect(files.filter((name) => name.startsWith("027"))).toEqual([]);
   });
 
   it("adds source_inspect_run_id NOT NULL FK RESTRICT", () => {

@@ -18,6 +18,8 @@ describe("RESEARCH v0 source boundary", () => {
       read("./display.ts"),
       read("./filter.ts"),
       read("./gsc-join.ts"),
+      read("./query-keys.ts"),
+      read("./no-gsc-live-allowlist.ts"),
       read("../../app/api/websites/[websiteId]/research/route.ts"),
       read("../../app/api/websites/[websiteId]/research/[runId]/recover/route.ts"),
       read("../../app/api/websites/[websiteId]/research/[runId]/close/route.ts"),

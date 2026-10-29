@@ -39,7 +39,6 @@ describe("migration 025 targeted observe foundation", () => {
     expect(files.filter((name) => name.startsWith("026"))).toEqual([
       "026_targeted_observation_claim.sql",
     ]);
-    expect(files.filter((name) => name.startsWith("027"))).toEqual([]);
   });
 
   it("adds crawl_runs.purpose with default, not-null, and allowlist", () => {

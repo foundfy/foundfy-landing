@@ -18,7 +18,9 @@ import type {
 
 export const RESEARCH_SECTION_HEADING = "Search demand to explore";
 export const RESEARCH_SECTION_COPY =
-  "Explore searches related to offerings you confirmed for your business. Foundfy compares this external demand evidence with your current Google Search sample.";
+  "Explore searches related to offerings you confirmed for your business. Foundfy compares this external demand evidence with your Google Search sample when that data is available.";
+export const RESEARCH_NO_GSC_START_COPY =
+  "Foundfy will research related demand without Google Search data for this site.";
 export const RESEARCH_CTA_LABEL = "Research related demand";
 export const RESEARCH_TEST_DATA_COPY = "Test data — this is not real market demand.";
 export const RESEARCH_VOLUME_LABEL = "Estimated monthly searches";
@@ -76,6 +78,8 @@ export const RESEARCH_GATE_COPY: Record<ResearchGateCode, string> = {
   no_research_language: "Choose the site languages you want Foundfy to research.",
   unsupported_language: "Choose a language Foundfy observed on this site.",
   no_gsc_sync: "Sync Google Search data before researching related demand.",
+  no_gsc_live_not_authorized:
+    "Live related-demand research without Google Search data is not enabled for this site.",
   provider_disabled: RESEARCH_DISABLED_COPY,
   live_not_enabled: RESEARCH_DISABLED_COPY,
   credentials_missing: RESEARCH_DISABLED_COPY,

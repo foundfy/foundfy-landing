@@ -15,8 +15,12 @@ export function gscQueryCompactSet(queries: string[]): Set<string> {
 
 export function classifyGscSampleStatus(
   keyword: string,
-  queryKeys: Set<string>,
+  queryKeys: Set<string> | null,
 ): InitialGscSampleStatus {
+  if (queryKeys == null) {
+    return "gsc_unavailable";
+  }
+
   const compact = opportunityCompactKey(keyword);
   return compact && queryKeys.has(compact)
     ? "in_current_gsc_sample"
@@ -27,9 +31,5 @@ export function currentGscSampleStatus(input: {
   keyword: string;
   queryKeys: Set<string> | null;
 }): CurrentGscSampleStatus {
-  if (!input.queryKeys) {
-    return "gsc_unavailable";
-  }
-
   return classifyGscSampleStatus(input.keyword, input.queryKeys);
 }

@@ -1,7 +1,3 @@
-import {
-  listCompletedSearchSyncsForWebsite,
-  listEvidenceForSync,
-} from "@/lib/gsc/db-search";
 import { requireObserveOwner } from "@/lib/gsc/observe";
 import { findLatestConfirmedSiteModelForWebsite } from "@/lib/site-model/repository";
 import { selectClaimDecision } from "./claim";
@@ -11,14 +7,15 @@ import { researchGate } from "./display";
 import { ResearchGateError } from "./errors";
 import { executeResearchLedger } from "./execute";
 import { researchRequestFingerprint } from "./fingerprint";
-import { gscQueryCompactSet } from "./gsc-join";
 import { researchLanguageCandidates, selectResearchLanguages } from "./languages";
 import { loadResearchForOwner } from "./load";
+import { assertNoGscLiveSpendAllowed } from "./no-gsc-live-allowlist";
 import { selectResearchOfferings, validConfirmedOfferings } from "./offerings";
 import type { DataForSeoFetch } from "./provider/dataforseo-client";
 import { FIXTURE_RESEARCH_COUNTRIES, FIXTURE_RESEARCH_LANGUAGES } from "./provider/fixture-metadata";
 import { resolveResearchProvider } from "./provider/resolve";
 import type { ResearchProvider } from "./provider/types";
+import { loadLatestCompletedGscQueryKeys } from "./query-keys";
 import {
   activeConfirmedSiteModel,
   assertRequestCap,
@@ -82,19 +79,7 @@ export async function startResearchForOwner(
   });
   assertRequestCap(offerings.length, languages.length);
 
-  const syncs = await listCompletedSearchSyncsForWebsite(input.websiteId);
-  const sync = syncs[0] ?? null;
-  if (!sync) {
-    throw new ResearchGateError("no_gsc_sync", researchGate("no_gsc_sync").message);
-  }
-
-  const evidence = await listEvidenceForSync(sync.id);
-  const queryKeys = gscQueryCompactSet(
-    evidence.flatMap((row) =>
-      row.evidenceType === "query" && row.queryText ? [row.queryText] : [],
-    ),
-  );
-
+  const gsc = await loadLatestCompletedGscQueryKeys(input.websiteId);
   const provider = input.provider ?? resolveResearchProvider({
     env: input.env,
     fetchImpl: input.fetchImpl,
@@ -121,6 +106,14 @@ export async function startResearchForOwner(
     return loadResearchForOwner(input);
   }
 
+  if (gsc.sync == null && provider.environment === "live") {
+    assertNoGscLiveSpendAllowed({
+      websiteId: input.websiteId,
+      googleIdentityId: context.owner.googleIdentityId,
+      env: input.env,
+    });
+  }
+
   const [countries, supportedLanguages] = await Promise.all([
     provider.listCountries(),
     provider.listLanguages(),
@@ -144,8 +137,8 @@ export async function startResearchForOwner(
     siteModelId: model.id,
     siteModelConfirmedAt: model.confirmed.confirmedAt,
     requestedBy: context.owner.id,
-    gscSyncId: sync.id,
-    gscQueriesTruncated: sync.queriesTruncated,
+    gscSyncId: gsc.sync?.id ?? null,
+    gscQueriesTruncated: gsc.sync?.queriesTruncated ?? false,
     countryKey: providerCountry.key,
     countryName: providerCountry.name,
     locationCode: providerCountry.locationCode,
@@ -162,8 +155,10 @@ export async function startResearchForOwner(
     run: claim.run,
     websiteId: input.websiteId,
     hostname,
-    queryKeys,
+    queryKeys: gsc.queryKeys,
     provider,
+    ownerGoogleIdentityId: context.owner.googleIdentityId,
+    env: input.env,
   });
 
   return loadResearchForOwner(input);

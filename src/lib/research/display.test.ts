@@ -12,6 +12,7 @@ import {
   RESEARCH_PROVIDER_EMPTY_COPY,
   RESEARCH_RESUME_UNATTEMPTED_LABEL,
   RESEARCH_DISABLED_COPY,
+  RESEARCH_NO_GSC_START_COPY,
   RESEARCH_NO_SAVED_EVIDENCE_COPY,
   RESEARCH_TEST_DATA_COPY,
   RESEARCH_TRUNCATED_COPY,
@@ -20,6 +21,7 @@ import {
   hasPersistedResearchEvidence,
   currentGscSampleCopy,
   formatEstimatedMonthlySearches,
+  researchGate,
   researchEmptyCopy,
   researchEmptyOutcome,
   researchFilterReasonDetails,
@@ -56,6 +58,13 @@ describe("RESEARCH wording", () => {
     expect(RESEARCH_NEW_CYCLE_LABEL).toBe("Start a new research cycle");
     expect(RESEARCH_NEW_CYCLE_LABEL).not.toMatch(/retry/i);
     expect(RESEARCH_NO_SAVED_EVIDENCE_COPY).toMatch(/no saved related-demand evidence/);
+    expect(currentGscSampleCopy("gsc_unavailable")).toMatch(/cannot compare this search/i);
+    expect(RESEARCH_NO_GSC_START_COPY).toMatch(/without Google Search data/);
+    expect(RESEARCH_NO_GSC_START_COPY).not.toMatch(/Sync Google Search data before researching/);
+    expect(researchGate("no_gsc_live_not_authorized").message).toMatch(
+      /without Google Search data is not enabled/,
+    );
+    expect(researchGate("no_gsc_live_not_authorized").message).not.toMatch(/allowlist|env/i);
     expect(RESEARCH_NO_SAVED_EVIDENCE_COPY).not.toBe(RESEARCH_DISABLED_COPY);
     expect(
       hasPersistedResearchEvidence({

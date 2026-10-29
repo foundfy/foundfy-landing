@@ -1,20 +1,17 @@
-import {
-  listCompletedSearchSyncsForWebsite,
-  listEvidenceForSync,
-} from "@/lib/gsc/db-search";
 import { requireObserveOwner } from "@/lib/gsc/observe";
 import { researchGate } from "./display";
 import { ResearchGateError } from "./errors";
 import { executeResearchLedger } from "./execute";
-import { gscQueryCompactSet } from "./gsc-join";
 import { safeUnattemptedEntries } from "./ledger";
 import { loadResearchForOwner } from "./load";
+import { assertNoGscLiveSpendAllowed } from "./no-gsc-live-allowlist";
 import type { DataForSeoFetch } from "./provider/dataforseo-client";
 import {
   assertResearchEnvironmentExecutable,
   resolveResearchProviderForEnvironment,
 } from "./provider/resolve";
 import type { ResearchProvider } from "./provider/types";
+import { loadQueryKeysForResearchRun, researchRunMayCallProvider } from "./query-keys";
 import { claimResearchRecovery, findResearchRunForWebsite } from "./repository";
 import type { ResearchOwnerView } from "./types";
 
@@ -49,6 +46,20 @@ export async function recoverResearchForOwner(
     throw new ResearchGateError("retry_not_safe", researchGate("retry_not_safe").message, 409);
   }
 
+  if (
+    existing.gscSyncId == null &&
+    existing.providerEnvironment === "live" &&
+    researchRunMayCallProvider(existing)
+  ) {
+    assertNoGscLiveSpendAllowed({
+      websiteId: input.websiteId,
+      googleIdentityId: context.owner.googleIdentityId,
+      env: input.env,
+    });
+  }
+
+  const queryKeys = await loadQueryKeysForResearchRun(existing);
+
   const provider =
     input.provider ??
     resolveResearchProviderForEnvironment({
@@ -71,22 +82,14 @@ export async function recoverResearchForOwner(
     throw new ResearchGateError("not_recoverable", researchGate("not_recoverable").message, 409);
   }
 
-  const run = claim.run;
-  const syncs = await listCompletedSearchSyncsForWebsite(input.websiteId);
-  const sync = syncs[0] ?? null;
-  const evidence = sync ? await listEvidenceForSync(sync.id) : [];
-  const queryKeys = gscQueryCompactSet(
-    evidence.flatMap((row) =>
-      row.evidenceType === "query" && row.queryText ? [row.queryText] : [],
-    ),
-  );
-
   await executeResearchLedger({
-    run,
+    run: claim.run,
     websiteId: input.websiteId,
     hostname: context.website.hostname,
     queryKeys,
     provider,
+    ownerGoogleIdentityId: context.owner.googleIdentityId,
+    env: input.env,
   });
 
   return loadResearchForOwner(input);
