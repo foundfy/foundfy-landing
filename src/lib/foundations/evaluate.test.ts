@@ -10,6 +10,7 @@ import {
   evaluateGooglePerformance,
   googleIndexingCheck,
   interpretFoundationNextStep,
+  selectGoogleEvidenceForWebsite,
 } from "./evaluate";
 
 const SELCUK_URLS = [
@@ -436,6 +437,29 @@ describe("Google performance and indexing", () => {
     expect(evaluateGooglePerformance({ kind: "not_connected" }).status).toBe("data_unavailable");
     expect(evaluateGooglePerformance({ kind: "not_synced" }).status).toBe("data_unavailable");
     expect(evaluateGooglePerformance({ kind: "unavailable" }).status).toBe("data_unavailable");
+  });
+
+  it("does not reuse Google performance evidence from another website while a new request is loading", () => {
+    const stored = {
+      websiteId: "website-a",
+      evidence: {
+        kind: "reported" as const,
+        windowDays: 28,
+        queriesReported: 12,
+      },
+    };
+
+    expect(selectGoogleEvidenceForWebsite(stored, "website-b")).toBeNull();
+    expect(selectGoogleEvidenceForWebsite(stored, "website-a")).toEqual(stored.evidence);
+    expect(
+      selectGoogleEvidenceForWebsite({ websiteId: "website-b", evidence: null }, "website-b"),
+    ).toBeNull();
+    expect(
+      evaluateGooglePerformance(selectGoogleEvidenceForWebsite(stored, "website-b")).summary,
+    ).not.toMatch(/Google reported search performance|12 queries/i);
+    expect(
+      evaluateGooglePerformance(selectGoogleEvidenceForWebsite(stored, "website-a")).summary,
+    ).toMatch(/Google reported search performance/i);
   });
 
   it("does not explain a completed empty sync as unauthorized or unavailable GSC data", () => {

@@ -18,6 +18,7 @@ import type {
   FoundationCheck,
   FoundationNextStep,
   GooglePerformanceEvidenceInput,
+  StoredGooglePerformanceEvidence,
 } from "./types";
 
 export const FOUNDATION_SITEMAP_PREVIEW_LIMIT = 10;
@@ -502,6 +503,17 @@ export function evaluateCrawlFoundations(input: {
       sitemap: evaluateSitemap({ context, findings, sitemapUrlCount }),
     },
   };
+}
+
+export function selectGoogleEvidenceForWebsite(
+  stored: StoredGooglePerformanceEvidence | null,
+  websiteId: string,
+): GooglePerformanceEvidenceInput | null {
+  if (!stored || stored.websiteId !== websiteId) {
+    return null;
+  }
+
+  return stored.evidence;
 }
 
 export function evaluateGooglePerformance(

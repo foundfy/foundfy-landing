@@ -6,10 +6,12 @@ import {
   FOUNDATION_STATUS_LABELS,
   buildTechnicalFoundationsView,
 } from "@/lib/foundations/display";
+import { selectGoogleEvidenceForWebsite } from "@/lib/foundations/evaluate";
 import type {
   CrawlFoundationsAssessment,
   FoundationStatus,
   GooglePerformanceEvidenceInput,
+  StoredGooglePerformanceEvidence,
 } from "@/lib/foundations/types";
 import { formatSiteScanDate } from "@/lib/site/site-overview-view-model";
 import styles from "./SitePageView.module.css";
@@ -74,10 +76,11 @@ export default function SiteFoundationsSection({
   foundations,
   scanCompletedAt,
 }: SiteFoundationsSectionProps) {
-  const [google, setGoogle] = useState<GooglePerformanceEvidenceInput | null>(null);
+  const [google, setGoogle] = useState<StoredGooglePerformanceEvidence | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    setGoogle({ websiteId, evidence: null });
 
     async function loadGooglePerformance() {
       try {
@@ -96,10 +99,13 @@ export default function SiteFoundationsSection({
           return;
         }
 
-        setGoogle(googleInputFromResponse(response.status, payload));
+        setGoogle({
+          websiteId,
+          evidence: googleInputFromResponse(response.status, payload),
+        });
       } catch {
         if (!cancelled) {
-          setGoogle({ kind: "unavailable" });
+          setGoogle({ websiteId, evidence: { kind: "unavailable" } });
         }
       }
     }
@@ -110,7 +116,10 @@ export default function SiteFoundationsSection({
     };
   }, [websiteId]);
 
-  const view = buildTechnicalFoundationsView(foundations, google);
+  const view = buildTechnicalFoundationsView(
+    foundations,
+    selectGoogleEvidenceForWebsite(google, websiteId),
+  );
 
   return (
     <section className={styles.section} aria-labelledby="site-foundations">

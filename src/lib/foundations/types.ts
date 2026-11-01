@@ -65,6 +65,11 @@ export type GooglePerformanceEvidenceInput =
   | { kind: "empty"; windowDays: number }
   | { kind: "reported"; windowDays: number; queriesReported: number };
 
+export type StoredGooglePerformanceEvidence = {
+  websiteId: string;
+  evidence: GooglePerformanceEvidenceInput | null;
+};
+
 export type TechnicalFoundationsView = {
   heading: string;
   intro: string;
