@@ -11,6 +11,7 @@ import {
   googleIndexingCheck,
   interpretFoundationNextStep,
   selectGoogleEvidenceForWebsite,
+  visibleGoogleEvidenceForWebsite,
 } from "./evaluate";
 
 const SELCUK_URLS = [
@@ -460,6 +461,13 @@ describe("Google performance and indexing", () => {
     expect(
       evaluateGooglePerformance(selectGoogleEvidenceForWebsite(stored, "website-a")).summary,
     ).toMatch(/Google reported search performance/i);
+
+    const firstRenderForB = visibleGoogleEvidenceForWebsite(stored, "website-b");
+    expect(firstRenderForB.websiteId).toBe("website-b");
+    expect(firstRenderForB.evidence).toBeNull();
+    expect(
+      evaluateGooglePerformance(firstRenderForB.evidence).summary,
+    ).not.toMatch(/Google reported search performance|12 queries/i);
   });
 
   it("does not explain a completed empty sync as unauthorized or unavailable GSC data", () => {
@@ -510,5 +518,27 @@ describe("interpretFoundationNextStep", () => {
     const next = interpretFoundationNextStep(assessment, { kind: "no_session" });
     expect(next.code).toBe("connect_google_for_performance");
     expect(next.message).not.toMatch(/rewrite|title|meta description/i);
+  });
+
+  it("distinguishes connected-not-synced, not connected, and unavailable Google states", () => {
+    const assessment = evaluateCrawlFoundations({
+      context: selcukContext(),
+      findings: [],
+    });
+
+    const notSynced = interpretFoundationNextStep(assessment, { kind: "not_synced" });
+    const notConnected = interpretFoundationNextStep(assessment, { kind: "not_connected" });
+    const unavailable = interpretFoundationNextStep(assessment, { kind: "unavailable" });
+    const empty = interpretFoundationNextStep(assessment, { kind: "empty", windowDays: 28 });
+
+    expect(notSynced.code).toBe("sync_google_performance");
+    expect(notSynced.message).toMatch(/owner-started/i);
+    expect(notSynced.message).toMatch(/does not ask Google to index/i);
+    expect(notConnected.code).toBe("google_not_connected");
+    expect(notConnected.message).toMatch(/Search Console is not connected/i);
+    expect(unavailable.code).toBe("google_unavailable");
+    expect(unavailable.message).toMatch(/could not load Google search analytics/i);
+    expect(empty.code).toBe("wait_for_google_discovery");
+    expect(new Set([notSynced.code, notConnected.code, unavailable.code, empty.code]).size).toBe(4);
   });
 });

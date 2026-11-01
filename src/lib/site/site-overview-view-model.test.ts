@@ -156,7 +156,7 @@ describe("site overview view model", () => {
     );
   });
 
-  it("uses the no-highlight product meaning when findings exist without highlights", () => {
+  it("keeps the unused empty-highlight helper from treating remaining findings as zero", () => {
     const content = buildSiteWhatMattersContent(
       createOverview({
         latestUsableScan: {
@@ -172,12 +172,7 @@ describe("site overview view model", () => {
     );
 
     expect(content.kind).toBe("empty_highlights");
-    if (content.kind === "empty_highlights") {
-      expect(content.title).toBe("We could open your website.");
-      expect(content.description).toContain(
-        "We cannot see whether Google has listed your site",
-      );
-    }
+    expect(content.kind).not.toBe("zero_findings");
   });
 
   it("uses zero-findings language for successful empty scans", () => {

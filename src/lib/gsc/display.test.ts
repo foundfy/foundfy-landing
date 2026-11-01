@@ -11,6 +11,7 @@ import {
   OBSERVE_SEARCH_CONSOLE_CONNECTED_NEXT,
   OBSERVE_SEARCH_CONSOLE_CONNECTED_TITLE,
   OBSERVE_SECTION_HEADING,
+  OBSERVE_SYNC_HELP,
   OBSERVE_SYNC_LABEL,
   googleConnectedCopy,
 } from "./display";
@@ -36,14 +37,18 @@ describe("OBSERVE Google-connection copy", () => {
     const text = [
       OBSERVE_SEARCH_CONSOLE_CONNECTED_NEXT,
       OBSERVE_SYNC_LABEL,
+      OBSERVE_SYNC_HELP,
       OBSERVE_EVIDENCE_TITLE,
       OBSERVE_EVIDENCE_EMPTY_COPY,
       OBSERVE_QUERIES_REPORTED_LABEL,
     ].join(" ");
 
-    expect(OBSERVE_SEARCH_CONSOLE_CONNECTED_NEXT).toMatch(/ready to observe/i);
+    expect(OBSERVE_SEARCH_CONSOLE_CONNECTED_NEXT).toMatch(/does not run that automatically/i);
     expect(OBSERVE_EVIDENCE_EMPTY_COPY).toMatch(/doesn't have search performance data available/i);
+    expect(OBSERVE_EVIDENCE_EMPTY_COPY).toMatch(/not an indexing check/i);
     expect(OBSERVE_EVIDENCE_EMPTY_COPY).not.toMatch(/zero visibility|zero impressions|no rankings|setup failed/i);
     expect(text).not.toMatch(/opportunity|high priority|optimize|you should|CTR is too low/i);
+    expect(OBSERVE_SYNC_HELP).toMatch(/does not ask Google to index/i);
+    expect(OBSERVE_SYNC_HELP).toMatch(/does not run it on a schedule/i);
   });
 });

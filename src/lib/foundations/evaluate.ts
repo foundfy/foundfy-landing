@@ -516,6 +516,16 @@ export function selectGoogleEvidenceForWebsite(
   return stored.evidence;
 }
 
+export function visibleGoogleEvidenceForWebsite(
+  stored: StoredGooglePerformanceEvidence,
+  websiteId: string,
+): StoredGooglePerformanceEvidence {
+  return {
+    websiteId,
+    evidence: selectGoogleEvidenceForWebsite(stored, websiteId),
+  };
+}
+
 export function evaluateGooglePerformance(
   input: GooglePerformanceEvidenceInput | null,
 ): FoundationCheck {
@@ -662,15 +672,35 @@ export function interpretFoundationNextStep(
     };
   }
 
-  if (
-    google?.kind === "no_session" ||
-    google?.kind === "not_connected" ||
-    google?.kind === "not_synced"
-  ) {
+  if (google?.kind === "not_synced") {
+    return {
+      code: "sync_google_performance",
+      message:
+        "Search Console is connected. Load search performance with Sync Google search data. That refresh is owner-started. Foundfy does not run it on a schedule, and it does not ask Google to index the site. Foundfy has not checked whether Google has listed these pages.",
+    };
+  }
+
+  if (google?.kind === "no_session") {
     return {
       code: "connect_google_for_performance",
       message:
-        "Connect Google to see whether Search Console has reported any searches. Foundfy has not checked whether Google has listed these pages.",
+        "Connect Google in this session to see whether Search Console has reported any searches. That is optional for reading this website scan, and it does not make Google index the site. Foundfy has not checked whether Google has listed these pages.",
+    };
+  }
+
+  if (google?.kind === "not_connected") {
+    return {
+      code: "google_not_connected",
+      message:
+        "Search Console is not connected. You can connect it to see search performance. Connecting does not make Google index the site. Foundfy has not checked whether Google has listed these pages.",
+    };
+  }
+
+  if (google?.kind === "unavailable") {
+    return {
+      code: "google_unavailable",
+      message:
+        "Foundfy could not load Google search analytics right now. That is not an indexing result. Foundfy has not checked whether Google has listed these pages.",
     };
   }
 

@@ -29,6 +29,9 @@ export type FoundationNextStepCode =
   | "review_sitemap_urls"
   | "wait_for_google_discovery"
   | "connect_google_for_performance"
+  | "google_not_connected"
+  | "sync_google_performance"
+  | "google_unavailable"
   | "indexing_not_checked";
 
 export type FoundationNextStep = {

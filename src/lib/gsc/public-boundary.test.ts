@@ -21,14 +21,16 @@ describe("public vs owner-private OBSERVE boundary", () => {
     const foundationsUi = read("../../components/site/SiteFoundationsSection.tsx");
     const foundationsEvaluate = read("../foundations/evaluate.ts");
     const page = read("../../components/site/SitePageView.tsx");
+    const googleHook = read("../../hooks/useGooglePerformanceEvidence.ts");
 
-    expect(foundationsUi).toContain("/api/websites/${websiteId}/observe/search-analytics");
+    expect(googleHook).toContain("/api/websites/${requestedWebsiteId}/observe/search-analytics");
     expect(foundationsUi).not.toMatch(/query_text|impressions|payload\.queries|payload\.pages/);
     expect(foundationsEvaluate).toContain("Foundfy has not checked whether Google has indexed these pages.");
     expect(foundationsEvaluate).not.toMatch(/from \"@\/lib\/gsc/);
-    expect(page.indexOf("SiteFoundationsSection")).toBeLessThan(
-      page.indexOf("SiteWhatMattersSection"),
+    expect(page.indexOf("<SiteWhatMattersSection")).toBeLessThan(
+      page.indexOf("<SiteFoundationsSection"),
     );
+    expect(page).toContain("selectGoogleEvidenceForWebsite(google, websiteId)");
   });
 
   it("keeps Search Analytics evidence in the owner-only observe UI", () => {
@@ -38,6 +40,7 @@ describe("public vs owner-private OBSERVE boundary", () => {
     expect(ui).toContain("OBSERVE_CONNECTED_TITLE");
     expect(ui).toContain("OBSERVE_SEARCH_CONSOLE_CONNECTED_TITLE");
     expect(ui).toContain("OBSERVE_SYNC_LABEL");
+    expect(ui).toContain("OBSERVE_SYNC_HELP");
     expect(ui).toContain("Connect Google to begin observing how people discover this site.");
     expect(ui).not.toMatch(/high priority|opportunity|optimize this|CTR is too low|you should target/i);
   });

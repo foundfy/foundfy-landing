@@ -1,6 +1,3 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import {
   FOUNDATION_CHECK_LABELS,
   FOUNDATION_STATUS_LABELS,
@@ -10,7 +7,6 @@ import { selectGoogleEvidenceForWebsite } from "@/lib/foundations/evaluate";
 import type {
   CrawlFoundationsAssessment,
   FoundationStatus,
-  GooglePerformanceEvidenceInput,
   StoredGooglePerformanceEvidence,
 } from "@/lib/foundations/types";
 import { formatSiteScanDate } from "@/lib/site/site-overview-view-model";
@@ -20,43 +16,8 @@ type SiteFoundationsSectionProps = {
   websiteId: string;
   foundations: CrawlFoundationsAssessment | null;
   scanCompletedAt: string | null;
+  google: StoredGooglePerformanceEvidence;
 };
-
-function googleInputFromResponse(
-  status: number,
-  payload: {
-    status?: string;
-    empty?: boolean;
-    windowDays?: number;
-    summary?: { queriesReported?: number };
-  },
-): GooglePerformanceEvidenceInput {
-  if (status === 401) {
-    return { kind: "no_session" };
-  }
-
-  if (status === 403) {
-    return { kind: "not_connected" };
-  }
-
-  if (status < 200 || status >= 300) {
-    return { kind: "unavailable" };
-  }
-
-  if (payload.status === "not_synced") {
-    return { kind: "not_synced" };
-  }
-
-  if (payload.empty) {
-    return { kind: "empty", windowDays: payload.windowDays ?? 28 };
-  }
-
-  return {
-    kind: "reported",
-    windowDays: payload.windowDays ?? 28,
-    queriesReported: payload.summary?.queriesReported ?? 0,
-  };
-}
 
 function statusClassName(status: FoundationStatus): string {
   switch (status) {
@@ -75,47 +36,8 @@ export default function SiteFoundationsSection({
   websiteId,
   foundations,
   scanCompletedAt,
+  google,
 }: SiteFoundationsSectionProps) {
-  const [google, setGoogle] = useState<StoredGooglePerformanceEvidence | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setGoogle({ websiteId, evidence: null });
-
-    async function loadGooglePerformance() {
-      try {
-        const response = await fetch(
-          `/api/websites/${websiteId}/observe/search-analytics`,
-          { cache: "no-store" },
-        );
-        const payload = (await response.json().catch(() => ({}))) as {
-          status?: string;
-          empty?: boolean;
-          windowDays?: number;
-          summary?: { queriesReported?: number };
-        };
-
-        if (cancelled) {
-          return;
-        }
-
-        setGoogle({
-          websiteId,
-          evidence: googleInputFromResponse(response.status, payload),
-        });
-      } catch {
-        if (!cancelled) {
-          setGoogle({ websiteId, evidence: { kind: "unavailable" } });
-        }
-      }
-    }
-
-    void loadGooglePerformance();
-    return () => {
-      cancelled = true;
-    };
-  }, [websiteId]);
-
   const view = buildTechnicalFoundationsView(
     foundations,
     selectGoogleEvidenceForWebsite(google, websiteId),
@@ -164,11 +86,6 @@ export default function SiteFoundationsSection({
           </li>
         ))}
       </ul>
-
-      <div className={styles.foundationsNextStep}>
-        <h3 className={styles.subsectionHeading}>What should happen next</h3>
-        <p className={styles.foundationsSummary}>{view.nextStep.message}</p>
-      </div>
     </section>
   );
 }

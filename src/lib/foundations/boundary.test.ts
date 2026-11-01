@@ -12,6 +12,7 @@ describe("Technical SEO Foundation v0 boundary", () => {
   const types = read("./types.ts");
   const ui = read("../../components/site/SiteFoundationsSection.tsx");
   const page = read("../../components/site/SitePageView.tsx");
+  const googleHook = read("../../hooks/useGooglePerformanceEvidence.ts");
   const overviewLoader = read("../websites/load-overview.ts");
   const overviewTypes = read("../websites/types.ts");
   const completed = read("../findings/load-completed-results.ts");
@@ -50,17 +51,21 @@ describe("Technical SEO Foundation v0 boundary", () => {
     expect(overviewLoader).not.toMatch(/search-analytics|loadSearchAnalyticsEvidence|from \"@\/lib\/gsc/);
     expect(publicRoute).not.toMatch(/from \"@\/lib\/gsc|search-analytics/);
     expect(overviewTypes).not.toMatch(/SearchAnalyticsView|query_text|impressions/);
-    expect(ui).toContain("/api/websites/${websiteId}/observe/search-analytics");
-    expect(ui).toContain("cache: \"no-store\"");
+    expect(googleHook).toContain("/api/websites/${requestedWebsiteId}/observe/search-analytics");
+    expect(googleHook).toContain("cache: \"no-store\"");
     expect(ui).not.toMatch(/query_text|impressions|clicks/);
     expect(ui).not.toMatch(/payload\.queries|payload\.pages/);
+    expect(page).toContain("useGooglePerformanceEvidence");
   });
 
-  it("places foundations above What matters now and keeps indexing not checked", () => {
+  it("places first-value above foundations and keeps indexing not checked", () => {
     expect(page).toContain("SiteFoundationsSection");
     expect(page).toContain("SiteWhatMattersSection");
-    expect(page.indexOf("SiteFoundationsSection")).toBeLessThan(page.indexOf("SiteWhatMattersSection"));
+    expect(page.indexOf("<SiteWhatMattersSection")).toBeLessThan(
+      page.indexOf("<SiteFoundationsSection"),
+    );
     expect(evaluate).toContain("Foundfy has not checked whether Google has indexed these pages.");
     expect(evaluate).toMatch(/status: \"not_checked\"/);
+    expect(ui).not.toContain("What should happen next");
   });
 });
