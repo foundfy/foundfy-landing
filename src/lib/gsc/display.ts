@@ -6,12 +6,14 @@ export const OBSERVE_CONNECTED_NEXT =
 export const OBSERVE_DISCONNECT_LABEL = "Disconnect";
 export const OBSERVE_SEARCH_CONSOLE_CONNECTED_TITLE = "Search Console connected";
 export const OBSERVE_SEARCH_CONSOLE_CONNECTED_NEXT =
-  "Foundfy is ready to observe how this site appears in Google Search.";
+  "Search Console is connected. Load search performance with Sync Google search data. Foundfy does not run that automatically.";
 export const OBSERVE_SYNC_LABEL = "Sync Google search data";
+export const OBSERVE_SYNC_HELP =
+  "This refreshes Google Search performance numbers Foundfy can already load. It does not ask Google to index your pages, and Foundfy does not run it on a schedule.";
 export const OBSERVE_EVIDENCE_TITLE = "Google Search evidence";
 export const OBSERVE_EVIDENCE_PERIOD_LABEL = "Last 28 days";
 export const OBSERVE_EVIDENCE_EMPTY_COPY =
-  "Google doesn't have search performance data available for this site yet. Foundfy can continue analyzing and researching the website while that data becomes available.";
+  "Google doesn't have search performance data available for this site yet. Foundfy can continue analyzing and researching the website while that data becomes available. An empty completed sync is not an indexing check, and using Sync again does not ask Google to index the site.";
 export const OBSERVE_EVIDENCE_DETAIL_LABEL = "View Google search evidence";
 export const OBSERVE_EVIDENCE_HIDE_LABEL = "Hide Google search evidence";
 export const OBSERVE_EVIDENCE_LAG_COPY =
@@ -44,9 +46,10 @@ export const OBSERVE_VERIFY_LABEL = "I've added it — Verify";
 export const OBSERVE_VERIFY_RETRY_COPY =
   "Google may need more time to see the DNS record. You can try again.";
 export const OBSERVE_VERIFIED_TITLE = "Search Console verified";
-export const OBSERVE_VERIFIED_SYNC_COPY = "Foundfy is syncing search performance.";
+export const OBSERVE_VERIFIED_SYNC_COPY =
+  "Foundfy is loading search performance once after verification. That is not a scheduled sync, and it does not request indexing.";
 export const OBSERVE_CONNECTED_EMPTY_COPY =
-  "Google doesn't have search performance data available for this site yet. Foundfy can continue analyzing and researching the website while that data becomes available.";
+  "Google doesn't have search performance data available for this site yet. Foundfy can continue analyzing and researching the website while that data becomes available. An empty completed sync is not an indexing check, and using Sync again does not ask Google to index the site.";
 export const OBSERVE_LIKELY_HEADING = "Likely matches";
 export const OBSERVE_OTHER_HEADING = "Other accessible properties";
 export const OBSERVE_LOADING_PROPERTIES = "Looking for Search Console properties…";

@@ -509,9 +509,31 @@
   accent-color: #ff4a1c;
 }
 
-.whatMattersBlock {
+.whatMattersBlock,
+.firstValueStack {
   display: grid;
   gap: 20px;
+}
+
+.firstValueBlock {
+  display: grid;
+  gap: 8px;
+  max-width: 46rem;
+}
+
+.firstValueNoteList {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 12px;
+}
+
+.firstValueUrls {
+  margin: 4px 0 0;
+  color: rgba(245, 243, 238, 0.52);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
 .highlightList {

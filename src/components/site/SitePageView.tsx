@@ -6,8 +6,10 @@ import {
   shouldShowActiveScanBanner,
   shouldShowCurrentState,
 } from "@/lib/site/site-overview-view-model";
+import { useGooglePerformanceEvidence } from "@/hooks/useGooglePerformanceEvidence";
 import { useRescanNavigation } from "@/hooks/useRescanNavigation";
 import { useWebsiteOverviewLoader } from "@/hooks/useWebsiteOverviewLoader";
+import { selectGoogleEvidenceForWebsite } from "@/lib/foundations/evaluate";
 import shellStyles from "@/components/persistent/PersistentPageShell.module.css";
 import SiteActiveScanNotice from "./SiteActiveScanNotice";
 import SiteHeader from "./SiteHeader";
@@ -16,8 +18,8 @@ import SiteScanHistorySection from "./SiteScanHistorySection";
 import { shouldShowWebsiteGoals } from "@/lib/goals/display";
 import SiteGoalsSection from "./SiteGoalsSection";
 import SiteUnderstandingSection from "./SiteUnderstandingSection";
-import SiteFoundationsSection from "./SiteFoundationsSection";
 import SiteWhatMattersSection from "./SiteWhatMattersSection";
+import SiteFoundationsSection from "./SiteFoundationsSection";
 import SiteObserveSection from "./SiteObserveSection";
 import SiteDecisionsSection from "./SiteDecisionsSection";
 import SiteOpportunitiesSection from "./SiteOpportunitiesSection";
@@ -37,6 +39,7 @@ export default function SitePageView({
 }: SitePageViewProps) {
   const { state, reload } = useWebsiteOverviewLoader(websiteId);
   const { scanAgain, isRescanning, rescanError } = useRescanNavigation(websiteId);
+  const google = useGooglePerformanceEvidence(websiteId);
   const [decideRefreshKey, setDecideRefreshKey] = useState(0);
 
   function refreshDecide() {
@@ -84,6 +87,19 @@ export default function SitePageView({
         <SiteActiveScanNotice activeScan={overview.activeScan} />
       ) : null}
 
+      <SiteWhatMattersSection
+        overview={overview}
+        latestScanHref={links.latestScanHref}
+        google={selectGoogleEvidenceForWebsite(google, websiteId)}
+      />
+
+      <SiteFoundationsSection
+        websiteId={websiteId}
+        foundations={overview.latestUsableScan?.foundations ?? null}
+        scanCompletedAt={overview.latestUsableScan?.completedAt ?? null}
+        google={google}
+      />
+
       {overview.siteModel ? (
         <SiteUnderstandingSection
           websiteId={websiteId}
@@ -109,14 +125,6 @@ export default function SitePageView({
       <SiteResearchSection websiteId={websiteId} refreshKey={decideRefreshKey} />
 
       <SiteActionsSection websiteId={websiteId} refreshKey={decideRefreshKey} />
-
-      <SiteFoundationsSection
-        websiteId={websiteId}
-        foundations={overview.latestUsableScan?.foundations ?? null}
-        scanCompletedAt={overview.latestUsableScan?.completedAt ?? null}
-      />
-
-      <SiteWhatMattersSection overview={overview} latestScanHref={links.latestScanHref} />
 
       {shouldShowCurrentState(overview) && overview.latestUsableScan ? (
         <SiteProgressSection latestUsableScan={overview.latestUsableScan} />

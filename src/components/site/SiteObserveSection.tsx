@@ -35,6 +35,7 @@ import {
   OBSERVE_SECTION_HEADING,
   OBSERVE_SETUP_AUTH_COPY,
   OBSERVE_SETUP_LABEL,
+  OBSERVE_SYNC_HELP,
   OBSERVE_SYNC_LABEL,
   OBSERVE_USE_ANOTHER_ACCOUNT_LABEL,
   OBSERVE_USE_PROPERTY_LABEL,
@@ -989,6 +990,7 @@ function SearchConsoleConnectedPanel({
       >
         {isSyncing ? "Syncing…" : OBSERVE_SYNC_LABEL}
       </button>
+      <p className={styles.foundationsDetail}>{OBSERVE_SYNC_HELP}</p>
 
       {synced && evidence && !evidence.empty ? (
         <button type="button" className={styles.textButton} onClick={onToggleDetails}>

@@ -13,7 +13,8 @@ export default function SiteProgressSection({
   const jobCount = buildResultsDisplayModel(
     latestUsableScan.findings,
     latestUsableScan.findingsSummary,
-  ).actionGroupCount;
+    latestUsableScan.searchPresence,
+  ).highlightCards.length;
   const progress = buildSiteProgressContent(latestUsableScan.comparison, jobCount);
 
   return (
