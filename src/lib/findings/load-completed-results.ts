@@ -2,6 +2,7 @@ import { attachExplanationEnrichments } from "@/lib/ai-enrichment/attach-enrichm
 import { isAiEnrichmentEnabled } from "@/lib/ai-enrichment/config";
 import type { AnalysisFinding } from "@/lib/analysis/crawl-status";
 import { deriveSearchPresenceSignals } from "@/lib/analysis/search-presence";
+import { evaluateCrawlFoundations } from "@/lib/foundations/evaluate";
 import { loadCrawlEvidenceContext } from "@/lib/observations/db/repository";
 import { compareWithPreviousCrawl } from "./comparison/compare-crawls";
 import { loadFindingsForCompletedRun } from "./load-for-run";
@@ -16,22 +17,31 @@ function attachChangeStatuses(
   });
 }
 
-async function loadSearchPresenceSignals(
+async function loadCrawlDerivedSignals(
   crawlRunId: string,
   findings: AnalysisFinding[],
 ) {
   try {
     const context = await loadCrawlEvidenceContext(crawlRunId);
-    return deriveSearchPresenceSignals(context, findings);
+    return {
+      searchPresence: deriveSearchPresenceSignals(context, findings),
+      foundations: evaluateCrawlFoundations({ context, findings }),
+    };
   } catch {
-    return deriveSearchPresenceSignals(null, findings);
+    return {
+      searchPresence: deriveSearchPresenceSignals(null, findings),
+      foundations: evaluateCrawlFoundations({ context: null, findings }),
+    };
   }
 }
 
 export async function loadCompletedCrawlResults(crawlRunId: string) {
   const base = await loadFindingsForCompletedRun(crawlRunId);
   const comparisonResult = await compareWithPreviousCrawl(crawlRunId);
-  const searchPresence = await loadSearchPresenceSignals(crawlRunId, base.findings);
+  const { searchPresence, foundations } = await loadCrawlDerivedSignals(
+    crawlRunId,
+    base.findings,
+  );
 
   const findingsWithComparison = comparisonResult
     ? attachChangeStatuses(
@@ -48,6 +58,7 @@ export async function loadCompletedCrawlResults(crawlRunId: string) {
       findingsSummary: base.findingsSummary,
       comparison,
       searchPresence,
+      foundations,
       explanationEnrichmentStatus: "disabled" as const,
     };
   }
@@ -63,6 +74,7 @@ export async function loadCompletedCrawlResults(crawlRunId: string) {
     findingsSummary: base.findingsSummary,
     comparison,
     searchPresence,
+    foundations,
     explanationEnrichmentStatus: enriched.explanationEnrichmentStatus,
   };
 }

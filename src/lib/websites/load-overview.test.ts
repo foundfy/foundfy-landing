@@ -104,6 +104,42 @@ describe("loadWebsiteOverview", () => {
         unverified: 0,
         fixedFindings: [],
       },
+      foundations: {
+        crawlRunId: "run-usable",
+        hostname: "ekoiq.com",
+        pagesFetched: 10,
+        discoveredUrlCount: 10,
+        sampleLimited: true,
+        fetchedPageUrls: [],
+        sitemapUrlCount: 0,
+        sitemapUrls: [],
+        homepageBlock: null,
+        hasImportantFetchError: false,
+        hasImportantIndexabilityBlock: false,
+        hasSitemapUrlIssues: false,
+        checks: {
+          importantPages: {
+            id: "important_pages",
+            status: "verified",
+            summary: "Foundfy opened the homepage and the other pages in this scan.",
+          },
+          crawlability: {
+            id: "crawlability",
+            status: "verified",
+            summary: "robots.txt allows crawling, and Foundfy was not blocked on these URLs.",
+          },
+          indexability: {
+            id: "indexability",
+            status: "verified",
+            summary: 'Foundfy did not see a "don\'t list this" instruction on the homepage.',
+          },
+          sitemap: {
+            id: "sitemap",
+            status: "data_unavailable",
+            summary: "Foundfy did not fetch a usable sitemap.xml in this scan. That is not always an error.",
+          },
+        },
+      },
       explanationEnrichmentStatus: "ready",
     });
     loadTrustworthyFindingsCountMock
@@ -113,6 +149,10 @@ describe("loadWebsiteOverview", () => {
     const overview = await loadWebsiteOverview(website.id);
 
     expect(overview?.latestUsableScan?.crawlRunId).toBe("run-usable");
+    expect(overview?.latestUsableScan?.foundations?.crawlRunId).toBe("run-usable");
+    expect(overview?.latestUsableScan?.foundations?.checks.sitemap.status).toBe(
+      "data_unavailable",
+    );
     expect(overview?.latestUsableScan?.findings).toHaveLength(2);
     expect(overview?.latestUsableScan?.comparison?.fixed).toBe(1);
     expect(overview?.highlightedFindings).toEqual([
@@ -210,7 +250,7 @@ describe("loadWebsiteOverview", () => {
     expect(overview).not.toHaveProperty("observe");
     expect(overview).not.toHaveProperty("actions");
     expect(JSON.stringify(overview)).not.toMatch(
-      /refresh_token|google_sub|gsc_|ciphertext|oauth|proposedValue|mutation_spec/i,
+      /refresh_token|google_sub|gsc_|ciphertext|oauth|proposedValue|mutation_spec|query_text|impressions/i,
     );
   });
 

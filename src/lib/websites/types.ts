@@ -5,6 +5,7 @@ import type {
   FindingsSummary,
   SearchPresenceSignals,
 } from "@/lib/analysis/crawl-status";
+import type { CrawlFoundationsAssessment } from "@/lib/foundations/types";
 import type { WebsiteGoalsRecord } from "@/lib/goals/types";
 import type { SiteModelRecord } from "@/lib/site-model/types";
 
@@ -50,6 +51,7 @@ export type WebsiteOverview = {
     findingsSummary: FindingsSummary;
     comparison: CrawlComparison | null;
     searchPresence: SearchPresenceSignals | null;
+    foundations?: CrawlFoundationsAssessment | null;
     explanationEnrichmentStatus:
       | "disabled"
       | "skipped"

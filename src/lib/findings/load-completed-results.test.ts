@@ -57,6 +57,9 @@ describe("loadCompletedCrawlResults", () => {
       homepageBlock: null,
       homepageDiscovery: null,
     });
+    expect(result.foundations?.crawlRunId).toBeNull();
+    expect(result.foundations?.checks.importantPages.status).toBe("data_unavailable");
+    expect(result.foundations?.checks.sitemap.status).toBe("data_unavailable");
   });
 
   it("attaches comparison change statuses before optional AI enrichment", async () => {
@@ -124,5 +127,75 @@ describe("loadCompletedCrawlResults", () => {
 
     expect(result.explanationEnrichmentStatus).toBe("pending");
     expect(result.findings[0]?.title).toBe("Finding");
+  });
+
+  it("evaluates crawl foundations from persisted evidence without loading Google data", async () => {
+    process.env.AI_ENRICHMENT_ENABLED = "false";
+    loadFindingsMock.mockResolvedValue({
+      findings: [],
+      findingsSummary: {
+        totalCount: 0,
+        highlightedFindingIds: [],
+        highlightGroups: [],
+      },
+    });
+    compareMock.mockResolvedValue(null);
+    loadEvidenceMock.mockResolvedValue({
+      crawlRunId: "run-1",
+      websiteId: "site-1",
+      hostname: "selcukdemirci.me",
+      seedUrl: "https://selcukdemirci.me/",
+      pages: [
+        {
+          id: "page-home",
+          requestedUrl: "https://selcukdemirci.me/",
+          finalUrl: "https://selcukdemirci.me/",
+          statusCode: 200,
+          redirectChain: [],
+          title: "Home",
+          metaDescription: "Home",
+          canonical: "https://selcukdemirci.me/",
+          robotsMeta: null,
+          xRobotsTag: null,
+          h1: ["Home"],
+          internalLinkCount: 0,
+        },
+      ],
+      links: [],
+      queue: [
+        {
+          id: "queue-home",
+          url: "https://selcukdemirci.me/",
+          status: "completed",
+          skipReason: null,
+        },
+      ],
+      artifacts: [
+        {
+          id: "robots",
+          artifactType: "robots_txt",
+          url: "https://selcukdemirci.me/robots.txt",
+          statusCode: 200,
+          parsed: { allow: ["/"], disallow: [], sitemaps: [] },
+        },
+        {
+          id: "sitemap",
+          artifactType: "sitemap_xml",
+          url: "https://selcukdemirci.me/sitemap.xml",
+          statusCode: 200,
+          parsed: { urls: ["https://selcukdemirci.me/"] },
+        },
+      ],
+    });
+
+    const { loadCompletedCrawlResults } = await import("./load-completed-results");
+    const result = await loadCompletedCrawlResults("run-1");
+
+    expect(result.foundations?.crawlRunId).toBe("run-1");
+    expect(result.foundations?.checks.importantPages.status).toBe("verified");
+    expect(result.foundations?.checks.sitemap.status).toBe("verified");
+    expect(result.foundations?.sitemapUrlCount).toBe(1);
+    expect(result.foundations?.sitemapUrls).toEqual(["https://selcukdemirci.me/"]);
+    expect(JSON.stringify(result.foundations)).not.toMatch(/impressions|query_text|gsc_/i);
   });
 });
