@@ -16,6 +16,7 @@ import SiteScanHistorySection from "./SiteScanHistorySection";
 import { shouldShowWebsiteGoals } from "@/lib/goals/display";
 import SiteGoalsSection from "./SiteGoalsSection";
 import SiteUnderstandingSection from "./SiteUnderstandingSection";
+import SiteFoundationsSection from "./SiteFoundationsSection";
 import SiteWhatMattersSection from "./SiteWhatMattersSection";
 import SiteObserveSection from "./SiteObserveSection";
 import SiteDecisionsSection from "./SiteDecisionsSection";
@@ -108,6 +109,12 @@ export default function SitePageView({
       <SiteResearchSection websiteId={websiteId} refreshKey={decideRefreshKey} />
 
       <SiteActionsSection websiteId={websiteId} refreshKey={decideRefreshKey} />
+
+      <SiteFoundationsSection
+        websiteId={websiteId}
+        foundations={overview.latestUsableScan?.foundations ?? null}
+        scanCompletedAt={overview.latestUsableScan?.completedAt ?? null}
+      />
 
       <SiteWhatMattersSection overview={overview} latestScanHref={links.latestScanHref} />
 

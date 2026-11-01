@@ -786,6 +786,84 @@
   line-height: 1.45;
 }
 
+.foundationsList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 18px;
+  max-width: 46rem;
+}
+
+.foundationsItem {
+  display: grid;
+  gap: 6px;
+}
+
+.foundationsItemHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+}
+
+.foundationsCheckLabel {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: #f5f3ee;
+}
+
+.foundationsStatus {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.foundationStatusVerified {
+  color: rgba(168, 198, 168, 0.88);
+}
+
+.foundationStatusNeedsAttention {
+  color: #ffb08f;
+}
+
+.foundationStatusNotChecked,
+.foundationStatusUnavailable {
+  color: rgba(245, 243, 238, 0.52);
+}
+
+.foundationsSummary {
+  margin: 0;
+  color: rgba(245, 243, 238, 0.78);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.foundationsDetail {
+  margin: 0;
+  color: rgba(245, 243, 238, 0.52);
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.foundationsSitemapList {
+  margin: 4px 0 0;
+  padding-left: 1.15rem;
+  color: rgba(245, 243, 238, 0.56);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.foundationsNextStep {
+  margin-top: 28px;
+  max-width: 46rem;
+}
+
 @media (max-width: 390px) {
   .title {
     font-size: 1.75rem;

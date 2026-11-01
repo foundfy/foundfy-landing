@@ -107,6 +107,7 @@ export async function loadWebsiteOverview(
             },
           comparison: latestResults?.comparison ?? null,
           searchPresence: latestResults?.searchPresence ?? null,
+          foundations: latestResults?.foundations ?? null,
           explanationEnrichmentStatus:
             latestResults?.explanationEnrichmentStatus ?? "disabled",
         }

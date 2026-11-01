@@ -17,6 +17,20 @@ describe("public vs owner-private OBSERVE boundary", () => {
     expect(overviewTypes).not.toMatch(/googleIdentity|refreshToken|observeOwner|searchAnalytics|DecisionView|QueryOpportunity/i);
   });
 
+  it("keeps Google foundation rows on the owner-session observe API", () => {
+    const foundationsUi = read("../../components/site/SiteFoundationsSection.tsx");
+    const foundationsEvaluate = read("../foundations/evaluate.ts");
+    const page = read("../../components/site/SitePageView.tsx");
+
+    expect(foundationsUi).toContain("/api/websites/${websiteId}/observe/search-analytics");
+    expect(foundationsUi).not.toMatch(/query_text|impressions|payload\.queries|payload\.pages/);
+    expect(foundationsEvaluate).toContain("Foundfy has not checked whether Google has indexed these pages.");
+    expect(foundationsEvaluate).not.toMatch(/from \"@\/lib\/gsc/);
+    expect(page.indexOf("SiteFoundationsSection")).toBeLessThan(
+      page.indexOf("SiteWhatMattersSection"),
+    );
+  });
+
   it("keeps Search Analytics evidence in the owner-only observe UI", () => {
     const ui = read("../../components/site/SiteObserveSection.tsx");
     expect(ui).toContain("onUpdated?.()");
