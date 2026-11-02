@@ -34,9 +34,16 @@ describe("First Value UX v0 boundary", () => {
     expect(hook).toContain("/api/websites/${requestedWebsiteId}/observe/search-analytics");
     expect(hook).toContain("cache: \"no-store\"");
     expect(hook).not.toMatch(/query_text|impressions|payload\.queries|payload\.pages/);
+    expect(hook).toContain("shouldRetryGooglePerformanceAttempt");
     expect(page).toContain("useGooglePerformanceEvidence");
     expect(page).toContain("selectGoogleEvidenceForWebsite(google, websiteId)");
+    expect(page).toContain("onReloadPerformance={reloadGooglePerformance}");
+    expect(page).toContain("performanceLoadError={google.loadError}");
+    expect(observe).toContain("performanceLoadError === OBSERVE_EXPIRED_COPY");
     expect(hook).toContain("visibleGoogleEvidenceForWebsite");
     expect(hook).toContain("shouldCommitGooglePerformanceResponse");
+    expect(observe).not.toMatch(/\/observe\/search-analytics`/);
+    expect(observe).toContain("observe/search-analytics/sync");
+    expect(observe).toContain("onReloadPerformance?.()");
   });
 });

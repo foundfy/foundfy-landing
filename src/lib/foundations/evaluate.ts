@@ -520,9 +520,20 @@ export function visibleGoogleEvidenceForWebsite(
   stored: StoredGooglePerformanceEvidence,
   websiteId: string,
 ): StoredGooglePerformanceEvidence {
+  if (stored.websiteId !== websiteId) {
+    return {
+      websiteId,
+      evidence: null,
+      view: null,
+      loadError: null,
+    };
+  }
+
   return {
     websiteId,
-    evidence: selectGoogleEvidenceForWebsite(stored, websiteId),
+    evidence: stored.evidence,
+    view: stored.view ?? null,
+    loadError: stored.loadError ?? null,
   };
 }
 

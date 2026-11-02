@@ -24,6 +24,7 @@ describe("public vs owner-private OBSERVE boundary", () => {
     const googleHook = read("../../hooks/useGooglePerformanceEvidence.ts");
 
     expect(googleHook).toContain("/api/websites/${requestedWebsiteId}/observe/search-analytics");
+    expect(googleHook).toContain("shouldRetryGooglePerformanceAttempt");
     expect(foundationsUi).not.toMatch(/query_text|impressions|payload\.queries|payload\.pages/);
     expect(foundationsEvaluate).toContain("Foundfy has not checked whether Google has indexed these pages.");
     expect(foundationsEvaluate).not.toMatch(/from \"@\/lib\/gsc/);
@@ -36,12 +37,14 @@ describe("public vs owner-private OBSERVE boundary", () => {
   it("keeps Search Analytics evidence in the owner-only observe UI", () => {
     const ui = read("../../components/site/SiteObserveSection.tsx");
     expect(ui).toContain("onUpdated?.()");
+    expect(ui).toContain("onReloadPerformance?.()");
     expect(ui).toContain("OBSERVE_CONNECT_LABEL");
     expect(ui).toContain("OBSERVE_CONNECTED_TITLE");
     expect(ui).toContain("OBSERVE_SEARCH_CONSOLE_CONNECTED_TITLE");
     expect(ui).toContain("OBSERVE_SYNC_LABEL");
     expect(ui).toContain("OBSERVE_SYNC_HELP");
     expect(ui).toContain("Connect Google to begin observing how people discover this site.");
+    expect(ui).not.toMatch(/\/observe\/search-analytics`/);
     expect(ui).not.toMatch(/high priority|opportunity|optimize this|CTR is too low|you should target/i);
   });
 

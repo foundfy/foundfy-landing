@@ -47,6 +47,7 @@ import {
   OBSERVE_VISITS_LABEL,
   verifyDomainTitle,
 } from "@/lib/gsc/display";
+import type { GooglePerformanceEvidenceInput } from "@/lib/foundations/types";
 import type {
   ObserveOwnerView,
   ObservePropertyList,
@@ -62,6 +63,10 @@ type SiteObserveSectionProps = {
   websiteId: string;
   notice: ObserveNotice | null;
   onUpdated?: () => void;
+  performanceView?: unknown | null;
+  performanceEvidence?: GooglePerformanceEvidenceInput | null;
+  performanceLoadError?: string | null;
+  onReloadPerformance?: () => void;
 };
 
 type ObserveLoadState =
@@ -89,6 +94,10 @@ export default function SiteObserveSection({
   websiteId,
   notice,
   onUpdated,
+  performanceView = null,
+  performanceEvidence = null,
+  performanceLoadError = null,
+  onReloadPerformance,
 }: SiteObserveSectionProps) {
   const [state, setState] = useState<ObserveLoadState>({ phase: "loading" });
   const [isDisconnecting, setIsDisconnecting] = useState(false);
@@ -98,8 +107,11 @@ export default function SiteObserveSection({
   const [isVerifying, setIsVerifying] = useState(false);
   const setupNoticeHandled = useRef(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [evidence, setEvidence] = useState<SearchAnalyticsView | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const evidence =
+    performanceView && typeof performanceView === "object"
+      ? (performanceView as SearchAnalyticsView)
+      : null;
 
   const load = useCallback(async () => {
     try {
@@ -129,7 +141,6 @@ export default function SiteObserveSection({
           changing: false,
           justVerified: false,
         });
-        setEvidence(null);
         return;
       }
 
@@ -223,54 +234,38 @@ export default function SiteObserveSection({
   }, [state, websiteId]);
 
   useEffect(() => {
-    if (state.phase !== "search_console_connected" || state.changing || evidence) {
+    if (state.phase !== "search_console_connected") {
       return;
     }
 
-    let cancelled = false;
-
-    async function loadEvidence() {
-      try {
-        const response = await fetch(`/api/websites/${websiteId}/observe/search-analytics`, {
-          cache: "no-store",
-        });
-        const payload = (await response.json().catch(() => ({}))) as SearchAnalyticsView & {
-          error?: string;
-        };
-
-        if (cancelled) {
-          return;
-        }
-
-        if (response.status === 401 && payload.error === OBSERVE_EXPIRED_COPY) {
-          setState({ phase: "disconnected" });
-          setActionError(OBSERVE_EXPIRED_COPY);
-          return;
-        }
-
-        if (response.status === 401 || response.status === 403) {
-          setState({ phase: "disconnected" });
-          return;
-        }
-
-        if (!response.ok) {
-          setActionError(payload.error ?? OBSERVE_EVIDENCE_SYNC_ERROR);
-          return;
-        }
-
-        setEvidence(payload);
-      } catch {
-        if (!cancelled) {
-          setActionError(OBSERVE_EVIDENCE_SYNC_ERROR);
-        }
+    if (performanceEvidence?.kind === "no_session") {
+      setState({ phase: "disconnected" });
+      if (performanceLoadError === OBSERVE_EXPIRED_COPY) {
+        setActionError(OBSERVE_EXPIRED_COPY);
       }
+      return;
     }
 
-    void loadEvidence();
-    return () => {
-      cancelled = true;
-    };
-  }, [state, websiteId, evidence]);
+    if (performanceEvidence?.kind === "not_connected") {
+      setState({ phase: "disconnected" });
+      return;
+    }
+
+    if (performanceEvidence?.kind === "unavailable") {
+      setActionError(OBSERVE_EVIDENCE_SYNC_ERROR);
+      return;
+    }
+
+    if (
+      performanceEvidence?.kind === "empty" ||
+      performanceEvidence?.kind === "reported" ||
+      performanceEvidence?.kind === "not_synced"
+    ) {
+      setActionError((current) =>
+        current === OBSERVE_EVIDENCE_SYNC_ERROR ? null : current,
+      );
+    }
+  }, [performanceEvidence, performanceLoadError, state.phase]);
 
   const disconnect = async () => {
     setIsDisconnecting(true);
@@ -288,8 +283,8 @@ export default function SiteObserveSection({
       }
 
       setState({ phase: "disconnected" });
-      setEvidence(null);
       setDetailsOpen(false);
+      onReloadPerformance?.();
       onUpdated?.();
     } catch {
       setActionError("Unable to disconnect.");
@@ -336,8 +331,8 @@ export default function SiteObserveSection({
         changing: false,
         justVerified: false,
       });
-      setEvidence(null);
       setDetailsOpen(false);
+      onReloadPerformance?.();
       onUpdated?.();
     } catch {
       setActionError("Unable to save the Search Console property.");
@@ -351,7 +346,6 @@ export default function SiteObserveSection({
       return;
     }
     setActionError(null);
-    setEvidence(null);
     setDetailsOpen(false);
     setState({
       phase: "google_connected",
@@ -393,7 +387,7 @@ export default function SiteObserveSection({
         return;
       }
 
-      setEvidence(payload);
+      onReloadPerformance?.();
       onUpdated?.();
     } catch {
       setActionError(OBSERVE_EVIDENCE_SYNC_ERROR);
@@ -419,11 +413,7 @@ export default function SiteObserveSection({
         changing: false,
         justVerified: true,
       });
-      if (payload.searchAnalytics) {
-        setEvidence(payload.searchAnalytics);
-      } else {
-        setEvidence(null);
-      }
+      onReloadPerformance?.();
       onUpdated?.();
       return;
     }

@@ -39,7 +39,8 @@ export default function SitePageView({
 }: SitePageViewProps) {
   const { state, reload } = useWebsiteOverviewLoader(websiteId);
   const { scanAgain, isRescanning, rescanError } = useRescanNavigation(websiteId);
-  const google = useGooglePerformanceEvidence(websiteId);
+  const { snapshot: google, reload: reloadGooglePerformance } =
+    useGooglePerformanceEvidence(websiteId);
   const [decideRefreshKey, setDecideRefreshKey] = useState(0);
 
   function refreshDecide() {
@@ -116,7 +117,16 @@ export default function SitePageView({
         />
       ) : null}
 
-      <SiteObserveSection websiteId={websiteId} notice={observeNotice} onUpdated={refreshDecide} />
+      <SiteObserveSection
+        key={websiteId}
+        websiteId={websiteId}
+        notice={observeNotice}
+        onUpdated={refreshDecide}
+        performanceView={google.view}
+        performanceEvidence={selectGoogleEvidenceForWebsite(google, websiteId)}
+        performanceLoadError={google.loadError}
+        onReloadPerformance={reloadGooglePerformance}
+      />
 
       <SiteDecisionsSection websiteId={websiteId} refreshKey={decideRefreshKey} />
 

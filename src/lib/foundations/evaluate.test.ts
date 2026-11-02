@@ -448,12 +448,17 @@ describe("Google performance and indexing", () => {
         windowDays: 28,
         queriesReported: 12,
       },
+      view: { status: "completed", empty: false, summary: { queriesReported: 12 } },
+      loadError: null,
     };
 
     expect(selectGoogleEvidenceForWebsite(stored, "website-b")).toBeNull();
     expect(selectGoogleEvidenceForWebsite(stored, "website-a")).toEqual(stored.evidence);
     expect(
-      selectGoogleEvidenceForWebsite({ websiteId: "website-b", evidence: null }, "website-b"),
+      selectGoogleEvidenceForWebsite(
+        { websiteId: "website-b", evidence: null, view: null, loadError: null },
+        "website-b",
+      ),
     ).toBeNull();
     expect(
       evaluateGooglePerformance(selectGoogleEvidenceForWebsite(stored, "website-b")).summary,
@@ -465,6 +470,8 @@ describe("Google performance and indexing", () => {
     const firstRenderForB = visibleGoogleEvidenceForWebsite(stored, "website-b");
     expect(firstRenderForB.websiteId).toBe("website-b");
     expect(firstRenderForB.evidence).toBeNull();
+    expect(firstRenderForB.view).toBeNull();
+    expect(firstRenderForB.loadError).toBeNull();
     expect(
       evaluateGooglePerformance(firstRenderForB.evidence).summary,
     ).not.toMatch(/Google reported search performance|12 queries/i);
