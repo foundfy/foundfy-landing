@@ -53,6 +53,8 @@ describe("Technical SEO Foundation v0 boundary", () => {
     expect(overviewTypes).not.toMatch(/SearchAnalyticsView|query_text|impressions/);
     expect(googleHook).toContain("/api/websites/${requestedWebsiteId}/observe/search-analytics");
     expect(googleHook).toContain("cache: \"no-store\"");
+    expect(googleHook).toContain("shouldRetryGooglePerformanceAttempt");
+    expect(page).toContain("onReloadPerformance={reloadGooglePerformance}");
     expect(ui).not.toMatch(/query_text|impressions|clicks/);
     expect(ui).not.toMatch(/payload\.queries|payload\.pages/);
     expect(page).toContain("useGooglePerformanceEvidence");

@@ -71,6 +71,8 @@ export type GooglePerformanceEvidenceInput =
 export type StoredGooglePerformanceEvidence = {
   websiteId: string;
   evidence: GooglePerformanceEvidenceInput | null;
+  view: unknown | null;
+  loadError: string | null;
 };
 
 export type TechnicalFoundationsView = {

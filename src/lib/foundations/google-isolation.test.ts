@@ -17,6 +17,12 @@ const ownerReportedA = {
     windowDays: 28,
     queriesReported: 12,
   },
+  view: {
+    status: "completed",
+    empty: false,
+    summary: { queriesReported: 12 },
+  },
+  loadError: null,
 };
 
 function websiteOverview(websiteId: string, hostname: string): WebsiteOverview {
@@ -43,6 +49,8 @@ describe("Google evidence isolation on website A → website B navigation", () =
 
     expect(firstRenderForB.websiteId).toBe(WEBSITE_B);
     expect(firstRenderForB.evidence).toBeNull();
+    expect(firstRenderForB.view).toBeNull();
+    expect(firstRenderForB.loadError).toBeNull();
     expect(firstRenderForB.evidence).not.toEqual(ownerReportedA.evidence);
 
     const view = buildFirstValueView(
@@ -61,6 +69,8 @@ describe("Google evidence isolation on website A → website B navigation", () =
         cancelled: true,
         requestedWebsiteId: WEBSITE_A,
         currentWebsiteId: WEBSITE_B,
+        requestGeneration: 1,
+        latestGeneration: 2,
       }),
     ).toBe(false);
     expect(
@@ -68,6 +78,8 @@ describe("Google evidence isolation on website A → website B navigation", () =
         cancelled: false,
         requestedWebsiteId: WEBSITE_A,
         currentWebsiteId: WEBSITE_B,
+        requestGeneration: 1,
+        latestGeneration: 2,
       }),
     ).toBe(false);
 
@@ -82,10 +94,16 @@ describe("Google evidence isolation on website A → website B navigation", () =
     expect(unauthorizedB).toEqual({ kind: "no_session" });
 
     const afterLateA = visibleGoogleEvidenceForWebsite(
-      { websiteId: WEBSITE_A, evidence: lateA },
+      {
+        websiteId: WEBSITE_A,
+        evidence: lateA,
+        view: { empty: false, summary: { queriesReported: 12 } },
+        loadError: null,
+      },
       WEBSITE_B,
     );
     expect(afterLateA.evidence).toBeNull();
+    expect(afterLateA.view).toBeNull();
     expect(evaluateGooglePerformance(afterLateA.evidence).summary).not.toMatch(
       /Google reported search performance|12 queries/i,
     );
