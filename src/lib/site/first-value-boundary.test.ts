@@ -57,6 +57,8 @@ describe("First Value UX v0 boundary", () => {
     ).not.toMatch(/fetch|indexing\/check/);
     expect(page).toContain("useGoogleIndexingEvidence(websiteId)");
     expect(foundationsUi).toContain("GOOGLE_INDEXING_CHECK_LABEL");
+    expect(foundationsUi).toContain("indexingCheckAvailable");
+    expect(page).toContain("indexingCheckAvailable");
     expect(foundationsUi).not.toMatch(/urlInspection|sitemaps\.submit|request indexing/i);
   });
 });

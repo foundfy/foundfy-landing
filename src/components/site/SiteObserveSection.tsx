@@ -67,6 +67,7 @@ type SiteObserveSectionProps = {
   performanceEvidence?: GooglePerformanceEvidenceInput | null;
   performanceLoadError?: string | null;
   onReloadPerformance?: () => void;
+  onIndexingPilotEligibility?: (eligible: boolean) => void;
 };
 
 type ObserveLoadState =
@@ -98,6 +99,7 @@ export default function SiteObserveSection({
   performanceEvidence = null,
   performanceLoadError = null,
   onReloadPerformance,
+  onIndexingPilotEligibility,
 }: SiteObserveSectionProps) {
   const [state, setState] = useState<ObserveLoadState>({ phase: "loading" });
   const [isDisconnecting, setIsDisconnecting] = useState(false);
@@ -120,6 +122,7 @@ export default function SiteObserveSection({
       });
 
       if (response.status === 401 || response.status === 403) {
+        onIndexingPilotEligibility?.(false);
         setState({ phase: "disconnected" });
         return;
       }
@@ -127,12 +130,15 @@ export default function SiteObserveSection({
       const payload = (await response.json()) as ObserveOwnerView & { error?: string };
 
       if (!response.ok) {
+        onIndexingPilotEligibility?.(false);
         setState({
           phase: "error",
           message: payload.error ?? "Unable to load Google connection state.",
         });
         return;
       }
+
+      onIndexingPilotEligibility?.(payload.googleIndexingPilotEligible === true);
 
       if (payload.status === "search_console_connected" && payload.property) {
         setState({
@@ -160,12 +166,13 @@ export default function SiteObserveSection({
         retryMessage: null,
       });
     } catch {
+      onIndexingPilotEligibility?.(false);
       setState({
         phase: "error",
         message: "Unable to load Google connection state.",
       });
     }
-  }, [websiteId]);
+  }, [websiteId, onIndexingPilotEligibility]);
 
   useEffect(() => {
     void load();
@@ -327,6 +334,11 @@ export default function SiteObserveSection({
             propertyType: siteUrl.startsWith("sc-domain:") ? "domain" : "url_prefix",
             permissionLevel: null,
           },
+          googleIndexingPilotEligible:
+            payload.googleIndexingPilotEligible === true ||
+            ((state.phase === "google_connected" ||
+              state.phase === "search_console_connected") &&
+              state.view.googleIndexingPilotEligible === true),
         },
         changing: false,
         justVerified: false,
@@ -409,6 +421,10 @@ export default function SiteObserveSection({
           email,
           propertySelected: true,
           property: payload.property,
+          googleIndexingPilotEligible:
+            state.phase === "google_connected" || state.phase === "search_console_connected"
+              ? state.view.googleIndexingPilotEligible === true
+              : false,
         },
         changing: false,
         justVerified: true,

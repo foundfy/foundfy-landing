@@ -27,6 +27,7 @@ type SiteFoundationsSectionProps = {
   google: StoredGooglePerformanceEvidence;
   indexing: StoredGoogleIndexingEvidence;
   indexingBusy: boolean;
+  indexingCheckAvailable: boolean;
   onCheckIndexing: () => void;
 };
 
@@ -85,6 +86,7 @@ export default function SiteFoundationsSection({
   google,
   indexing,
   indexingBusy,
+  indexingCheckAvailable,
   onCheckIndexing,
 }: SiteFoundationsSectionProps) {
   const visibleIndexing = visibleGoogleIndexingForWebsite(indexing, websiteId);
@@ -185,14 +187,16 @@ export default function SiteFoundationsSection({
                     {visibleIndexing.loadError}
                   </p>
                 ) : null}
-                <button
-                  type="button"
-                  className={styles.observeConnectButton}
-                  onClick={onCheckIndexing}
-                  disabled={indexingBusy}
-                >
-                  {indexingBusy ? "Checking Google indexing…" : GOOGLE_INDEXING_CHECK_LABEL}
-                </button>
+                {indexingCheckAvailable ? (
+                  <button
+                    type="button"
+                    className={styles.observeConnectButton}
+                    onClick={onCheckIndexing}
+                    disabled={indexingBusy}
+                  >
+                    {indexingBusy ? "Checking Google indexing…" : GOOGLE_INDEXING_CHECK_LABEL}
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </li>

@@ -20,6 +20,15 @@ describe("Google indexing response mapping", () => {
       kind: "expired",
     });
     expect(googleIndexingFromResponse(403, {})).toEqual({ kind: "not_connected" });
+    expect(
+      googleIndexingFromResponse(403, {
+        error: "Google indexing observation is not available for this site yet.",
+        code: "pilot_ineligible",
+      }),
+    ).toEqual({ kind: "pilot_ineligible" });
+    expect(googleIndexingFromResponse(401, { error: GOOGLE_ACCESS_EXPIRED_ERROR })).not.toEqual({
+      kind: "pilot_ineligible",
+    });
   });
 
   it("M. maps quota, 5xx, and network failures to unavailable", () => {

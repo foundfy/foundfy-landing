@@ -1,7 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV } from "./indexing-pilot";
 import { GOOGLE_WEBMASTERS_READONLY_SCOPE } from "./scopes";
-import { GoogleAuthExpiredError, GoogleIndexingError, ObserveAuthError } from "./types";
+import {
+  GoogleAuthExpiredError,
+  GoogleIndexingError,
+  GoogleIndexingPilotError,
+  ObserveAuthError,
+} from "./types";
 
+const requireObserveOwnerMock = vi.fn();
 const requireSearchConsoleConnectionMock = vi.fn();
 const refreshGoogleAccessTokenMock = vi.fn();
 const inspectUrlIndexStatusMock = vi.fn();
@@ -12,6 +19,7 @@ const artifactsEqMock = vi.fn();
 const decryptSecretMock = vi.fn();
 
 vi.mock("./observe", () => ({
+  requireObserveOwner: (...args: unknown[]) => requireObserveOwnerMock(...args),
   requireSearchConsoleConnection: (...args: unknown[]) =>
     requireSearchConsoleConnectionMock(...args),
 }));
@@ -53,8 +61,11 @@ import {
 } from "./indexing-check";
 
 const WEBSITE_A = "a0dc3fb3-e14a-4277-9bd5-6fe4e0a6e0b2";
-const WEBSITE_B = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+const WEBSITE_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const IDENTITY_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const IDENTITY_B = "11111111-1111-4111-8111-111111111111";
 const SESSION_TOKEN = "owner-session-token";
+const ORIGINAL_ENV = { ...process.env };
 
 function connection(overrides: {
   websiteId?: string;
@@ -66,7 +77,7 @@ function connection(overrides: {
   return {
     website: { id: websiteId, hostname: overrides.hostname ?? "selcukdemirci.me" },
     session: { websiteId },
-    owner: { googleIdentityId: overrides.ownerIdentityId ?? "identity-a" },
+    owner: { googleIdentityId: overrides.ownerIdentityId ?? IDENTITY_A },
     token: {
       refreshTokenCiphertext: "cipher",
       scopes: GOOGLE_WEBMASTERS_READONLY_SCOPE,
@@ -77,9 +88,17 @@ function connection(overrides: {
 }
 
 describe("checkGoogleIndexing", () => {
+  afterEach(() => {
+    process.env = { ...ORIGINAL_ENV };
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     resetGoogleIndexingCheckCacheForTests();
+    process.env = { ...ORIGINAL_ENV };
+    process.env[GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV] =
+      `${WEBSITE_A}:${IDENTITY_A},${WEBSITE_B}:${IDENTITY_A},${WEBSITE_A}:${IDENTITY_B}`;
+    requireObserveOwnerMock.mockResolvedValue(connection());
     requireSearchConsoleConnectionMock.mockResolvedValue(connection());
     refreshGoogleAccessTokenMock.mockResolvedValue("access-token");
     decryptSecretMock.mockReturnValue("refresh-token");
@@ -168,6 +187,13 @@ describe("checkGoogleIndexing", () => {
 
   it("N. does not reuse website A evidence for website B", async () => {
     await checkGoogleIndexing({ websiteId: WEBSITE_A, sessionToken: SESSION_TOKEN });
+    requireObserveOwnerMock.mockResolvedValue(
+      connection({
+        websiteId: WEBSITE_B,
+        hostname: "b.example",
+        propertyUri: "sc-domain:b.example",
+      }),
+    );
     requireSearchConsoleConnectionMock.mockResolvedValue(
       connection({
         websiteId: WEBSITE_B,
@@ -195,8 +221,9 @@ describe("checkGoogleIndexing", () => {
   it("does not reuse a result across Google identities or properties", async () => {
     await checkGoogleIndexing({ websiteId: WEBSITE_A, sessionToken: SESSION_TOKEN });
     inspectUrlIndexStatusMock.mockClear();
+    requireObserveOwnerMock.mockResolvedValue(connection({ ownerIdentityId: IDENTITY_B }));
     requireSearchConsoleConnectionMock.mockResolvedValue(
-      connection({ ownerIdentityId: "identity-b" }),
+      connection({ ownerIdentityId: IDENTITY_B }),
     );
     await checkGoogleIndexing({ websiteId: WEBSITE_A, sessionToken: SESSION_TOKEN });
     expect(inspectUrlIndexStatusMock).toHaveBeenCalled();
@@ -225,12 +252,95 @@ describe("checkGoogleIndexing", () => {
   });
 
   it("does not inspect when the owner session is missing", async () => {
-    requireSearchConsoleConnectionMock.mockRejectedValue(
+    requireObserveOwnerMock.mockRejectedValue(
       new ObserveAuthError(401, "Owner session required."),
     );
     await expect(
       checkGoogleIndexing({ websiteId: WEBSITE_A, sessionToken: null }),
     ).rejects.toBeInstanceOf(ObserveAuthError);
     expect(inspectUrlIndexStatusMock).not.toHaveBeenCalled();
+    expect(refreshGoogleAccessTokenMock).not.toHaveBeenCalled();
+    expect(requireSearchConsoleConnectionMock).not.toHaveBeenCalled();
+  });
+
+  it("allows an authorized pilot owner and still caps Google reads at three URLs", async () => {
+    process.env[GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV] = `${WEBSITE_A}:${IDENTITY_A}`;
+    await checkGoogleIndexing({ websiteId: WEBSITE_A, sessionToken: SESSION_TOKEN });
+    expect(inspectUrlIndexStatusMock).toHaveBeenCalledTimes(3);
+    expect(refreshGoogleAccessTokenMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("denies the same website with a different owner before any Google call", async () => {
+    process.env[GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV] = `${WEBSITE_A}:${IDENTITY_A}`;
+    requireObserveOwnerMock.mockResolvedValue(connection({ ownerIdentityId: IDENTITY_B }));
+    await expect(
+      checkGoogleIndexing({ websiteId: WEBSITE_A, sessionToken: SESSION_TOKEN }),
+    ).rejects.toBeInstanceOf(GoogleIndexingPilotError);
+    expect(requireSearchConsoleConnectionMock).not.toHaveBeenCalled();
+    expect(refreshGoogleAccessTokenMock).not.toHaveBeenCalled();
+    expect(inspectUrlIndexStatusMock).not.toHaveBeenCalled();
+    expect(listSearchConsoleSitemapsMock).not.toHaveBeenCalled();
+  });
+
+  it("denies the wrong website before any Google call", async () => {
+    process.env[GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV] = `${WEBSITE_A}:${IDENTITY_A}`;
+    requireObserveOwnerMock.mockResolvedValue(
+      connection({ websiteId: WEBSITE_B, hostname: "b.example" }),
+    );
+    await expect(
+      checkGoogleIndexing({ websiteId: WEBSITE_B, sessionToken: SESSION_TOKEN }),
+    ).rejects.toBeInstanceOf(GoogleIndexingPilotError);
+    expect(refreshGoogleAccessTokenMock).not.toHaveBeenCalled();
+    expect(inspectUrlIndexStatusMock).not.toHaveBeenCalled();
+  });
+
+  it("denies a missing or malformed allowlist before any Google call", async () => {
+    delete process.env[GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV];
+    await expect(
+      checkGoogleIndexing({ websiteId: WEBSITE_A, sessionToken: SESSION_TOKEN }),
+    ).rejects.toBeInstanceOf(GoogleIndexingPilotError);
+
+    process.env[GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV] = "";
+    await expect(
+      checkGoogleIndexing({ websiteId: WEBSITE_A, sessionToken: SESSION_TOKEN }),
+    ).rejects.toBeInstanceOf(GoogleIndexingPilotError);
+
+    process.env[GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV] = `${WEBSITE_A}:not-a-uuid`;
+    await expect(
+      checkGoogleIndexing({ websiteId: WEBSITE_A, sessionToken: SESSION_TOKEN }),
+    ).rejects.toBeInstanceOf(GoogleIndexingPilotError);
+    expect(refreshGoogleAccessTokenMock).not.toHaveBeenCalled();
+    expect(inspectUrlIndexStatusMock).not.toHaveBeenCalled();
+    expect(listSearchConsoleSitemapsMock).not.toHaveBeenCalled();
+  });
+
+  it("does not let cached website evidence bypass a later allowlist denial", async () => {
+    process.env[GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV] = `${WEBSITE_A}:${IDENTITY_A}`;
+    await checkGoogleIndexing({ websiteId: WEBSITE_A, sessionToken: SESSION_TOKEN });
+    inspectUrlIndexStatusMock.mockClear();
+    refreshGoogleAccessTokenMock.mockClear();
+    requireSearchConsoleConnectionMock.mockClear();
+
+    delete process.env[GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV];
+    await expect(
+      checkGoogleIndexing({ websiteId: WEBSITE_A, sessionToken: SESSION_TOKEN }),
+    ).rejects.toBeInstanceOf(GoogleIndexingPilotError);
+    expect(requireSearchConsoleConnectionMock).not.toHaveBeenCalled();
+    expect(refreshGoogleAccessTokenMock).not.toHaveBeenCalled();
+    expect(inspectUrlIndexStatusMock).not.toHaveBeenCalled();
+  });
+
+  it("does not expose identity A cached evidence to identity B", async () => {
+    process.env[GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV] = `${WEBSITE_A}:${IDENTITY_A}`;
+    await checkGoogleIndexing({ websiteId: WEBSITE_A, sessionToken: SESSION_TOKEN });
+    inspectUrlIndexStatusMock.mockClear();
+    refreshGoogleAccessTokenMock.mockClear();
+    requireObserveOwnerMock.mockResolvedValue(connection({ ownerIdentityId: IDENTITY_B }));
+
+    await expect(
+      checkGoogleIndexing({ websiteId: WEBSITE_A, sessionToken: SESSION_TOKEN }),
+    ).rejects.toBeInstanceOf(GoogleIndexingPilotError);
+    expect(inspectUrlIndexStatusMock).not.toHaveBeenCalled();
+    expect(refreshGoogleAccessTokenMock).not.toHaveBeenCalled();
   });
 });

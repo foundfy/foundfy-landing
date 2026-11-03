@@ -81,6 +81,7 @@ describe("Technical SEO Foundation v0 boundary", () => {
     expect(page).toContain("useGoogleIndexingEvidence(websiteId)");
     expect(evaluate).not.toMatch(/from \"@\/lib\/gsc/);
     expect(ui).toContain("GOOGLE_INDEXING_CHECK_LABEL");
+    expect(ui).toContain("indexingCheckAvailable");
     expect(ui).not.toMatch(/urlInspection|sitemaps\.submit|request indexing/i);
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   buildSiteOverviewLinks,
   shouldShowActiveScanBanner,
@@ -46,8 +46,22 @@ export default function SitePageView({
     snapshot: indexing,
     checking: indexingBusy,
     check: checkGoogleIndexing,
+    applyPilotEligibility,
   } = useGoogleIndexingEvidence(websiteId);
+  const [indexingCheckAvailable, setIndexingCheckAvailable] = useState(false);
   const [decideRefreshKey, setDecideRefreshKey] = useState(0);
+
+  const handleIndexingPilotEligibility = useCallback(
+    (eligible: boolean) => {
+      setIndexingCheckAvailable(eligible);
+      applyPilotEligibility(eligible);
+    },
+    [applyPilotEligibility],
+  );
+
+  useEffect(() => {
+    setIndexingCheckAvailable(false);
+  }, [websiteId]);
 
   function refreshDecide() {
     setDecideRefreshKey((value) => value + 1);
@@ -108,6 +122,7 @@ export default function SitePageView({
         google={google}
         indexing={indexing}
         indexingBusy={indexingBusy}
+        indexingCheckAvailable={indexingCheckAvailable}
         onCheckIndexing={checkGoogleIndexing}
       />
 
@@ -136,6 +151,7 @@ export default function SitePageView({
         performanceEvidence={selectGoogleEvidenceForWebsite(google, websiteId)}
         performanceLoadError={google.loadError}
         onReloadPerformance={reloadGooglePerformance}
+        onIndexingPilotEligibility={handleIndexingPilotEligibility}
       />
 
       <SiteDecisionsSection websiteId={websiteId} refreshKey={decideRefreshKey} />

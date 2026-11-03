@@ -727,4 +727,22 @@ describe("Google indexing observation", () => {
     expect(next.message).toMatch(/indexing is unknown/i);
     expect(next.message).not.toMatch(/homepage as indexed/i);
   });
+
+  it("keeps a valid owner outside the indexing pilot distinct from expired Google access", () => {
+    const assessment = evaluateCrawlFoundations({
+      context: selcukContext(),
+      findings: [],
+    });
+    const check = googleIndexingCheck({ kind: "pilot_ineligible" });
+    const next = interpretFoundationNextStep(assessment, { kind: "empty", windowDays: 28 }, {
+      kind: "pilot_ineligible",
+    });
+    expect(check.status).toBe("not_checked");
+    expect(check.summary).toMatch(/not available for this site yet/i);
+    expect(check.summary).not.toMatch(/Connect Google again/i);
+    expect(check.summary).not.toMatch(/Owner session required/i);
+    expect(check.summary).not.toMatch(/Search Console is not connected/i);
+    expect(next.code).toBe("wait_for_google_discovery");
+    expect(next.message).not.toMatch(/Check Google indexing/i);
+  });
 });

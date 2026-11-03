@@ -3,6 +3,7 @@ import { DecisionPrerequisiteError } from "@/lib/decisions/types";
 import {
   GoogleAuthExpiredError,
   GoogleIndexingError,
+  GoogleIndexingPilotError,
   GoogleSearchAnalyticsError,
   ObserveAuthError,
   ObserveOwnerConflictError,
@@ -34,6 +35,10 @@ export function observeErrorResponse(error: unknown, fallback: string): NextResp
 
   if (error instanceof ObserveOwnerConflictError) {
     return NextResponse.json({ error: error.message }, { status: 409 });
+  }
+
+  if (error instanceof GoogleIndexingPilotError) {
+    return NextResponse.json({ error: error.message, code: error.code }, { status: 403 });
   }
 
   if (error instanceof UnverifiedPropertyError || error instanceof SearchConsoleNotConnectedError) {

@@ -678,6 +678,16 @@ export function googleIndexingCheck(
     };
   }
 
+  if (input.kind === "pilot_ineligible") {
+    return {
+      id: "google_indexing",
+      status: "not_checked",
+      summary: "Google indexing observation is not available for this site yet.",
+      detail:
+        "That is not a missing owner session, expired Google access, or a disconnected Search Console connection.",
+    };
+  }
+
   if (input.kind === "unavailable") {
     return {
       id: "google_indexing",
@@ -817,17 +827,20 @@ export function interpretFoundationNextStep(
       message:
         homepage === "unknown" || homepage === "not_indexed"
           ? "For a newly launched site, the useful next step is to let Google discover the pages. Foundfy is not asking you to rewrite titles or submit changes yet. Search performance can stay empty even when indexing is unknown. Empty search performance is not an indexing result."
-          : "For a newly launched site, the useful next step is to let Google discover the pages. Foundfy is not asking you to rewrite titles or submit changes yet. Search performance can stay empty for a while even after a sitemap is processed. Foundfy has not inspected Google's index until you run Check Google indexing. Foundfy does not run that automatically.",
+          : indexing?.kind === "pilot_ineligible"
+            ? "For a newly launched site, the useful next step is to let Google discover the pages. Foundfy is not asking you to rewrite titles or submit changes yet. Search performance can stay empty for a while even after a sitemap is processed."
+            : "For a newly launched site, the useful next step is to let Google discover the pages. Foundfy is not asking you to rewrite titles or submit changes yet. Search performance can stay empty for a while even after a sitemap is processed. Foundfy has not inspected Google's index until you run Check Google indexing. Foundfy does not run that automatically.",
     };
   }
 
   if (google?.kind === "reported") {
+    const canOfferIndexingCheck =
+      indexing?.kind !== "checked" && indexing?.kind !== "pilot_ineligible";
     return {
-      code: indexing?.kind === "checked" ? "indexing_not_checked" : "check_google_indexing",
-      message:
-        indexing?.kind === "checked"
-          ? "These pages look technically consistent in Foundfy's scan sample. Google search performance is not an indexing result."
-          : "These pages look technically consistent in Foundfy's scan sample. You can check Google indexing for the homepage and up to two other important pages. Foundfy does not run that automatically, and it does not ask Google to index the site.",
+      code: canOfferIndexingCheck ? "check_google_indexing" : "indexing_not_checked",
+      message: canOfferIndexingCheck
+        ? "These pages look technically consistent in Foundfy's scan sample. You can check Google indexing for the homepage and up to two other important pages. Foundfy does not run that automatically, and it does not ask Google to index the site."
+        : "These pages look technically consistent in Foundfy's scan sample. Google search performance is not an indexing result.",
     };
   }
 
@@ -863,11 +876,12 @@ export function interpretFoundationNextStep(
     };
   }
 
+  const canOfferIndexingCheck =
+    indexing?.kind !== "checked" && indexing?.kind !== "pilot_ineligible";
   return {
-    code: indexing?.kind === "checked" ? "indexing_not_checked" : "check_google_indexing",
-    message:
-      indexing?.kind === "checked"
-        ? "These pages look technically consistent in Foundfy's scan sample. Google search performance is not an indexing result."
-        : "These pages look technically consistent in Foundfy's scan sample. You can check Google indexing for the homepage and up to two other important pages. Foundfy does not run that automatically, and it does not ask Google to index the site.",
+    code: canOfferIndexingCheck ? "check_google_indexing" : "indexing_not_checked",
+    message: canOfferIndexingCheck
+      ? "These pages look technically consistent in Foundfy's scan sample. You can check Google indexing for the homepage and up to two other important pages. Foundfy does not run that automatically, and it does not ask Google to index the site."
+      : "These pages look technically consistent in Foundfy's scan sample. Google search performance is not an indexing result.",
   };
 }

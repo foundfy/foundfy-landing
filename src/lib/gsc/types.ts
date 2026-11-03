@@ -74,6 +74,7 @@ export type ObserveOwnerView = {
   email: string | null;
   propertySelected: boolean;
   property: GscPropertySummary | null;
+  googleIndexingPilotEligible: boolean;
 };
 
 export type SearchPresenceState =
@@ -184,6 +185,15 @@ export class GoogleIndexingError extends Error {
     super("Google indexing data couldn't be loaded right now.");
     this.name = "GoogleIndexingError";
     this.code = code;
+  }
+}
+
+export class GoogleIndexingPilotError extends Error {
+  readonly code = "pilot_ineligible" as const;
+
+  constructor() {
+    super("Google indexing observation is not available for this site yet.");
+    this.name = "GoogleIndexingPilotError";
   }
 }
 

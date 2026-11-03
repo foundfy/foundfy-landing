@@ -121,6 +121,7 @@ export type GoogleIndexingEvidenceInput =
   | { kind: "no_session" }
   | { kind: "not_connected" }
   | { kind: "expired" }
+  | { kind: "pilot_ineligible" }
   | { kind: "unavailable"; code?: "quota" | "unavailable" | "malformed" }
   | {
       kind: "checked";

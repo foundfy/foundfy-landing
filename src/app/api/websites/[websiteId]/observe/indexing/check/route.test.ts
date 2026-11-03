@@ -9,6 +9,7 @@ vi.mock("@/lib/gsc/indexing-check", () => ({
 import {
   GoogleAuthExpiredError,
   GoogleIndexingError,
+  GoogleIndexingPilotError,
   ObserveAuthError,
   SearchConsoleNotConnectedError,
 } from "@/lib/gsc/types";
@@ -45,6 +46,18 @@ describe("POST /api/websites/[websiteId]/observe/indexing/check", () => {
       { params: Promise.resolve({ websiteId: WEBSITE_ID }) },
     );
     expect(forbidden.status).toBe(403);
+    expect(await forbidden.json()).toEqual({ error: "Search Console is not connected." });
+
+    checkGoogleIndexingMock.mockRejectedValueOnce(new GoogleIndexingPilotError());
+    const ineligible = await POST(
+      new Request("https://www.foundfy.me/indexing/check", { method: "POST" }),
+      { params: Promise.resolve({ websiteId: WEBSITE_ID }) },
+    );
+    expect(ineligible.status).toBe(403);
+    expect(await ineligible.json()).toEqual({
+      error: "Google indexing observation is not available for this site yet.",
+      code: "pilot_ineligible",
+    });
 
     checkGoogleIndexingMock.mockRejectedValueOnce(new GoogleAuthExpiredError());
     const expired = await POST(

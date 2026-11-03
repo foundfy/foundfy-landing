@@ -9,7 +9,8 @@ import {
   selectInspectionUrls,
   type IndexingPageCandidate,
 } from "./indexing-urls";
-import { requireSearchConsoleConnection } from "./observe";
+import { assertGoogleIndexingPilotAllowed } from "./indexing-pilot";
+import { requireObserveOwner, requireSearchConsoleConnection } from "./observe";
 import { googleCapabilitiesFromScopes } from "./scopes";
 import { listSearchConsoleSitemaps } from "./sitemaps";
 import {
@@ -107,6 +108,15 @@ async function runGoogleIndexingCheck(input: {
   sessionToken: string | null;
   now?: Date;
 }): Promise<GoogleIndexingCheckView> {
+  const ownerContext = await requireObserveOwner({
+    websiteId: input.websiteId,
+    sessionToken: input.sessionToken,
+  });
+  assertGoogleIndexingPilotAllowed({
+    websiteId: input.websiteId,
+    googleIdentityId: ownerContext.owner.googleIdentityId,
+  });
+
   const context = await requireSearchConsoleConnection({
     websiteId: input.websiteId,
     sessionToken: input.sessionToken,

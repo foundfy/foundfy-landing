@@ -50,6 +50,7 @@ describe("GET /api/websites/[websiteId]/observe", () => {
       email: "jose@foundfy.me",
       propertySelected: false,
       property: null,
+      googleIndexingPilotEligible: false,
     });
 
     const response = await GET(
@@ -66,6 +67,7 @@ describe("GET /api/websites/[websiteId]/observe", () => {
       email: "jose@foundfy.me",
       propertySelected: false,
       property: null,
+      googleIndexingPilotEligible: false,
     });
     expect(JSON.stringify(payload)).not.toMatch(/refresh|ciphertext|access_token/i);
   });

@@ -39,8 +39,26 @@ describe("Google Indexing Observation v0 boundary", () => {
     expect(page).toContain("useGoogleIndexingEvidence(websiteId)");
     expect(page.match(/useGoogleIndexingEvidence\(/g)?.length).toBe(1);
     expect(ui).toContain("GOOGLE_INDEXING_CHECK_LABEL");
+    expect(ui).toContain("indexingCheckAvailable");
     expect(ui).toContain("onCheckIndexing");
     expect(ui).not.toMatch(/useEffect/);
+  });
+
+  it("keeps the indexing check behind a fail-closed server-side pilot allowlist", () => {
+    const pilot = read("./indexing-pilot.ts");
+    const check = read("./indexing-check.ts");
+    expect(pilot).toContain("GOOGLE_INDEXING_PILOT_ALLOWLIST");
+    expect(pilot).toContain("Redeploy");
+    expect(check).toContain("assertGoogleIndexingPilotAllowed");
+    const run = check.slice(check.indexOf("async function runGoogleIndexingCheck"));
+    expect(run.indexOf("assertGoogleIndexingPilotAllowed")).toBeLessThan(
+      run.indexOf("refreshGoogleAccessToken"),
+    );
+    expect(run.indexOf("assertGoogleIndexingPilotAllowed")).toBeLessThan(
+      run.indexOf("requireSearchConsoleConnection"),
+    );
+    expect(page).toContain("indexingCheckAvailable");
+    expect(blob).not.toMatch(/generic rate limiter|distributed cache|setInterval/i);
   });
 
   it("does not add a schema, scheduler, or Decision/Research/ACT coupling", () => {

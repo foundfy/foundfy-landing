@@ -171,6 +171,10 @@ function indexingUnknownLine(indexing: GoogleIndexingEvidenceInput | null): stri
     return "Google access expired. Connect Google again to check indexing. That is not a missing owner session.";
   }
 
+  if (indexing.kind === "pilot_ineligible") {
+    return "Google indexing observation is not available for this site yet. That is not a missing owner session, expired Google access, or a disconnected Search Console connection.";
+  }
+
   if (indexing.kind === "unavailable") {
     return "Foundfy could not load Google indexing data right now. That is not an indexing result.";
   }

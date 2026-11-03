@@ -17,6 +17,7 @@ export type GoogleIndexingEvidenceController = {
   snapshot: StoredGoogleIndexingEvidence;
   checking: boolean;
   check: () => void;
+  applyPilotEligibility: (eligible: boolean) => void;
 };
 
 type IndexingFetchPayload = GoogleIndexingEvidenceInput | { error?: string; code?: string };
@@ -38,6 +39,29 @@ export function useGoogleIndexingEvidence(websiteId: string): GoogleIndexingEvid
       generationRef.current += 1;
     };
   }, [websiteId]);
+
+  const applyPilotEligibility = useCallback((eligible: boolean) => {
+    const currentWebsiteId = websiteIdRef.current;
+    setSnapshot((current) => {
+      if (current.websiteId !== currentWebsiteId) {
+        return current;
+      }
+
+      if (!eligible) {
+        return {
+          websiteId: currentWebsiteId,
+          evidence: { kind: "pilot_ineligible" },
+          loadError: null,
+        };
+      }
+
+      if (current.evidence?.kind === "pilot_ineligible") {
+        return emptyIndexingSnapshot(currentWebsiteId);
+      }
+
+      return current;
+    });
+  }, []);
 
   const check = useCallback(async () => {
     const requestedWebsiteId = websiteIdRef.current;
@@ -86,5 +110,6 @@ export function useGoogleIndexingEvidence(websiteId: string): GoogleIndexingEvid
     snapshot: visibleGoogleIndexingForWebsite(snapshot, websiteId),
     checking,
     check,
+    applyPilotEligibility,
   };
 }

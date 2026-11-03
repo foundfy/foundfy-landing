@@ -27,6 +27,9 @@ export function googleIndexingFromResponse(
   }
 
   if (status === 403) {
+    if ("code" in payload && payload.code === "pilot_ineligible") {
+      return { kind: "pilot_ineligible" };
+    }
     return { kind: "not_connected" };
   }
 

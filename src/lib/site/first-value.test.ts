@@ -237,6 +237,15 @@ describe("first-value GSC and indexing distinctions", () => {
       expect(view.unknownBody).toContain(GOOGLE_INDEXING_UNKNOWN);
       expect(view.notes).toHaveLength(1);
     }
+
+    const ineligible = buildFirstValueView(overview, { kind: "empty", windowDays: 28 }, {
+      kind: "pilot_ineligible",
+    });
+    expect(ineligible.unknownBody).toMatch(/not available for this site yet/i);
+    expect(ineligible.unknownBody).not.toContain(GOOGLE_INDEXING_UNKNOWN);
+    expect(ineligible.unknownBody).not.toMatch(/Connect Google again/i);
+    expect(ineligible.unknownBody).not.toMatch(/Owner session required/i);
+    expect(ineligible.nextStep.message).not.toMatch(/Check Google indexing/i);
   });
 
   it("does not treat a successful fetch as the current job when there are no findings", () => {
