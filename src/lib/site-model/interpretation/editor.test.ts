@@ -151,7 +151,10 @@ describe("Site Model editor wiring boundary", () => {
       path.join(__dirname, "../../../components/site/SitePageView.tsx"),
       "utf8",
     );
-    expect(page).toMatch(/<SiteUnderstandingSection[\s\S]*key=\{websiteId\}/);
+    expect(page).toMatch(
+      /<SiteUnderstandingSection[\s\S]*key=\{`understanding:\$\{websiteId\}`\}/,
+    );
+    expect(page).toMatch(/<SiteObserveSection\s+key=\{`observe:\$\{websiteId\}`\}/);
     expect(page.match(/<SiteUnderstandingSection/g)).toHaveLength(1);
     expect(ui.match(/id="site-understanding"/g)).toHaveLength(1);
     expect(ui).toContain("applyListFieldEditorChange");
