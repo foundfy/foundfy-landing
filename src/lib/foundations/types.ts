@@ -32,7 +32,9 @@ export type FoundationNextStepCode =
   | "google_not_connected"
   | "sync_google_performance"
   | "google_unavailable"
-  | "indexing_not_checked";
+  | "indexing_not_checked"
+  | "check_google_indexing"
+  | "review_google_indexing";
 
 export type FoundationNextStep = {
   code: FoundationNextStepCode;
@@ -72,6 +74,66 @@ export type StoredGooglePerformanceEvidence = {
   websiteId: string;
   evidence: GooglePerformanceEvidenceInput | null;
   view: unknown | null;
+  loadError: string | null;
+};
+
+export type GoogleIndexingUrlVerdict = "indexed" | "not_indexed" | "unknown";
+
+export type GoogleIndexingUrlRole = "homepage" | "important_page";
+
+export type GoogleIndexingUrlEvidence = {
+  url: string;
+  role: GoogleIndexingUrlRole;
+  verdict: GoogleIndexingUrlVerdict;
+  coverageState: string | null;
+  indexingState: string | null;
+  robotsTxtState: string | null;
+  pageFetchState: string | null;
+  lastCrawlTime: string | null;
+  inspectedAt: string;
+  userCanonical: string | null;
+  googleCanonical: string | null;
+  canonicalMismatch: boolean;
+  referringUrls: string[];
+  sitemaps: string[];
+  reason: string | null;
+};
+
+export type GoogleSitemapObservationEntry = {
+  path: string;
+  lastSubmitted: string | null;
+  lastDownloaded: string | null;
+  pending: boolean;
+  errors: number | null;
+  warnings: number | null;
+  submittedUrlCount: number | null;
+};
+
+export type GoogleSitemapObservation = {
+  crawledSitemapUrls: string[];
+  listedInSearchConsole: boolean;
+  sitemaps: GoogleSitemapObservationEntry[];
+  interpretation: "listed_and_processed" | "listed_pending_or_errors" | "none_listed";
+};
+
+export type GoogleIndexingEvidenceInput =
+  | { kind: "not_checked" }
+  | { kind: "no_session" }
+  | { kind: "not_connected" }
+  | { kind: "expired" }
+  | { kind: "pilot_ineligible" }
+  | { kind: "unavailable"; code?: "quota" | "unavailable" | "malformed" }
+  | {
+      kind: "checked";
+      inspectedAt: string;
+      reused: boolean;
+      urls: GoogleIndexingUrlEvidence[];
+      sitemap: GoogleSitemapObservation;
+    };
+
+export type StoredGoogleIndexingEvidence = {
+  websiteId: string;
+  evidence: GoogleIndexingEvidenceInput | null;
   loadError: string | null;
 };
 

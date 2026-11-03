@@ -74,6 +74,7 @@ export type ObserveOwnerView = {
   email: string | null;
   propertySelected: boolean;
   property: GscPropertySummary | null;
+  googleIndexingPilotEligible: boolean;
 };
 
 export type SearchPresenceState =
@@ -172,6 +173,27 @@ export class GoogleSearchAnalyticsError extends Error {
     super("Google Search data couldn't be refreshed right now.");
     this.name = "GoogleSearchAnalyticsError";
     this.code = code;
+  }
+}
+
+export type GoogleIndexingErrorCode = "quota" | "unavailable" | "malformed";
+
+export class GoogleIndexingError extends Error {
+  readonly code: GoogleIndexingErrorCode;
+
+  constructor(code: GoogleIndexingErrorCode) {
+    super("Google indexing data couldn't be loaded right now.");
+    this.name = "GoogleIndexingError";
+    this.code = code;
+  }
+}
+
+export class GoogleIndexingPilotError extends Error {
+  readonly code = "pilot_ineligible" as const;
+
+  constructor() {
+    super("Google indexing observation is not available for this site yet.");
+    this.name = "GoogleIndexingPilotError";
   }
 }
 

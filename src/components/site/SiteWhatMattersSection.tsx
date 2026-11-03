@@ -1,7 +1,10 @@
 import Link from "next/link";
 import FindingCard from "@/components/hero/FindingCard";
 import { getSiteScanLinkLabel } from "@/lib/analysis/landing-persistent-bridge";
-import type { GooglePerformanceEvidenceInput } from "@/lib/foundations/types";
+import type {
+  GoogleIndexingEvidenceInput,
+  GooglePerformanceEvidenceInput,
+} from "@/lib/foundations/types";
 import { buildFirstValueView } from "@/lib/site/first-value";
 import type { WebsiteOverview } from "@/lib/websites/types";
 import styles from "./SitePageView.module.css";
@@ -10,14 +13,16 @@ type SiteWhatMattersSectionProps = {
   overview: WebsiteOverview;
   latestScanHref: string | null;
   google: GooglePerformanceEvidenceInput | null;
+  indexing?: GoogleIndexingEvidenceInput | null;
 };
 
 export default function SiteWhatMattersSection({
   overview,
   latestScanHref,
   google,
+  indexing = null,
 }: SiteWhatMattersSectionProps) {
-  const view = buildFirstValueView(overview, google);
+  const view = buildFirstValueView(overview, google, indexing);
 
   return (
     <section className={styles.section} aria-labelledby="site-first-value">

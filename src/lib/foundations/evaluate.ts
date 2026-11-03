@@ -17,7 +17,9 @@ import type {
   CrawlFoundationsAssessment,
   FoundationCheck,
   FoundationNextStep,
+  GoogleIndexingEvidenceInput,
   GooglePerformanceEvidenceInput,
+  StoredGoogleIndexingEvidence,
   StoredGooglePerformanceEvidence,
 } from "./types";
 
@@ -597,19 +599,154 @@ export function evaluateGooglePerformance(
   }
 }
 
-export function googleIndexingCheck(): FoundationCheck {
+function homepageIndexingVerdict(
+  input: GoogleIndexingEvidenceInput | null,
+): "indexed" | "not_indexed" | "unknown" | null {
+  if (input?.kind !== "checked") {
+    return null;
+  }
+
+  return input.urls.find((url) => url.role === "homepage")?.verdict ?? null;
+}
+
+function indexingNeedsAttention(input: GoogleIndexingEvidenceInput | null): boolean {
+  if (input?.kind !== "checked") {
+    return false;
+  }
+
+  return input.urls.some(
+    (url) => url.verdict === "not_indexed" || url.canonicalMismatch,
+  );
+}
+
+export function visibleGoogleIndexingForWebsite(
+  stored: StoredGoogleIndexingEvidence,
+  websiteId: string,
+): StoredGoogleIndexingEvidence {
+  if (stored.websiteId !== websiteId) {
+    return {
+      websiteId,
+      evidence: { kind: "not_checked" },
+      loadError: null,
+    };
+  }
+
+  return {
+    websiteId,
+    evidence: stored.evidence,
+    loadError: stored.loadError,
+  };
+}
+
+export function googleIndexingCheck(
+  input: GoogleIndexingEvidenceInput | null = null,
+): FoundationCheck {
+  if (input == null || input.kind === "not_checked") {
+    return {
+      id: "google_indexing",
+      status: "not_checked",
+      summary: "Foundfy has not checked whether Google has indexed these pages.",
+      detail:
+        "Check Google indexing reads the version known to Google's index for the homepage and up to two other important pages from this scan. It is not a live URL test, it does not ask Google to index the site, and Foundfy does not run it on a schedule. A crawl, a sitemap, or search performance is not an indexing result.",
+    };
+  }
+
+  if (input.kind === "no_session") {
+    return {
+      id: "google_indexing",
+      status: "data_unavailable",
+      summary:
+        "Google indexing is unavailable in this view. Connect Google to check the version known to Google's index.",
+      detail: "That is a missing owner session, not expired Google access.",
+    };
+  }
+
+  if (input.kind === "not_connected") {
+    return {
+      id: "google_indexing",
+      status: "data_unavailable",
+      summary: "Search Console is not connected, so Foundfy cannot check Google indexing.",
+    };
+  }
+
+  if (input.kind === "expired") {
+    return {
+      id: "google_indexing",
+      status: "data_unavailable",
+      summary: "Google access expired. Connect Google again to check indexing.",
+      detail: "That is expired Google access, not a missing owner session.",
+    };
+  }
+
+  if (input.kind === "pilot_ineligible") {
+    return {
+      id: "google_indexing",
+      status: "not_checked",
+      summary: "Google indexing observation is not available for this site yet.",
+      detail:
+        "That is not a missing owner session, expired Google access, or a disconnected Search Console connection.",
+    };
+  }
+
+  if (input.kind === "unavailable") {
+    return {
+      id: "google_indexing",
+      status: "data_unavailable",
+      summary:
+        input.code === "quota"
+          ? "Google indexing could not be checked because Search Console is rate-limiting requests."
+          : "Foundfy could not load Google indexing data right now.",
+      detail: "That failure is not an indexing result.",
+    };
+  }
+
+  const homepage = homepageIndexingVerdict(input);
+  const indexedCount = input.urls.filter((url) => url.verdict === "indexed").length;
+  const sitemapNote =
+    input.sitemap.interpretation === "none_listed"
+      ? " No sitemap is listed in Search Console. That does not prove Google cannot discover the site."
+      : input.sitemap.interpretation === "listed_pending_or_errors"
+        ? " Search Console listed a sitemap with pending processing or errors."
+        : input.sitemap.listedInSearchConsole
+          ? " A sitemap is listed in Search Console. Listing is not proof that URLs are indexed."
+          : "";
+
+  if (indexingNeedsAttention(input)) {
+    return {
+      id: "google_indexing",
+      status: "needs_attention",
+      summary:
+        homepage === "not_indexed"
+          ? "Google reports the homepage is not indexed."
+          : "Google reported an indexing or canonical issue on an inspected page.",
+      detail: `This is the version known to Google's index, not a live URL test.${sitemapNote}`,
+    };
+  }
+
+  if (homepage === "indexed" || indexedCount > 0) {
+    return {
+      id: "google_indexing",
+      status: "verified",
+      summary:
+        homepage === "indexed"
+          ? "Google reports the homepage as indexed."
+          : `Google reports ${indexedCount} inspected page${indexedCount === 1 ? "" : "s"} as indexed.`,
+      detail: `That is the version known to Google's index, not a live URL test. INDEXING_ALLOWED is not proof of indexing.${sitemapNote}`,
+    };
+  }
+
   return {
     id: "google_indexing",
-    status: "not_checked",
-    summary: "Foundfy has not checked whether Google has indexed these pages.",
-    detail:
-      "Foundfy does not inspect Google's index in this version. A crawl, a sitemap, or search performance is not an indexing result.",
+    status: "data_unavailable",
+    summary: "Google did not clearly report whether these pages are indexed.",
+    detail: `The inspection result is unknown or incomplete. That is not a live URL test.${sitemapNote}`,
   };
 }
 
 export function interpretFoundationNextStep(
   crawl: CrawlFoundationsAssessment | null,
   google: GooglePerformanceEvidenceInput | null,
+  indexing: GoogleIndexingEvidenceInput | null = null,
 ): FoundationNextStep {
   if (!crawl || !crawl.crawlRunId) {
     return {
@@ -667,19 +804,43 @@ export function interpretFoundationNextStep(
     };
   }
 
+  if (indexingNeedsAttention(indexing)) {
+    return {
+      code: "review_google_indexing",
+      message:
+        "Google reported an indexing or canonical issue on an inspected page. Review Google indexing. That result is the version known to Google's index, not a live URL test, and it does not ask Google to index the site.",
+    };
+  }
+
   if (google?.kind === "empty") {
+    const homepage = homepageIndexingVerdict(indexing);
+    if (homepage === "indexed") {
+      return {
+        code: "wait_for_google_discovery",
+        message:
+          "Google reports the homepage as indexed. Search performance can stay empty for a while. Foundfy is not asking you to rewrite titles or submit changes. Empty search performance is not an indexing result.",
+      };
+    }
+
     return {
       code: "wait_for_google_discovery",
       message:
-        "For a newly launched site, the useful next step is to let Google discover the pages. Foundfy is not asking you to rewrite titles or submit changes yet. Search performance can stay empty for a while even after a sitemap is processed. Foundfy has not inspected Google's index.",
+        homepage === "unknown" || homepage === "not_indexed"
+          ? "For a newly launched site, the useful next step is to let Google discover the pages. Foundfy is not asking you to rewrite titles or submit changes yet. Search performance can stay empty even when indexing is unknown. Empty search performance is not an indexing result."
+          : indexing?.kind === "pilot_ineligible"
+            ? "For a newly launched site, the useful next step is to let Google discover the pages. Foundfy is not asking you to rewrite titles or submit changes yet. Search performance can stay empty for a while even after a sitemap is processed."
+            : "For a newly launched site, the useful next step is to let Google discover the pages. Foundfy is not asking you to rewrite titles or submit changes yet. Search performance can stay empty for a while even after a sitemap is processed. Foundfy has not inspected Google's index until you run Check Google indexing. Foundfy does not run that automatically.",
     };
   }
 
   if (google?.kind === "reported") {
+    const canOfferIndexingCheck =
+      indexing?.kind !== "checked" && indexing?.kind !== "pilot_ineligible";
     return {
-      code: "indexing_not_checked",
-      message:
-        "These pages look technically consistent in Foundfy's scan sample. Foundfy has not checked whether Google has listed them.",
+      code: canOfferIndexingCheck ? "check_google_indexing" : "indexing_not_checked",
+      message: canOfferIndexingCheck
+        ? "These pages look technically consistent in Foundfy's scan sample. You can check Google indexing for the homepage and up to two other important pages. Foundfy does not run that automatically, and it does not ask Google to index the site."
+        : "These pages look technically consistent in Foundfy's scan sample. Google search performance is not an indexing result.",
     };
   }
 
@@ -715,9 +876,12 @@ export function interpretFoundationNextStep(
     };
   }
 
+  const canOfferIndexingCheck =
+    indexing?.kind !== "checked" && indexing?.kind !== "pilot_ineligible";
   return {
-    code: "indexing_not_checked",
-    message:
-      "These pages look technically consistent in Foundfy's scan sample. Foundfy has not checked whether Google has listed them.",
+    code: canOfferIndexingCheck ? "check_google_indexing" : "indexing_not_checked",
+    message: canOfferIndexingCheck
+      ? "These pages look technically consistent in Foundfy's scan sample. You can check Google indexing for the homepage and up to two other important pages. Foundfy does not run that automatically, and it does not ask Google to index the site."
+      : "These pages look technically consistent in Foundfy's scan sample. Google search performance is not an indexing result.",
   };
 }

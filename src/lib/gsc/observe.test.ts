@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV } from "./indexing-pilot";
 import { ObserveAuthError } from "./types";
 
 const getWebsiteByIdMock = vi.fn();
@@ -151,6 +152,7 @@ describe("observe owner authorization", () => {
       email: "jose@foundfy.me",
       propertySelected: false,
       property: null,
+      googleIndexingPilotEligible: false,
     });
     expect(JSON.stringify(view)).not.toMatch(/refresh-token|ciphertext|accessToken/i);
     expect(findOwnerSessionByTokenHashMock).toHaveBeenCalledWith(
@@ -185,7 +187,46 @@ describe("observe owner authorization", () => {
         propertyType: "domain",
         permissionLevel: "siteOwner",
       },
+      googleIndexingPilotEligible: false,
     });
+  });
+
+  it("reports indexing pilot eligibility without calling Google APIs", async () => {
+    const identityId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    findOwnerSessionByTokenHashMock.mockResolvedValue({
+      id: "session-1",
+      googleIdentityId: identityId,
+      websiteId: WEBSITE_ID,
+      expiresAt: "2099-01-01T00:00:00.000Z",
+    });
+    findActiveObserveOwnerMock.mockResolvedValue({
+      id: "owner-1",
+      websiteId: WEBSITE_ID,
+      googleIdentityId: identityId,
+      googleOAuthTokenId: "token-1",
+      status: "google_connected",
+    });
+    findGoogleIdentityByIdMock.mockResolvedValue({
+      id: identityId,
+      googleSub: "google-sub-1",
+      email: "jose@foundfy.me",
+    });
+    process.env[GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV] = `${WEBSITE_ID}:${identityId}`;
+
+    const allowed = await resolveObserveOwnerView({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION_TOKEN,
+    });
+    expect(allowed.googleIndexingPilotEligible).toBe(true);
+    expect(revokeGoogleTokenMock).not.toHaveBeenCalled();
+
+    process.env[GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV] = `${WEBSITE_ID}:11111111-1111-4111-8111-111111111111`;
+    const denied = await resolveObserveOwnerView({
+      websiteId: WEBSITE_ID,
+      sessionToken: SESSION_TOKEN,
+    });
+    expect(denied.googleIndexingPilotEligible).toBe(false);
+    expect(denied.status).toBe("google_connected");
   });
 
   it("does not treat another identity's property as Search Console connected", async () => {

@@ -13,6 +13,7 @@ import { interpretFoundationNextStep } from "@/lib/foundations/evaluate";
 import type {
   CrawlFoundationsAssessment,
   FoundationNextStepCode,
+  GoogleIndexingEvidenceInput,
   GooglePerformanceEvidenceInput,
 } from "@/lib/foundations/types";
 import type { WebsiteOverview } from "@/lib/websites/types";
@@ -27,7 +28,7 @@ export const FIRST_VALUE_NEXT_HEADING = "What happens next";
 export const FIRST_VALUE_OWNER_HEADING = "Is anything required from you now?";
 
 export const GOOGLE_INDEXING_UNKNOWN =
-  "Google indexing is not checked. Foundfy does not inspect Google's index in this version.";
+  "Google indexing is not checked yet. Check Google indexing reads the version known to Google's index. It is not a live URL test, and it does not ask Google to index the site.";
 
 export const GOOGLE_PERFORMANCE_LOADING =
   "Foundfy is still checking whether Google search performance is available in this view.";
@@ -153,24 +154,70 @@ function completedBody(overview: WebsiteOverview): string {
   return `Foundfy completed a website scan on ${date}. ${scope}. Opening the website and recording that scan is completed work, not an SEO job. Technical SEO Foundations lists what that scan verified.`;
 }
 
-function unknownBody(google: GooglePerformanceEvidenceInput | null): string {
+function indexingUnknownLine(indexing: GoogleIndexingEvidenceInput | null): string {
+  if (indexing == null || indexing.kind === "not_checked") {
+    return GOOGLE_INDEXING_UNKNOWN;
+  }
+
+  if (indexing.kind === "no_session") {
+    return "Google indexing is unavailable in this view. Connect Google to check the version known to Google's index.";
+  }
+
+  if (indexing.kind === "not_connected") {
+    return "Search Console is not connected, so Foundfy cannot check Google indexing.";
+  }
+
+  if (indexing.kind === "expired") {
+    return "Google access expired. Connect Google again to check indexing. That is not a missing owner session.";
+  }
+
+  if (indexing.kind === "pilot_ineligible") {
+    return "Google indexing observation is not available for this site yet. That is not a missing owner session, expired Google access, or a disconnected Search Console connection.";
+  }
+
+  if (indexing.kind === "unavailable") {
+    return "Foundfy could not load Google indexing data right now. That is not an indexing result.";
+  }
+
+  const homepage = indexing.urls.find((url) => url.role === "homepage");
+  if (homepage?.verdict === "indexed") {
+    return "Google reports the homepage as indexed. That is the version known to Google's index, not a live URL test.";
+  }
+
+  if (homepage?.verdict === "not_indexed") {
+    return `Google reports the homepage is not indexed${homepage.reason ? ` (${homepage.reason})` : ""}. That is the version known to Google's index, not a live URL test.`;
+  }
+
+  if (indexing.urls.some((url) => url.verdict === "indexed")) {
+    return "Google reports at least one inspected page as indexed. That is the version known to Google's index, not a live URL test.";
+  }
+
+  return "Google did not clearly report whether these pages are indexed. That is not a live URL test.";
+}
+
+function unknownBody(
+  google: GooglePerformanceEvidenceInput | null,
+  indexing: GoogleIndexingEvidenceInput | null,
+): string {
+  const indexingLine = indexingUnknownLine(indexing);
+
   if (google === null) {
-    return `${GOOGLE_INDEXING_UNKNOWN} ${GOOGLE_PERFORMANCE_LOADING}`;
+    return `${indexingLine} ${GOOGLE_PERFORMANCE_LOADING}`;
   }
 
   switch (google.kind) {
     case "empty":
-      return `${GOOGLE_INDEXING_UNKNOWN} Search Console synced, but reported no queries in the current window. Empty search performance is not an indexing result.`;
+      return `${indexingLine} Search Console synced, but reported no queries in the current window. Empty search performance is not an indexing result.`;
     case "reported":
-      return `${GOOGLE_INDEXING_UNKNOWN} Google has reported search performance for this site. That still is not an indexing check.`;
+      return `${indexingLine} Google has reported search performance for this site. That still is not an indexing check by itself.`;
     case "not_synced":
-      return `${GOOGLE_INDEXING_UNKNOWN} Search Console is connected, but Foundfy has not loaded search performance for this site yet.`;
+      return `${indexingLine} Search Console is connected, but Foundfy has not loaded search performance for this site yet.`;
     case "not_connected":
-      return `${GOOGLE_INDEXING_UNKNOWN} Search Console is not connected in this session.`;
+      return `${indexingLine} Search Console is not connected in this session.`;
     case "no_session":
-      return `${GOOGLE_INDEXING_UNKNOWN} Search performance is unavailable in this view. Connect Google to see what Google reports.`;
+      return `${indexingLine} Search performance is unavailable in this view. Connect Google to see what Google reports.`;
     case "unavailable":
-      return `${GOOGLE_INDEXING_UNKNOWN} Foundfy could not load Google search analytics right now. That is not an indexing result.`;
+      return `${indexingLine} Foundfy could not load Google search analytics right now. That is not an indexing result.`;
   }
 }
 
@@ -197,8 +244,12 @@ function kindFromFoundation(code: FoundationNextStepCode): FirstValueCapabilityK
     return "no_immediate_action";
   }
 
+  if (code === "check_google_indexing" || code === "review_google_indexing") {
+    return "owner_action_supported";
+  }
+
   if (code === "indexing_not_checked") {
-    return "capability_not_available";
+    return "no_immediate_action";
   }
 
   return "no_immediate_action";
@@ -207,17 +258,18 @@ function kindFromFoundation(code: FoundationNextStepCode): FirstValueCapabilityK
 function composeNextStep(input: {
   crawl: CrawlFoundationsAssessment | null;
   google: GooglePerformanceEvidenceInput | null;
+  indexing: GoogleIndexingEvidenceInput | null;
   attentionCount: number;
   notesCount: number;
 }): FirstValueNextStep {
-  const { crawl, google, attentionCount, notesCount } = input;
+  const { crawl, google, indexing, attentionCount, notesCount } = input;
   const noteClause =
     notesCount > 0
       ? "The recorded notes above were evaluated and are not the current technical blocker. "
       : "";
 
   if (attentionCount > 0) {
-    const foundation = interpretFoundationNextStep(crawl, google);
+    const foundation = interpretFoundationNextStep(crawl, google, indexing);
     if (REVIEW_CODES.has(foundation.code)) {
       return {
         kind: "confirmed_issue",
@@ -240,12 +292,16 @@ function composeNextStep(input: {
     return {
       kind: "capability_not_available",
       code: "google_performance_loading",
-      message: `${noteClause}${GOOGLE_PERFORMANCE_LOADING} Google indexing remains not checked.`,
+      message: `${noteClause}${GOOGLE_PERFORMANCE_LOADING} ${
+        indexing?.kind === "checked"
+          ? "Google indexing already has a result in this view."
+          : "Google indexing remains not checked."
+      }`,
       evidence: "owner observe API has not finished loading in this view",
     };
   }
 
-  const foundation = interpretFoundationNextStep(crawl, google);
+  const foundation = interpretFoundationNextStep(crawl, google, indexing);
   return {
     kind: kindFromFoundation(foundation.code),
     code: foundation.code,
@@ -307,6 +363,22 @@ function ownerNeed(input: {
     };
   }
 
+  if (input.next.code === "review_google_indexing") {
+    return {
+      required: true,
+      message:
+        "Yes. Review Google indexing. Foundfy has not started a change on the website, and it has not asked Google to index the site.",
+    };
+  }
+
+  if (input.next.code === "check_google_indexing") {
+    return {
+      required: false,
+      message:
+        "No verified technical change is required from you for this scan. You can check Google indexing. Foundfy does not run that automatically, and it does not ask Google to index the site.",
+    };
+  }
+
   if (input.next.code === "google_performance_loading") {
     return {
       required: false,
@@ -345,6 +417,7 @@ function googleSyncClarification(
 export function buildFirstValueView(
   overview: WebsiteOverview,
   google: GooglePerformanceEvidenceInput | null,
+  indexing: GoogleIndexingEvidenceInput | null = null,
 ): FirstValueView {
   const latest = overview.latestUsableScan;
   const findings = findingsForOverview(overview);
@@ -361,6 +434,7 @@ export function buildFirstValueView(
   const nextStep = composeNextStep({
     crawl,
     google,
+    indexing,
     attentionCount: attention.length,
     notesCount: notes.length,
   });
@@ -375,7 +449,7 @@ export function buildFirstValueView(
     notesHeading: FIRST_VALUE_NOTES_HEADING,
     notes,
     unknownHeading: FIRST_VALUE_UNKNOWN_HEADING,
-    unknownBody: unknownBody(google),
+    unknownBody: unknownBody(google, indexing),
     nextHeading: FIRST_VALUE_NEXT_HEADING,
     nextStep,
     ownerHeading: FIRST_VALUE_OWNER_HEADING,

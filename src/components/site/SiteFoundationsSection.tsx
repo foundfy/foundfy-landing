@@ -1,12 +1,20 @@
 import {
   FOUNDATION_CHECK_LABELS,
   FOUNDATION_STATUS_LABELS,
+  GOOGLE_INDEXING_CHECK_LABEL,
+  GOOGLE_INDEXING_VERDICT_LABELS,
   buildTechnicalFoundationsView,
+  formatGoogleSitemapObservationCopy,
 } from "@/lib/foundations/display";
-import { selectGoogleEvidenceForWebsite } from "@/lib/foundations/evaluate";
+import {
+  selectGoogleEvidenceForWebsite,
+  visibleGoogleIndexingForWebsite,
+} from "@/lib/foundations/evaluate";
 import type {
   CrawlFoundationsAssessment,
   FoundationStatus,
+  GoogleIndexingUrlEvidence,
+  StoredGoogleIndexingEvidence,
   StoredGooglePerformanceEvidence,
 } from "@/lib/foundations/types";
 import { formatSiteScanDate } from "@/lib/site/site-overview-view-model";
@@ -17,6 +25,10 @@ type SiteFoundationsSectionProps = {
   foundations: CrawlFoundationsAssessment | null;
   scanCompletedAt: string | null;
   google: StoredGooglePerformanceEvidence;
+  indexing: StoredGoogleIndexingEvidence;
+  indexingBusy: boolean;
+  indexingCheckAvailable: boolean;
+  onCheckIndexing: () => void;
 };
 
 function statusClassName(status: FoundationStatus): string {
@@ -32,16 +44,58 @@ function statusClassName(status: FoundationStatus): string {
   }
 }
 
+function indexingDateLabel(value: string | null): string {
+  return value ? formatSiteScanDate(value) : "not reported";
+}
+
+function IndexingUrlRow({ item }: { item: GoogleIndexingUrlEvidence }) {
+  return (
+    <li className={styles.indexingUrlItem}>
+      <p className={styles.foundationsSummary}>
+        {item.role === "homepage" ? "Homepage" : "Important page"}: {item.url}
+      </p>
+      <p className={styles.foundationsDetail}>
+        {GOOGLE_INDEXING_VERDICT_LABELS[item.verdict]}
+        {item.reason ? ` — ${item.reason}` : ""}
+      </p>
+      <p className={styles.foundationsDetail}>
+        Checked on {indexingDateLabel(item.inspectedAt)}. Last Google crawl:{" "}
+        {indexingDateLabel(item.lastCrawlTime)}.
+      </p>
+      {item.canonicalMismatch ? (
+        <p className={styles.foundationsDetail}>
+          Google-selected canonical differs
+          {item.googleCanonical ? ` (${item.googleCanonical})` : ""}.
+          {item.userCanonical ? ` Page canonical: ${item.userCanonical}.` : ""}
+        </p>
+      ) : null}
+      {item.indexingState ? (
+        <p className={styles.foundationsDetail}>
+          Google indexing directive: {item.indexingState}. INDEXING_ALLOWED is not proof that the
+          URL is indexed.
+        </p>
+      ) : null}
+    </li>
+  );
+}
+
 export default function SiteFoundationsSection({
   websiteId,
   foundations,
   scanCompletedAt,
   google,
+  indexing,
+  indexingBusy,
+  indexingCheckAvailable,
+  onCheckIndexing,
 }: SiteFoundationsSectionProps) {
+  const visibleIndexing = visibleGoogleIndexingForWebsite(indexing, websiteId);
   const view = buildTechnicalFoundationsView(
     foundations,
     selectGoogleEvidenceForWebsite(google, websiteId),
+    visibleIndexing.evidence,
   );
+  const indexingEvidence = visibleIndexing.evidence;
 
   return (
     <section className={styles.section} aria-labelledby="site-foundations">
@@ -82,6 +136,68 @@ export default function SiteFoundationsSection({
                   </p>
                 ) : null}
               </>
+            ) : null}
+            {check.id === "google_indexing" ? (
+              <div className={styles.indexingPanel}>
+                {indexingEvidence?.kind === "checked" ? (
+                  <>
+                    <ul className={styles.indexingUrlList}>
+                      {indexingEvidence.urls.map((item) => (
+                        <IndexingUrlRow key={item.url} item={item} />
+                      ))}
+                    </ul>
+                    <div className={styles.indexingSitemap}>
+                      <p className={styles.foundationsSummary}>Sitemap status in Search Console</p>
+                      <p className={styles.foundationsDetail}>
+                        {formatGoogleSitemapObservationCopy(indexingEvidence.sitemap)}
+                      </p>
+                      {indexingEvidence.sitemap.sitemaps.map((entry) => (
+                        <p key={entry.path} className={styles.foundationsDetail}>
+                          {entry.path}
+                          {entry.lastSubmitted
+                            ? ` · last submitted ${indexingDateLabel(entry.lastSubmitted)}`
+                            : ""}
+                          {entry.lastDownloaded
+                            ? ` · last downloaded ${indexingDateLabel(entry.lastDownloaded)}`
+                            : ""}
+                          {entry.pending ? " · pending" : ""}
+                          {entry.errors != null ? ` · ${entry.errors} errors` : ""}
+                          {entry.warnings != null ? ` · ${entry.warnings} warnings` : ""}
+                          {entry.submittedUrlCount != null
+                            ? ` · ${entry.submittedUrlCount} submitted URLs`
+                            : ""}
+                        </p>
+                      ))}
+                      {indexingEvidence.sitemap.crawledSitemapUrls.length > 0 ? (
+                        <p className={styles.foundationsDetail}>
+                          Foundfy crawl sitemaps: {indexingEvidence.sitemap.crawledSitemapUrls.join(", ")}
+                        </p>
+                      ) : null}
+                    </div>
+                    {indexingEvidence.reused ? (
+                      <p className={styles.foundationsDetail}>
+                        Foundfy reused the last Google indexing check from this session. That is
+                        still not a live URL test.
+                      </p>
+                    ) : null}
+                  </>
+                ) : null}
+                {visibleIndexing.loadError ? (
+                  <p className={styles.foundationsDetail} role="alert">
+                    {visibleIndexing.loadError}
+                  </p>
+                ) : null}
+                {indexingCheckAvailable ? (
+                  <button
+                    type="button"
+                    className={styles.observeConnectButton}
+                    onClick={onCheckIndexing}
+                    disabled={indexingBusy}
+                  >
+                    {indexingBusy ? "Checking Google indexing…" : GOOGLE_INDEXING_CHECK_LABEL}
+                  </button>
+                ) : null}
+              </div>
             ) : null}
           </li>
         ))}

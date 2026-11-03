@@ -17,6 +17,7 @@ import {
 } from "./db";
 import { removeGoogleDerivedOwnerDataForWebsite } from "@/lib/actions/google-privacy";
 import { revokeGoogleToken } from "./google";
+import { isGoogleIndexingPilotAllowed } from "./indexing-pilot";
 import { startGoogleOAuth } from "./oauth";
 import {
   ObserveAuthError,
@@ -111,6 +112,10 @@ export async function resolveObserveOwnerView(input: {
     email: context.identity?.email ?? null,
     propertySelected: Boolean(property),
     property,
+    googleIndexingPilotEligible: isGoogleIndexingPilotAllowed({
+      websiteId: input.websiteId,
+      googleIdentityId: context.owner.googleIdentityId,
+    }),
   };
 }
 

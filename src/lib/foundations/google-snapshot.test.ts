@@ -238,6 +238,15 @@ describe("shared Google performance snapshot", () => {
     expect(page).toContain("useGooglePerformanceEvidence(websiteId)");
     expect(page).toContain("onReloadPerformance={reloadGooglePerformance}");
     expect(page.match(/useGooglePerformanceEvidence\(/g)?.length).toBe(1);
+
+    const indexingHook = read("../../hooks/useGoogleIndexingEvidence.ts");
+    expect(indexingHook).toContain("/api/websites/${requestedWebsiteId}/observe/indexing/check");
+    expect(indexingHook).toContain('method: "POST"');
+    expect(
+      indexingHook.slice(indexingHook.indexOf("useEffect"), indexingHook.indexOf("const check")),
+    ).not.toMatch(/fetch|indexing\/check/);
+    expect(page).toContain("useGoogleIndexingEvidence(websiteId)");
+    expect(page.match(/useGoogleIndexingEvidence\(/g)?.length).toBe(1);
   });
 
   it("I. keeps Google indexing Not checked after a shared empty snapshot", () => {

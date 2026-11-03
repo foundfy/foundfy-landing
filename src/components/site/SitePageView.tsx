@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   buildSiteOverviewLinks,
   shouldShowActiveScanBanner,
   shouldShowCurrentState,
 } from "@/lib/site/site-overview-view-model";
+import { useGoogleIndexingEvidence } from "@/hooks/useGoogleIndexingEvidence";
 import { useGooglePerformanceEvidence } from "@/hooks/useGooglePerformanceEvidence";
 import { useRescanNavigation } from "@/hooks/useRescanNavigation";
 import { useWebsiteOverviewLoader } from "@/hooks/useWebsiteOverviewLoader";
-import { selectGoogleEvidenceForWebsite } from "@/lib/foundations/evaluate";
+import { selectGoogleEvidenceForWebsite, visibleGoogleIndexingForWebsite } from "@/lib/foundations/evaluate";
 import shellStyles from "@/components/persistent/PersistentPageShell.module.css";
 import SiteActiveScanNotice from "./SiteActiveScanNotice";
 import SiteHeader from "./SiteHeader";
@@ -41,7 +42,26 @@ export default function SitePageView({
   const { scanAgain, isRescanning, rescanError } = useRescanNavigation(websiteId);
   const { snapshot: google, reload: reloadGooglePerformance } =
     useGooglePerformanceEvidence(websiteId);
+  const {
+    snapshot: indexing,
+    checking: indexingBusy,
+    check: checkGoogleIndexing,
+    applyPilotEligibility,
+  } = useGoogleIndexingEvidence(websiteId);
+  const [indexingCheckAvailable, setIndexingCheckAvailable] = useState(false);
   const [decideRefreshKey, setDecideRefreshKey] = useState(0);
+
+  const handleIndexingPilotEligibility = useCallback(
+    (eligible: boolean) => {
+      setIndexingCheckAvailable(eligible);
+      applyPilotEligibility(eligible);
+    },
+    [applyPilotEligibility],
+  );
+
+  useEffect(() => {
+    setIndexingCheckAvailable(false);
+  }, [websiteId]);
 
   function refreshDecide() {
     setDecideRefreshKey((value) => value + 1);
@@ -92,6 +112,7 @@ export default function SitePageView({
         overview={overview}
         latestScanHref={links.latestScanHref}
         google={selectGoogleEvidenceForWebsite(google, websiteId)}
+        indexing={visibleGoogleIndexingForWebsite(indexing, websiteId).evidence}
       />
 
       <SiteFoundationsSection
@@ -99,6 +120,10 @@ export default function SitePageView({
         foundations={overview.latestUsableScan?.foundations ?? null}
         scanCompletedAt={overview.latestUsableScan?.completedAt ?? null}
         google={google}
+        indexing={indexing}
+        indexingBusy={indexingBusy}
+        indexingCheckAvailable={indexingCheckAvailable}
+        onCheckIndexing={checkGoogleIndexing}
       />
 
       {overview.siteModel ? (
@@ -126,6 +151,7 @@ export default function SitePageView({
         performanceEvidence={selectGoogleEvidenceForWebsite(google, websiteId)}
         performanceLoadError={google.loadError}
         onReloadPerformance={reloadGooglePerformance}
+        onIndexingPilotEligibility={handleIndexingPilotEligibility}
       />
 
       <SiteDecisionsSection websiteId={websiteId} refreshKey={decideRefreshKey} />
