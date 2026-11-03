@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { OAuthStateError } from "./types";
+import { GoogleAuthExpiredError, OAuthStateError } from "./types";
 
 const getWebsiteByIdMock = vi.fn();
 const insertOAuthStateMock = vi.fn();
@@ -11,6 +11,7 @@ const upsertGoogleIdentityMock = vi.fn();
 const writeGoogleOAuthTokenIfUnchangedMock = vi.fn();
 const exchangeGoogleAuthorizationCodeMock = vi.fn();
 const fetchGoogleUserInfoMock = vi.fn();
+const refreshGoogleAccessTokenMock = vi.fn();
 const revokeGoogleTokenMock = vi.fn();
 
 vi.mock("@/lib/websites/repository", () => ({
@@ -36,6 +37,7 @@ vi.mock("./google", () => ({
   exchangeGoogleAuthorizationCode: (...args: unknown[]) =>
     exchangeGoogleAuthorizationCodeMock(...args),
   fetchGoogleUserInfo: (...args: unknown[]) => fetchGoogleUserInfoMock(...args),
+  refreshGoogleAccessToken: (...args: unknown[]) => refreshGoogleAccessTokenMock(...args),
   revokeGoogleToken: (...args: unknown[]) => revokeGoogleTokenMock(...args),
 }));
 
@@ -125,6 +127,7 @@ describe("Google OAuth ownership flow", () => {
       email: "jose@foundfy.me",
     });
     revokeGoogleTokenMock.mockResolvedValue(undefined);
+    refreshGoogleAccessTokenMock.mockResolvedValue("short-lived-access");
   });
 
   it("binds OAuth start state to the website and redirects to Google", async () => {
@@ -201,6 +204,7 @@ describe("Google OAuth ownership flow", () => {
       googleOAuthTokenId: "token-1",
     });
     expect(insertOwnerSessionMock).toHaveBeenCalled();
+    expect(refreshGoogleAccessTokenMock).toHaveBeenCalledWith("refresh-token-plain");
   });
 
   it("treats OAuth denial as a cancelled connection, not an owner bind", async () => {
@@ -472,6 +476,9 @@ describe("Google OAuth ownership flow", () => {
     expect(tokenInsert.scopes.split(" ")).not.toContain(
       "https://www.googleapis.com/auth/webmasters.readonly",
     );
+    expect(refreshGoogleAccessTokenMock).toHaveBeenCalledWith("existing-setup-refresh");
+    expect(refreshGoogleAccessTokenMock).not.toHaveBeenCalledWith("narrow-readonly-refresh");
+    expect(revokeGoogleTokenMock).not.toHaveBeenCalled();
   });
 
   it("keeps a wider grant when ordinary reconnect omits a refresh token and returns readonly scopes", async () => {
@@ -685,6 +692,437 @@ describe("Google OAuth ownership flow", () => {
     expect(tokenInsert.scopes).toContain(
       "https://www.googleapis.com/auth/siteverification.verify_only",
     );
+    expect(refreshGoogleAccessTokenMock).toHaveBeenCalledWith("shared-setup-refresh");
+    expect(refreshGoogleAccessTokenMock).not.toHaveBeenCalledWith("website-b-readonly-refresh");
+  });
+
+  it("does not treat a missing owner session as Google grant expiry", async () => {
+    await startGoogleOAuth({
+      websiteId: WEBSITE_ID,
+      requestUrl: "http://localhost:3000/api/websites/id/observe/connect",
+    });
+
+    expect(requireObserveOwnerMock).not.toHaveBeenCalled();
+    expect(revokeGoogleTokenMock).not.toHaveBeenCalled();
+    expect(writeGoogleOAuthTokenIfUnchangedMock).not.toHaveBeenCalled();
+    expect(findGoogleOAuthTokenByIdentityMock).not.toHaveBeenCalled();
+  });
+
+  it("recovers with a newly authorized credential when the stored broader grant is expired", async () => {
+    const existingCipher = encryptSecret("existing-setup-refresh");
+    findActiveObserveOwnerMock.mockResolvedValue({
+      id: "owner-1",
+      websiteId: WEBSITE_ID,
+      googleIdentityId: "identity-1",
+      googleOAuthTokenId: "token-1",
+      status: "google_connected",
+    });
+    findGoogleOAuthTokenByIdentityMock.mockResolvedValue({
+      id: "token-1",
+      googleIdentityId: "identity-1",
+      encryptionKeyId: "v1",
+      refreshTokenCiphertext: existingCipher,
+      scopes:
+        "email https://www.googleapis.com/auth/siteverification.verify_only https://www.googleapis.com/auth/webmasters openid",
+      revokedAt: null,
+    });
+    exchangeGoogleAuthorizationCodeMock.mockResolvedValue({
+      accessToken: "access-token",
+      refreshToken: "replacement-readonly-refresh",
+      grantedScopes: "openid email https://www.googleapis.com/auth/webmasters.readonly",
+    });
+    refreshGoogleAccessTokenMock.mockImplementation(async (token: string) => {
+      if (token === "existing-setup-refresh") {
+        throw new GoogleAuthExpiredError();
+      }
+      if (token === "replacement-readonly-refresh") {
+        return "short-lived-access";
+      }
+      throw new Error("unexpected refresh token");
+    });
+
+    const result = await completeGoogleOAuth({
+      requestUrl: "http://localhost:3000/api/gsc/oauth/callback",
+      code: "auth-code",
+      state: "state-value",
+      oauthError: null,
+    });
+
+    expect(result.redirectUrl).toBe(`/site/${WEBSITE_ID}?observe=connected`);
+    expect(result.sessionToken).toBeTruthy();
+    expect(JSON.stringify(result)).not.toContain("existing-setup-refresh");
+    expect(JSON.stringify(result)).not.toContain("replacement-readonly-refresh");
+    const tokenInsert = writeGoogleOAuthTokenIfUnchangedMock.mock.calls[0]?.[0] as {
+      googleIdentityId: string;
+      refreshTokenCiphertext: string;
+      scopes: string;
+    };
+    expect(tokenInsert.googleIdentityId).toBe("identity-1");
+    expect(tokenInsert.refreshTokenCiphertext).not.toBe(existingCipher);
+    expect(tokenInsert.refreshTokenCiphertext.startsWith("v1.")).toBe(true);
+    expect(JSON.stringify(tokenInsert)).not.toContain("existing-setup-refresh");
+    expect(JSON.stringify(tokenInsert)).not.toContain("replacement-readonly-refresh");
+    expect(tokenInsert.scopes).toBe(
+      "email https://www.googleapis.com/auth/webmasters.readonly openid",
+    );
+    expect(tokenInsert.scopes).not.toContain("siteverification");
+    expect(revokeGoogleTokenMock).not.toHaveBeenCalled();
+    expect(insertObserveOwnerMock).not.toHaveBeenCalled();
+  });
+
+  it("recovers a shared identity grant for another website without disconnecting the identity", async () => {
+    const existingCipher = encryptSecret("shared-expired-refresh");
+    findActiveObserveOwnerMock.mockResolvedValue(null);
+    findGoogleOAuthTokenByIdentityMock.mockResolvedValue({
+      id: "token-1",
+      googleIdentityId: "identity-1",
+      encryptionKeyId: "v1",
+      refreshTokenCiphertext: existingCipher,
+      scopes:
+        "email https://www.googleapis.com/auth/siteverification.verify_only https://www.googleapis.com/auth/webmasters openid",
+      revokedAt: null,
+    });
+    exchangeGoogleAuthorizationCodeMock.mockResolvedValue({
+      accessToken: "access-token",
+      refreshToken: "website-b-readonly-refresh",
+      grantedScopes: "openid email https://www.googleapis.com/auth/webmasters.readonly",
+    });
+    refreshGoogleAccessTokenMock.mockImplementation(async (token: string) => {
+      if (token === "shared-expired-refresh") {
+        throw new GoogleAuthExpiredError();
+      }
+      if (token === "website-b-readonly-refresh") {
+        return "short-lived-access";
+      }
+      throw new Error("unexpected refresh token");
+    });
+
+    const result = await completeGoogleOAuth({
+      requestUrl: "http://localhost:3000/api/gsc/oauth/callback",
+      code: "auth-code",
+      state: "state-value",
+      oauthError: null,
+    });
+
+    expect(result.redirectUrl).toBe(`/site/${WEBSITE_ID}?observe=connected`);
+    expect(insertObserveOwnerMock).toHaveBeenCalledWith({
+      websiteId: WEBSITE_ID,
+      googleIdentityId: "identity-1",
+      googleOAuthTokenId: "token-1",
+    });
+    expect(findGoogleOAuthTokenByIdentityMock).toHaveBeenCalledWith("identity-1");
+    expect(revokeGoogleTokenMock).not.toHaveBeenCalled();
+    const tokenInsert = writeGoogleOAuthTokenIfUnchangedMock.mock.calls[0]?.[0] as {
+      googleIdentityId: string;
+      refreshTokenCiphertext: string;
+      scopes: string;
+    };
+    expect(tokenInsert.googleIdentityId).toBe("identity-1");
+    expect(tokenInsert.refreshTokenCiphertext).not.toBe(existingCipher);
+    expect(tokenInsert.scopes).toBe(
+      "email https://www.googleapis.com/auth/webmasters.readonly openid",
+    );
+  });
+
+  it("keeps a stored broader grant when Google refresh is temporarily unavailable", async () => {
+    const existingCipher = encryptSecret("existing-setup-refresh");
+    findActiveObserveOwnerMock.mockResolvedValue({
+      id: "owner-1",
+      websiteId: WEBSITE_ID,
+      googleIdentityId: "identity-1",
+      googleOAuthTokenId: "token-1",
+      status: "google_connected",
+    });
+    findGoogleOAuthTokenByIdentityMock.mockResolvedValue({
+      id: "token-1",
+      googleIdentityId: "identity-1",
+      encryptionKeyId: "v1",
+      refreshTokenCiphertext: existingCipher,
+      scopes:
+        "email https://www.googleapis.com/auth/siteverification.verify_only https://www.googleapis.com/auth/webmasters openid",
+      revokedAt: null,
+    });
+    exchangeGoogleAuthorizationCodeMock.mockResolvedValue({
+      accessToken: "access-token",
+      refreshToken: "narrow-readonly-refresh",
+      grantedScopes: "openid email https://www.googleapis.com/auth/webmasters.readonly",
+    });
+    refreshGoogleAccessTokenMock.mockRejectedValue(
+      new Error("Google token refresh failed (http_503)."),
+    );
+
+    const result = await completeGoogleOAuth({
+      requestUrl: "http://localhost:3000/api/gsc/oauth/callback",
+      code: "auth-code",
+      state: "state-value",
+      oauthError: null,
+    });
+
+    expect(result.redirectUrl).toBe(`/site/${WEBSITE_ID}?observe=connected`);
+    const tokenInsert = writeGoogleOAuthTokenIfUnchangedMock.mock.calls[0]?.[0] as {
+      refreshTokenCiphertext: string;
+      scopes: string;
+    };
+    expect(tokenInsert.refreshTokenCiphertext).toBe(existingCipher);
+    expect(JSON.stringify(tokenInsert)).not.toContain("narrow-readonly-refresh");
+    expect(tokenInsert.scopes).toContain("https://www.googleapis.com/auth/webmasters");
+    expect(refreshGoogleAccessTokenMock).toHaveBeenCalledWith("existing-setup-refresh");
+    expect(refreshGoogleAccessTokenMock).not.toHaveBeenCalledWith("narrow-readonly-refresh");
+    expect(revokeGoogleTokenMock).not.toHaveBeenCalled();
+  });
+
+  it("does not persist a newly authorized credential that cannot refresh", async () => {
+    findGoogleOAuthTokenByIdentityMock.mockResolvedValue(null);
+    refreshGoogleAccessTokenMock.mockRejectedValue(new GoogleAuthExpiredError());
+
+    const result = await completeGoogleOAuth({
+      requestUrl: "http://localhost:3000/api/gsc/oauth/callback",
+      code: "auth-code",
+      state: "state-value",
+      oauthError: null,
+    });
+
+    expect(result.redirectUrl).toBe(`/site/${WEBSITE_ID}?observe=error`);
+    expect(result.sessionToken).toBeUndefined();
+    expect(writeGoogleOAuthTokenIfUnchangedMock).not.toHaveBeenCalled();
+    expect(insertObserveOwnerMock).not.toHaveBeenCalled();
+    expect(insertOwnerSessionMock).not.toHaveBeenCalled();
+    expect(revokeGoogleTokenMock).toHaveBeenCalledWith("refresh-token-plain");
+  });
+
+  it("does not persist a newly authorized credential during a provider outage", async () => {
+    findGoogleOAuthTokenByIdentityMock.mockResolvedValue(null);
+    refreshGoogleAccessTokenMock.mockRejectedValue(
+      new Error("Google token refresh failed (http_503)."),
+    );
+
+    const result = await completeGoogleOAuth({
+      requestUrl: "http://localhost:3000/api/gsc/oauth/callback",
+      code: "auth-code",
+      state: "state-value",
+      oauthError: null,
+    });
+
+    expect(result.redirectUrl).toBe(`/site/${WEBSITE_ID}?observe=error`);
+    expect(writeGoogleOAuthTokenIfUnchangedMock).not.toHaveBeenCalled();
+    expect(insertObserveOwnerMock).not.toHaveBeenCalled();
+    expect(revokeGoogleTokenMock).toHaveBeenCalledWith("refresh-token-plain");
+  });
+
+  it("does not replace an expired broader grant with scopes that cannot read Search Console", async () => {
+    const existingCipher = encryptSecret("existing-setup-refresh");
+    findActiveObserveOwnerMock.mockResolvedValue({
+      id: "owner-1",
+      websiteId: WEBSITE_ID,
+      googleIdentityId: "identity-1",
+      googleOAuthTokenId: "token-1",
+      status: "google_connected",
+    });
+    findGoogleOAuthTokenByIdentityMock.mockResolvedValue({
+      id: "token-1",
+      googleIdentityId: "identity-1",
+      encryptionKeyId: "v1",
+      refreshTokenCiphertext: existingCipher,
+      scopes:
+        "email https://www.googleapis.com/auth/siteverification.verify_only https://www.googleapis.com/auth/webmasters openid",
+      revokedAt: null,
+    });
+    exchangeGoogleAuthorizationCodeMock.mockResolvedValue({
+      accessToken: "access-token",
+      refreshToken: "openid-only-refresh",
+      grantedScopes: "openid email",
+    });
+    refreshGoogleAccessTokenMock.mockImplementation(async (token: string) => {
+      if (token === "existing-setup-refresh") {
+        throw new GoogleAuthExpiredError();
+      }
+      throw new Error("unexpected refresh token");
+    });
+
+    const result = await completeGoogleOAuth({
+      requestUrl: "http://localhost:3000/api/gsc/oauth/callback",
+      code: "auth-code",
+      state: "state-value",
+      oauthError: null,
+    });
+
+    expect(result.redirectUrl).toBe(`/site/${WEBSITE_ID}?observe=error`);
+    expect(writeGoogleOAuthTokenIfUnchangedMock).not.toHaveBeenCalled();
+    expect(revokeGoogleTokenMock).not.toHaveBeenCalled();
+    expect(insertObserveOwnerMock).not.toHaveBeenCalled();
+  });
+
+  it("does not revoke a healthy stored grant when a replacement refresh cannot be verified", async () => {
+    const existingCipher = encryptSecret("existing-setup-refresh");
+    findActiveObserveOwnerMock.mockResolvedValue({
+      id: "owner-1",
+      websiteId: WEBSITE_ID,
+      googleIdentityId: "identity-1",
+      googleOAuthTokenId: "token-1",
+      status: "google_connected",
+    });
+    findGoogleOAuthTokenByIdentityMock.mockResolvedValue({
+      id: "token-1",
+      googleIdentityId: "identity-1",
+      encryptionKeyId: "v1",
+      refreshTokenCiphertext: existingCipher,
+      scopes:
+        "email https://www.googleapis.com/auth/siteverification.verify_only https://www.googleapis.com/auth/webmasters openid",
+      revokedAt: null,
+    });
+    exchangeGoogleAuthorizationCodeMock.mockResolvedValue({
+      accessToken: "access-token",
+      refreshToken: "combined-refresh",
+      grantedScopes:
+        "openid email https://www.googleapis.com/auth/webmasters https://www.googleapis.com/auth/siteverification.verify_only",
+    });
+    refreshGoogleAccessTokenMock.mockImplementation(async (token: string) => {
+      if (token === "combined-refresh") {
+        throw new Error("Google token refresh failed (http_503).");
+      }
+      throw new Error("unexpected refresh token");
+    });
+
+    const result = await completeGoogleOAuth({
+      requestUrl: "http://localhost:3000/api/gsc/oauth/callback",
+      code: "auth-code",
+      state: "state-value",
+      oauthError: null,
+    });
+
+    expect(result.redirectUrl).toBe(`/site/${WEBSITE_ID}?observe=error`);
+    expect(writeGoogleOAuthTokenIfUnchangedMock).not.toHaveBeenCalled();
+    expect(revokeGoogleTokenMock).not.toHaveBeenCalled();
+    expect(insertObserveOwnerMock).not.toHaveBeenCalled();
+    expect(JSON.stringify(result)).not.toContain("existing-setup-refresh");
+    expect(JSON.stringify(result)).not.toContain("combined-refresh");
+  });
+
+  it("does not revoke another identity's stored grant after a rejected website takeover", async () => {
+    const attackerCipher = encryptSecret("attacker-existing-refresh");
+    findActiveObserveOwnerMock.mockResolvedValue({
+      id: "owner-1",
+      websiteId: WEBSITE_ID,
+      googleIdentityId: "identity-original",
+      googleOAuthTokenId: "token-original",
+      status: "google_connected",
+    });
+    upsertGoogleIdentityMock.mockResolvedValue({
+      id: "identity-attacker",
+      googleSub: "google-sub-attacker",
+      email: "attacker@example.com",
+    });
+    findGoogleOAuthTokenByIdentityMock.mockImplementation(async (identityId: string) => {
+      if (identityId !== "identity-attacker") {
+        throw new Error("unexpected identity lookup");
+      }
+      return {
+        id: "token-attacker",
+        googleIdentityId: "identity-attacker",
+        encryptionKeyId: "v1",
+        refreshTokenCiphertext: attackerCipher,
+        scopes: "email openid https://www.googleapis.com/auth/webmasters.readonly",
+        revokedAt: null,
+      };
+    });
+
+    const result = await completeGoogleOAuth({
+      requestUrl: "http://localhost:3000/api/gsc/oauth/callback",
+      code: "auth-code",
+      state: "state-value",
+      oauthError: null,
+    });
+
+    expect(result.redirectUrl).toBe(`/site/${WEBSITE_ID}?observe=already_connected`);
+    expect(writeGoogleOAuthTokenIfUnchangedMock).not.toHaveBeenCalled();
+    expect(insertObserveOwnerMock).not.toHaveBeenCalled();
+    expect(revokeGoogleTokenMock).not.toHaveBeenCalled();
+    expect(findGoogleOAuthTokenByIdentityMock).toHaveBeenCalledWith("identity-attacker");
+    expect(findGoogleOAuthTokenByIdentityMock).not.toHaveBeenCalledWith("identity-original");
+  });
+
+  it("does not revoke a persisted identity grant when another owner already reserved the website", async () => {
+    findActiveObserveOwnerMock.mockResolvedValue(null);
+    insertObserveOwnerMock.mockResolvedValue({
+      id: "owner-other",
+      websiteId: WEBSITE_ID,
+      googleIdentityId: "identity-original",
+      googleOAuthTokenId: "token-original",
+      status: "google_connected",
+    });
+
+    const result = await completeGoogleOAuth({
+      requestUrl: "http://localhost:3000/api/gsc/oauth/callback",
+      code: "auth-code",
+      state: "state-value",
+      oauthError: null,
+    });
+
+    expect(result.redirectUrl).toBe(`/site/${WEBSITE_ID}?observe=already_connected`);
+    expect(result.sessionToken).toBeUndefined();
+    expect(writeGoogleOAuthTokenIfUnchangedMock).toHaveBeenCalled();
+    expect(revokeGoogleTokenMock).not.toHaveBeenCalled();
+    expect(insertOwnerSessionMock).not.toHaveBeenCalled();
+  });
+
+  it("does not revoke when Google userinfo fails before identity is known", async () => {
+    fetchGoogleUserInfoMock.mockRejectedValue(new Error("Google identity could not be resolved."));
+
+    const result = await completeGoogleOAuth({
+      requestUrl: "http://localhost:3000/api/gsc/oauth/callback",
+      code: "auth-code",
+      state: "state-value",
+      oauthError: null,
+    });
+
+    expect(result.redirectUrl).toBe(`/site/${WEBSITE_ID}?observe=error`);
+    expect(revokeGoogleTokenMock).not.toHaveBeenCalled();
+    expect(writeGoogleOAuthTokenIfUnchangedMock).not.toHaveBeenCalled();
+    expect(upsertGoogleIdentityMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps a stored broader grant when Google refresh is forbidden without expiry", async () => {
+    const existingCipher = encryptSecret("existing-setup-refresh");
+    findActiveObserveOwnerMock.mockResolvedValue({
+      id: "owner-1",
+      websiteId: WEBSITE_ID,
+      googleIdentityId: "identity-1",
+      googleOAuthTokenId: "token-1",
+      status: "google_connected",
+    });
+    findGoogleOAuthTokenByIdentityMock.mockResolvedValue({
+      id: "token-1",
+      googleIdentityId: "identity-1",
+      encryptionKeyId: "v1",
+      refreshTokenCiphertext: existingCipher,
+      scopes:
+        "email https://www.googleapis.com/auth/siteverification.verify_only https://www.googleapis.com/auth/webmasters openid",
+      revokedAt: null,
+    });
+    exchangeGoogleAuthorizationCodeMock.mockResolvedValue({
+      accessToken: "access-token",
+      refreshToken: "narrow-readonly-refresh",
+      grantedScopes: "openid email https://www.googleapis.com/auth/webmasters.readonly",
+    });
+    refreshGoogleAccessTokenMock.mockRejectedValue(
+      new Error("Google token refresh failed (http_403)."),
+    );
+
+    const result = await completeGoogleOAuth({
+      requestUrl: "http://localhost:3000/api/gsc/oauth/callback",
+      code: "auth-code",
+      state: "state-value",
+      oauthError: null,
+    });
+
+    expect(result.redirectUrl).toBe(`/site/${WEBSITE_ID}?observe=connected`);
+    const tokenInsert = writeGoogleOAuthTokenIfUnchangedMock.mock.calls[0]?.[0] as {
+      refreshTokenCiphertext: string;
+      scopes: string;
+    };
+    expect(tokenInsert.refreshTokenCiphertext).toBe(existingCipher);
+    expect(JSON.stringify(tokenInsert)).not.toContain("narrow-readonly-refresh");
+    expect(revokeGoogleTokenMock).not.toHaveBeenCalled();
   });
 
   it("does not reuse a refresh token across Google identities", async () => {
@@ -723,7 +1161,9 @@ describe("Google OAuth ownership flow", () => {
 
     expect(result.redirectUrl).toBe(`/site/${WEBSITE_ID}?observe=setup_account_mismatch`);
     expect(writeGoogleOAuthTokenIfUnchangedMock).not.toHaveBeenCalled();
-    expect(findGoogleOAuthTokenByIdentityMock).not.toHaveBeenCalled();
+    expect(findGoogleOAuthTokenByIdentityMock).toHaveBeenCalledWith("identity-other");
+    expect(findGoogleOAuthTokenByIdentityMock).not.toHaveBeenCalledWith("identity-1");
+    expect(revokeGoogleTokenMock).toHaveBeenCalledWith("other-refresh");
   });
 
   it("fails closed when incremental setup omits a refresh token and none is stored", async () => {
@@ -936,5 +1376,6 @@ describe("Google OAuth ownership flow", () => {
     expect(stored.scopes).toContain(
       "https://www.googleapis.com/auth/siteverification.verify_only",
     );
+    expect(revokeGoogleTokenMock).not.toHaveBeenCalled();
   });
 });

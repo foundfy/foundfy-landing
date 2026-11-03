@@ -1,10 +1,18 @@
 import { googleCapabilitiesFromScopes, persistableGrantedScopeString } from "./scopes";
 
+/**
+ * Local ciphertext/scopes are not proof the refresh token still works at Google.
+ * `expired` is only for a confirmed invalid_grant/auth failure. `unknown`
+ * (provider 5xx, network) must not discard a possibly healthy grant.
+ */
+export type StoredGrantLiveness = "live" | "expired" | "unknown";
+
 export type GoogleGrantReplacementInput = {
   existingScopes: string | null;
   existingRefreshCiphertext: string | null;
   returnedScopes: string;
   newRefreshCiphertext: string | null;
+  existingGrantLiveness?: StoredGrantLiveness;
 };
 
 export type GoogleGrantReplacement = {
@@ -37,9 +45,11 @@ export function resolveGoogleGrantReplacement(
   input: GoogleGrantReplacementInput,
 ): GoogleGrantReplacement | null {
   const returnedScopes = persistableGrantedScopeString(input.returnedScopes);
+  const liveness = input.existingGrantLiveness ?? "live";
   const hasExisting =
     existingRefreshCiphertextIsUsable(input.existingRefreshCiphertext) &&
-    Boolean(input.existingScopes);
+    Boolean(input.existingScopes) &&
+    liveness !== "expired";
 
   if (!hasExisting) {
     if (!input.newRefreshCiphertext) {

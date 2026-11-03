@@ -46,6 +46,23 @@ describe("Google Search Console API helpers", () => {
     );
   });
 
+  it("does not treat a token-refresh outage as an expired grant", async () => {
+    process.env.GOOGLE_CLIENT_ID = "client";
+    process.env.GOOGLE_CLIENT_SECRET = "secret";
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({ error: "unavailable" }),
+    }) as typeof fetch;
+
+    const error = await refreshGoogleAccessToken("refresh-token-plain").catch(
+      (caught: unknown) => caught,
+    );
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(GoogleAuthExpiredError);
+    expect((error as Error).message).toBe("Google token refresh failed (unavailable).");
+  });
+
   it("lists Search Console siteUrl and permissionLevel from the official payload", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
