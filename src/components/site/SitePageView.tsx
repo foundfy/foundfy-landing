@@ -128,6 +128,7 @@ export default function SitePageView({
 
       {overview.siteModel ? (
         <SiteUnderstandingSection
+          key={websiteId}
           websiteId={websiteId}
           siteModel={overview.siteModel}
           onUpdated={refreshOverviewAndDecide}

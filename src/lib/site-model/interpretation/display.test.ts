@@ -119,4 +119,28 @@ describe("buildSiteInterpretationView", () => {
     expect(view.statusLabel).toBe("Confirmed · a newer crawl is available");
     expect(view.narrative).toContain("Foundfy helps people get found in search.");
   });
+
+  it("keeps multiple confirmed selcuk-style services in the narrative", () => {
+    const view = buildSiteInterpretationView(
+      model({
+        websiteId: "a0dc3fb3-e14a-4277-9bd5-6fe4e0a6e0b2",
+        status: "confirmed",
+        confirmed: {
+          confirmedAt: "2026-11-03T10:00:00.000Z",
+          sourceInterpretationGeneratedAt: "2026-11-01T12:00:00.000Z",
+          sourceGenerator: "heuristic",
+          evidenceHash: "hash-selcuk",
+          sourceCrawlRunId: "run-selcuk",
+          siteDescription: "Selcuk Demirci makes films for artists and brands.",
+          offers: ["Wedding films", "Commercial work"],
+          audiences: ["artists", "brands"],
+          locations: [],
+        },
+      }),
+    );
+
+    expect(view.fields.offers).toEqual(["Wedding films", "Commercial work"]);
+    expect(view.narrative).toContain("Wedding films; Commercial work");
+    expect(view.canEdit).toBe(true);
+  });
 });

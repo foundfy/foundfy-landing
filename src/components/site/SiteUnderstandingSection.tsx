@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { buildSiteUnderstandingView } from "@/lib/site-model/display";
 import { buildSiteInterpretationView } from "@/lib/site-model/interpretation/display";
+import {
+  applyListFieldEditorChange,
+  listFieldToEditorText,
+} from "@/lib/site-model/interpretation/editor";
 import type { SiteInterpretationFields, SiteModelRecord } from "@/lib/site-model/types";
 import styles from "./SitePageView.module.css";
 
@@ -11,17 +15,6 @@ type SiteUnderstandingSectionProps = {
   siteModel: SiteModelRecord;
   onUpdated: () => Promise<void>;
 };
-
-function fieldsToLines(values: string[]): string {
-  return values.join("\n");
-}
-
-function linesToFields(value: string): string[] {
-  return value
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
 
 export default function SiteUnderstandingSection({
   websiteId,
@@ -58,8 +51,8 @@ export default function SiteUnderstandingSection({
         return;
       }
 
-      setIsEditing(false);
       await onUpdated();
+      setIsEditing(false);
     } catch {
       setErrorMessage("Unable to save this understanding.");
     } finally {
@@ -109,11 +102,11 @@ export default function SiteUnderstandingSection({
             What it appears to offer or publish
             <textarea
               className={styles.interpretationInput}
-              value={fieldsToLines(draft.offers)}
+              value={listFieldToEditorText(draft.offers)}
               onChange={(event) =>
                 setDraft((current) => ({
                   ...current,
-                  offers: linesToFields(event.target.value),
+                  offers: applyListFieldEditorChange(event.target.value),
                 }))
               }
               rows={3}
@@ -124,11 +117,11 @@ export default function SiteUnderstandingSection({
             Who should find it
             <textarea
               className={styles.interpretationInput}
-              value={fieldsToLines(draft.audiences)}
+              value={listFieldToEditorText(draft.audiences)}
               onChange={(event) =>
                 setDraft((current) => ({
                   ...current,
-                  audiences: linesToFields(event.target.value),
+                  audiences: applyListFieldEditorChange(event.target.value),
                 }))
               }
               rows={3}
@@ -139,11 +132,11 @@ export default function SiteUnderstandingSection({
             Locations, if the site makes them clear
             <textarea
               className={styles.interpretationInput}
-              value={fieldsToLines(draft.locations)}
+              value={listFieldToEditorText(draft.locations)}
               onChange={(event) =>
                 setDraft((current) => ({
                   ...current,
-                  locations: linesToFields(event.target.value),
+                  locations: applyListFieldEditorChange(event.target.value),
                 }))
               }
               rows={2}
