@@ -124,7 +124,13 @@ describe("observe owner authorization", () => {
   it("denies the owner endpoint without a session", async () => {
     await expect(
       resolveObserveOwnerView({ websiteId: WEBSITE_ID, sessionToken: null }),
-    ).rejects.toMatchObject({ status: 401 });
+    ).rejects.toMatchObject({
+      status: 401,
+      message: "Owner session required.",
+    });
+    expect(revokeGoogleTokenMock).not.toHaveBeenCalled();
+    expect(disableGoogleOAuthTokenMock).not.toHaveBeenCalled();
+    expect(revokeObserveOwnerMock).not.toHaveBeenCalled();
   });
 
   it("denies a session that is not the observe owner", async () => {

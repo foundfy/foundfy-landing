@@ -177,6 +177,52 @@ describe("Google grant replacement", () => {
     expect(returnedGrantLacksExistingCapabilities(longReadonly, shortWrite)).toBe(false);
   });
 
+  it("treats an expired locally retained grant as absent and persists the new refresh token", () => {
+    const resolved = resolveGoogleGrantReplacement({
+      existingScopes: SETUP,
+      existingRefreshCiphertext: "existing-cipher",
+      returnedScopes: READONLY,
+      newRefreshCiphertext: "replacement-cipher",
+      existingGrantLiveness: "expired",
+    });
+
+    expect(resolved).toEqual({
+      scopes: READONLY,
+      refreshTokenCiphertext: "replacement-cipher",
+      retainedExistingRefreshToken: false,
+      retainedExistingScopes: false,
+    });
+  });
+
+  it("fails closed when an expired grant has no replacement refresh token", () => {
+    expect(
+      resolveGoogleGrantReplacement({
+        existingScopes: SETUP,
+        existingRefreshCiphertext: "existing-cipher",
+        returnedScopes: READONLY,
+        newRefreshCiphertext: null,
+        existingGrantLiveness: "expired",
+      }),
+    ).toBeNull();
+  });
+
+  it("does not discard a stored grant when provider liveness is unknown", () => {
+    const resolved = resolveGoogleGrantReplacement({
+      existingScopes: SETUP,
+      existingRefreshCiphertext: "existing-cipher",
+      returnedScopes: READONLY,
+      newRefreshCiphertext: "narrow-cipher",
+      existingGrantLiveness: "unknown",
+    });
+
+    expect(resolved).toEqual({
+      scopes: SETUP,
+      refreshTokenCiphertext: "existing-cipher",
+      retainedExistingRefreshToken: true,
+      retainedExistingScopes: true,
+    });
+  });
+
   it("does not invent a combined grant by unioning old and new scope strings", () => {
     const resolved = resolveGoogleGrantReplacement({
       existingScopes: SETUP,

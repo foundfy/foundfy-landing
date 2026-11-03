@@ -20,9 +20,14 @@ import {
 import {
   exchangeGoogleAuthorizationCode,
   fetchGoogleUserInfo,
+  refreshGoogleAccessToken,
   revokeGoogleToken,
 } from "./google";
-import { resolveGoogleGrantReplacement } from "./oauth-grant";
+import {
+  resolveGoogleGrantReplacement,
+  returnedGrantLacksExistingCapabilities,
+  type StoredGrantLiveness,
+} from "./oauth-grant";
 import type { GoogleOAuthPurpose } from "./oauth-purpose";
 import { oauthPurposeFromReturnPath } from "./oauth-purpose";
 import { buildGoogleAuthorizationUrl, createOAuthStateValue } from "./oauth-url";
@@ -30,7 +35,11 @@ import {
   googleCapabilitiesFromScopes,
   persistableGrantedScopeString,
 } from "./scopes";
-import { OAuthStateError, type GoogleOAuthTokenRecord } from "./types";
+import {
+  GoogleAuthExpiredError,
+  OAuthStateError,
+  type GoogleOAuthTokenRecord,
+} from "./types";
 
 export class GoogleOAuthNotConfiguredError extends Error {
   constructor() {
@@ -107,13 +116,9 @@ export async function completeGoogleOAuth(input: {
     });
     const grantedScopes = persistableGrantedScopeString(tokens.grantedScopes);
 
-    let userInfo;
-    try {
-      userInfo = await fetchGoogleUserInfo(tokens.accessToken);
-    } catch (error) {
-      await safeRevoke(tokens.refreshToken);
-      throw error;
-    }
+    // Do not revoke on userinfo failure: identity is unknown, and Google
+    // revoke can invalidate other credentials for the same authorization.
+    const userInfo = await fetchGoogleUserInfo(tokens.accessToken);
 
     const identity = await upsertGoogleIdentity({
       googleSub: userInfo.sub,
@@ -122,12 +127,18 @@ export async function completeGoogleOAuth(input: {
 
     const existingOwner = await findActiveObserveOwner(websiteId);
     if (purpose === "setup" && !existingOwner) {
-      await safeRevoke(tokens.refreshToken);
+      await revokeDiscardedRefreshToken({
+        refreshToken: tokens.refreshToken,
+        googleIdentityId: identity.id,
+      });
       return { redirectUrl: siteObservePath(websiteId, "error") };
     }
 
     if (existingOwner && existingOwner.googleIdentityId !== identity.id) {
-      await safeRevoke(tokens.refreshToken);
+      await revokeDiscardedRefreshToken({
+        refreshToken: tokens.refreshToken,
+        googleIdentityId: identity.id,
+      });
       return {
         redirectUrl: siteObservePath(
           websiteId,
@@ -141,9 +152,13 @@ export async function completeGoogleOAuth(input: {
       googleIdentityId: identity.id,
       returnedScopes: grantedScopes,
       newRefreshCiphertext,
+      newRefreshTokenPlain: tokens.refreshToken,
     });
     if (!storedToken) {
-      await safeRevoke(tokens.refreshToken);
+      await revokeDiscardedRefreshToken({
+        refreshToken: tokens.refreshToken,
+        googleIdentityId: identity.id,
+      });
       return { redirectUrl: siteObservePath(websiteId, "error") };
     }
 
@@ -166,7 +181,6 @@ export async function completeGoogleOAuth(input: {
       });
 
       if (reserved.googleIdentityId !== identity.id) {
-        await safeRevoke(tokens.refreshToken);
         return { redirectUrl: siteObservePath(websiteId, "already_connected") };
       }
     }
@@ -206,19 +220,36 @@ async function persistGoogleGrantForIdentity(input: {
   googleIdentityId: string;
   returnedScopes: string;
   newRefreshCiphertext: string | null;
+  newRefreshTokenPlain: string | null;
 }): Promise<GoogleOAuthTokenRecord | null> {
   for (let attempt = 0; attempt < GOOGLE_GRANT_PERSIST_ATTEMPTS; attempt += 1) {
     const existingRow = await findGoogleOAuthTokenByIdentity(input.googleIdentityId);
     const usableExisting = isUsableStoredGrant(existingRow) ? existingRow : null;
     await oauthGrantPersistTestBridge.beforeWrite(usableExisting ?? existingRow);
 
+    const existingGrantLiveness = await resolveExistingGrantLiveness({
+      usableExisting,
+      returnedScopes: input.returnedScopes,
+      newRefreshCiphertext: input.newRefreshCiphertext,
+    });
+
     const resolvedGrant = resolveGoogleGrantReplacement({
       existingScopes: usableExisting?.scopes ?? null,
       existingRefreshCiphertext: usableExisting?.refreshTokenCiphertext ?? null,
       returnedScopes: input.returnedScopes,
       newRefreshCiphertext: input.newRefreshCiphertext,
+      existingGrantLiveness,
     });
     if (!resolvedGrant) {
+      return null;
+    }
+
+    if (
+      !(await canPersistResolvedGrant({
+        resolvedGrant,
+        newRefreshTokenPlain: input.newRefreshTokenPlain,
+      }))
+    ) {
       return null;
     }
 
@@ -236,6 +267,61 @@ async function persistGoogleGrantForIdentity(input: {
   }
 
   throw new Error("Failed to store Google OAuth token: concurrent update.");
+}
+
+async function resolveExistingGrantLiveness(input: {
+  usableExisting: GoogleOAuthTokenRecord | null;
+  returnedScopes: string;
+  newRefreshCiphertext: string | null;
+}): Promise<StoredGrantLiveness> {
+  if (
+    !input.usableExisting ||
+    !input.newRefreshCiphertext ||
+    !returnedGrantLacksExistingCapabilities(input.usableExisting.scopes, input.returnedScopes)
+  ) {
+    return "live";
+  }
+
+  try {
+    return await probeRefreshTokenLiveness(
+      decryptSecret(input.usableExisting.refreshTokenCiphertext),
+    );
+  } catch {
+    return "unknown";
+  }
+}
+
+async function canPersistResolvedGrant(input: {
+  resolvedGrant: NonNullable<ReturnType<typeof resolveGoogleGrantReplacement>>;
+  newRefreshTokenPlain: string | null;
+}): Promise<boolean> {
+  if (input.resolvedGrant.retainedExistingRefreshToken) {
+    return true;
+  }
+
+  if (!input.newRefreshTokenPlain) {
+    return false;
+  }
+
+  if (!googleCapabilitiesFromScopes(input.resolvedGrant.scopes).canReadSearchConsole) {
+    return false;
+  }
+
+  return (await probeRefreshTokenLiveness(input.newRefreshTokenPlain)) === "live";
+}
+
+async function probeRefreshTokenLiveness(
+  refreshTokenPlain: string,
+): Promise<StoredGrantLiveness> {
+  try {
+    await refreshGoogleAccessToken(refreshTokenPlain);
+    return "live";
+  } catch (error) {
+    if (error instanceof GoogleAuthExpiredError) {
+      return "expired";
+    }
+    return "unknown";
+  }
 }
 
 function isUsableStoredGrant(
@@ -269,6 +355,30 @@ async function createOwnerSession(input: {
     expiresAt: new Date(Date.now() + OWNER_SESSION_TTL_MS).toISOString(),
   });
   return sessionToken;
+}
+
+function identityHasPreservedGrant(
+  token: GoogleOAuthTokenRecord | null,
+): boolean {
+  return Boolean(
+    token && !token.revokedAt && token.refreshTokenCiphertext !== "revoked",
+  );
+}
+
+async function revokeDiscardedRefreshToken(input: {
+  refreshToken: string | null;
+  googleIdentityId: string;
+}): Promise<void> {
+  if (!input.refreshToken) {
+    return;
+  }
+
+  const stored = await findGoogleOAuthTokenByIdentity(input.googleIdentityId);
+  if (identityHasPreservedGrant(stored)) {
+    return;
+  }
+
+  await safeRevoke(input.refreshToken);
 }
 
 async function safeRevoke(refreshToken: string | null): Promise<void> {
