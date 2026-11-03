@@ -7,7 +7,9 @@ import {
 import type {
   CrawlFoundationsAssessment,
   FoundationStatus,
+  GoogleIndexingEvidenceInput,
   GooglePerformanceEvidenceInput,
+  GoogleSitemapObservation,
   TechnicalFoundationsView,
 } from "./types";
 
@@ -35,6 +37,32 @@ export const FOUNDATION_CHECK_LABELS = {
   google_indexing: "Google indexing",
 } as const;
 
+export const GOOGLE_INDEXING_CHECK_LABEL = "Check Google indexing";
+
+export const GOOGLE_INDEXING_VERDICT_LABELS = {
+  indexed: "Indexed",
+  not_indexed: "Not indexed",
+  unknown: "Unknown / not checked",
+} as const;
+
+export function formatGoogleSitemapObservationCopy(sitemap: GoogleSitemapObservation): string {
+  const crawledCount = sitemap.crawledSitemapUrls.length;
+  const crawledCopy =
+    crawledCount > 0
+      ? ` Foundfy found ${crawledCount} sitemap${crawledCount === 1 ? "" : "s"} during the website crawl.`
+      : " Foundfy did not persist a sitemap from the website crawl.";
+
+  if (sitemap.interpretation === "none_listed") {
+    return `No sitemap is listed in Search Console.${crawledCopy} Absence from submitted sitemaps does not prove Google cannot discover the site.`;
+  }
+
+  if (sitemap.interpretation === "listed_pending_or_errors") {
+    return `Search Console listed a sitemap with pending processing or errors.${crawledCopy} Listing a sitemap is not proof that URLs are indexed.`;
+  }
+
+  return `Search Console listed a sitemap and does not currently report pending processing or errors.${crawledCopy} Listing and processing are not proof that URLs are indexed.`;
+}
+
 export function formatFoundationsSampleCopy(
   crawl: CrawlFoundationsAssessment | null,
 ): string | null {
@@ -53,11 +81,12 @@ export function formatFoundationsSampleCopy(
 export function buildTechnicalFoundationsView(
   crawl: CrawlFoundationsAssessment | null,
   google: GooglePerformanceEvidenceInput | null,
+  indexingInput: GoogleIndexingEvidenceInput | null = null,
 ): TechnicalFoundationsView {
   const assessment = crawl;
   const performance = evaluateGooglePerformance(google);
-  const indexing = googleIndexingCheck();
-  const nextStep = interpretFoundationNextStep(assessment, google);
+  const indexing = googleIndexingCheck(indexingInput);
+  const nextStep = interpretFoundationNextStep(assessment, google, indexingInput);
 
   if (!assessment || !assessment.crawlRunId) {
     return {

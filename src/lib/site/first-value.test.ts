@@ -390,4 +390,90 @@ describe("first-value GSC and indexing distinctions", () => {
     expect(view.nextStep.kind).toBe("confirmed_issue");
     expect(view.ownerNeed.required).toBe(true);
   });
+
+  it("J. says empty search performance can remain after Google reports the homepage indexed", () => {
+    const view = buildFirstValueView(
+      createOverview(),
+      { kind: "empty", windowDays: 28 },
+      {
+        kind: "checked",
+        inspectedAt: "2026-11-02T23:00:00.000Z",
+        reused: false,
+        urls: [
+          {
+            url: "https://selcukdemirci.me/",
+            role: "homepage",
+            verdict: "indexed",
+            coverageState: "Submitted and indexed",
+            indexingState: "INDEXING_ALLOWED",
+            robotsTxtState: "ALLOWED",
+            pageFetchState: "SUCCESSFUL",
+            lastCrawlTime: "2026-10-01T00:00:00.000Z",
+            inspectedAt: "2026-11-02T23:00:00.000Z",
+            userCanonical: "https://selcukdemirci.me/",
+            googleCanonical: "https://selcukdemirci.me/",
+            canonicalMismatch: false,
+            referringUrls: [],
+            sitemaps: [],
+            reason: "Submitted and indexed",
+          },
+        ],
+        sitemap: {
+          crawledSitemapUrls: ["https://selcukdemirci.me/sitemap.xml"],
+          listedInSearchConsole: false,
+          sitemaps: [],
+          interpretation: "none_listed",
+        },
+      },
+    );
+
+    expect(view.unknownBody).toMatch(/homepage as indexed/i);
+    expect(view.unknownBody).toMatch(/synced, but reported no queries/i);
+    expect(view.unknownBody).not.toContain(GOOGLE_INDEXING_UNKNOWN);
+    expect(view.nextStep.code).toBe("wait_for_google_discovery");
+    expect(view.nextStep.message).toMatch(/Search performance can stay empty/i);
+    expect(firstValueCopyBlob(view)).not.toMatch(FALSE_WORK);
+  });
+
+  it("K. keeps empty search performance and an unknown URL from becoming an indexed claim", () => {
+    const view = buildFirstValueView(
+      createOverview(),
+      { kind: "empty", windowDays: 28 },
+      {
+        kind: "checked",
+        inspectedAt: "2026-11-02T23:00:00.000Z",
+        reused: false,
+        urls: [
+          {
+            url: "https://selcukdemirci.me/",
+            role: "homepage",
+            verdict: "unknown",
+            coverageState: null,
+            indexingState: "INDEXING_ALLOWED",
+            robotsTxtState: null,
+            pageFetchState: null,
+            lastCrawlTime: null,
+            inspectedAt: "2026-11-02T23:00:00.000Z",
+            userCanonical: null,
+            googleCanonical: null,
+            canonicalMismatch: false,
+            referringUrls: [],
+            sitemaps: [],
+            reason: "Google did not clearly report whether this URL is indexed.",
+          },
+        ],
+        sitemap: {
+          crawledSitemapUrls: ["https://selcukdemirci.me/sitemap.xml"],
+          listedInSearchConsole: false,
+          sitemaps: [],
+          interpretation: "none_listed",
+        },
+      },
+    );
+
+    expect(view.unknownBody).toMatch(/did not clearly report whether these pages are indexed/i);
+    expect(view.unknownBody).toMatch(/synced, but reported no queries/i);
+    expect(view.unknownBody).not.toMatch(/homepage as indexed/i);
+    expect(view.nextStep.message).not.toMatch(/homepage as indexed/i);
+  });
 });

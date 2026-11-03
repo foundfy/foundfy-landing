@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { DecisionPrerequisiteError } from "@/lib/decisions/types";
 import {
   GoogleAuthExpiredError,
+  GoogleIndexingError,
   GoogleSearchAnalyticsError,
   ObserveAuthError,
   ObserveOwnerConflictError,
@@ -39,7 +40,7 @@ export function observeErrorResponse(error: unknown, fallback: string): NextResp
     return NextResponse.json({ error: error.message }, { status: 403 });
   }
 
-  if (error instanceof GoogleSearchAnalyticsError) {
+  if (error instanceof GoogleSearchAnalyticsError || error instanceof GoogleIndexingError) {
     return NextResponse.json({ error: error.message, code: error.code }, { status: 502 });
   }
 

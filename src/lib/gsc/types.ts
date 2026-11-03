@@ -175,6 +175,18 @@ export class GoogleSearchAnalyticsError extends Error {
   }
 }
 
+export type GoogleIndexingErrorCode = "quota" | "unavailable" | "malformed";
+
+export class GoogleIndexingError extends Error {
+  readonly code: GoogleIndexingErrorCode;
+
+  constructor(code: GoogleIndexingErrorCode) {
+    super("Google indexing data couldn't be loaded right now.");
+    this.name = "GoogleIndexingError";
+    this.code = code;
+  }
+}
+
 export type GscSearchEvidenceType = "site" | "page" | "query" | "query_page";
 
 export type GscSearchSyncStatus = "running" | "completed" | "failed";

@@ -12,6 +12,10 @@ export const GOOGLE_OAUTH_USERINFO_URL =
 export const GOOGLE_OAUTH_REVOKE_URL = "https://oauth2.googleapis.com/revoke";
 export const GOOGLE_WEBMASTERS_SITES_URL =
   "https://www.googleapis.com/webmasters/v3/sites";
+export const GOOGLE_URL_INSPECTION_INSPECT_URL =
+  "https://searchconsole.googleapis.com/v1/urlInspection/index:inspect";
+export const GOOGLE_INDEXING_MAX_URLS = 3;
+export const GOOGLE_INDEXING_REUSE_MS = 15 * 60 * 1000;
 export const GOOGLE_SEARCH_ANALYTICS_QUERY_PATH = "searchAnalytics/query";
 export const GOOGLE_SITE_VERIFICATION_TOKEN_URL =
   "https://www.googleapis.com/siteVerification/v1/token";

@@ -111,6 +111,31 @@
   border-color: rgba(255, 74, 28, 0.58);
 }
 
+.observeConnectButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.indexingPanel {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.indexingUrlList,
+.indexingSitemap {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.indexingUrlItem {
+  display: grid;
+  gap: 4px;
+}
+
 .observePropertyId {
   margin: 8px 0 0;
   color: rgba(245, 243, 238, 0.82);

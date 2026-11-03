@@ -12,8 +12,8 @@ describe("public vs owner-private OBSERVE boundary", () => {
     const publicRoute = read("../../app/api/websites/[websiteId]/route.ts");
     const overviewTypes = read("../websites/types.ts");
 
-    expect(overviewLoader).not.toMatch(/google_identit|observeOwner|refresh_token|gsc_property|gsc_search|impressions|query_text|decision_runs|action_reviews|review_canonical|analysis_requests|opportunities|loadQueryOpportunities/i);
-    expect(publicRoute).not.toMatch(/from \"@\/lib\/gsc|from \"@\/lib\/decisions|from \"@\/lib\/opportunities|observeOwner|propertyUri|search-analytics/i);
+    expect(overviewLoader).not.toMatch(/google_identit|observeOwner|refresh_token|gsc_property|gsc_search|impressions|query_text|decision_runs|action_reviews|review_canonical|analysis_requests|opportunities|loadQueryOpportunities|urlInspection|indexing\/check/i);
+    expect(publicRoute).not.toMatch(/from \"@\/lib\/gsc|from \"@\/lib\/decisions|from \"@\/lib\/opportunities|observeOwner|propertyUri|search-analytics|indexing\/check|urlInspection/i);
     expect(overviewTypes).not.toMatch(/googleIdentity|refreshToken|observeOwner|searchAnalytics|DecisionView|QueryOpportunity/i);
   });
 
@@ -32,6 +32,9 @@ describe("public vs owner-private OBSERVE boundary", () => {
       page.indexOf("<SiteFoundationsSection"),
     );
     expect(page).toContain("selectGoogleEvidenceForWebsite(google, websiteId)");
+    expect(page).toContain("useGoogleIndexingEvidence(websiteId)");
+    expect(foundationsUi).toContain("GOOGLE_INDEXING_CHECK_LABEL");
+    expect(foundationsUi).not.toMatch(/urlInspection|sitemaps\.submit|request indexing/i);
   });
 
   it("keeps Search Analytics evidence in the owner-only observe UI", () => {

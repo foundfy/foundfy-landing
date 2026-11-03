@@ -25,8 +25,9 @@ describe("First Value UX v0 boundary", () => {
   it("does not claim scheduled, monitoring, or automatic indexing work", () => {
     expect(firstValue).not.toMatch(/Foundfy will (monitor|schedule|automatically)/i);
     expect(firstValue).not.toMatch(/recurring sync|scheduled (check|scan|sync)/i);
-    expect(firstValue).toContain("does not inspect Google's index in this version");
+    expect(firstValue).toContain("does not ask Google to index the site");
     expect(firstValue).toContain("does not run it on a schedule");
+    expect(firstValue).toContain("not a live URL test");
   });
 
   it("keeps Google performance on the owner observe API", () => {
@@ -45,5 +46,17 @@ describe("First Value UX v0 boundary", () => {
     expect(observe).not.toMatch(/\/observe\/search-analytics`/);
     expect(observe).toContain("observe/search-analytics/sync");
     expect(observe).toContain("onReloadPerformance?.()");
+  });
+
+  it("keeps Google indexing on an owner-initiated observe POST", () => {
+    const indexingHook = read("../../hooks/useGoogleIndexingEvidence.ts");
+    expect(indexingHook).toContain("/api/websites/${requestedWebsiteId}/observe/indexing/check");
+    expect(indexingHook).toContain('method: "POST"');
+    expect(
+      indexingHook.slice(indexingHook.indexOf("useEffect"), indexingHook.indexOf("const check")),
+    ).not.toMatch(/fetch|indexing\/check/);
+    expect(page).toContain("useGoogleIndexingEvidence(websiteId)");
+    expect(foundationsUi).toContain("GOOGLE_INDEXING_CHECK_LABEL");
+    expect(foundationsUi).not.toMatch(/urlInspection|sitemaps\.submit|request indexing/i);
   });
 });

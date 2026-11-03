@@ -70,4 +70,17 @@ describe("Technical SEO Foundation v0 boundary", () => {
     expect(evaluate).toMatch(/status: \"not_checked\"/);
     expect(ui).not.toContain("What should happen next");
   });
+
+  it("keeps Google indexing observation owner-initiated and out of the foundations interpreter", () => {
+    const indexingHook = read("../../hooks/useGoogleIndexingEvidence.ts");
+    expect(indexingHook).toContain("/api/websites/${requestedWebsiteId}/observe/indexing/check");
+    expect(indexingHook).toContain('method: "POST"');
+    expect(
+      indexingHook.slice(indexingHook.indexOf("useEffect"), indexingHook.indexOf("const check")),
+    ).not.toMatch(/fetch|indexing\/check/);
+    expect(page).toContain("useGoogleIndexingEvidence(websiteId)");
+    expect(evaluate).not.toMatch(/from \"@\/lib\/gsc/);
+    expect(ui).toContain("GOOGLE_INDEXING_CHECK_LABEL");
+    expect(ui).not.toMatch(/urlInspection|sitemaps\.submit|request indexing/i);
+  });
 });

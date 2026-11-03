@@ -4,6 +4,7 @@ import type {
   CrawlEvidenceContext,
   CrawlPageEvidence,
 } from "@/lib/observations/types";
+import type { GoogleIndexingEvidenceInput, GoogleIndexingUrlEvidence } from "./types";
 import {
   FOUNDATION_SITEMAP_PREVIEW_LIMIT,
   evaluateCrawlFoundations,
@@ -547,5 +548,183 @@ describe("interpretFoundationNextStep", () => {
     expect(unavailable.message).toMatch(/could not load Google search analytics/i);
     expect(empty.code).toBe("wait_for_google_discovery");
     expect(new Set([notSynced.code, notConnected.code, unavailable.code, empty.code]).size).toBe(4);
+  });
+});
+
+function indexingUrl(
+  overrides: Partial<GoogleIndexingUrlEvidence> & Pick<GoogleIndexingUrlEvidence, "url" | "role" | "verdict">,
+): GoogleIndexingUrlEvidence {
+  return {
+    coverageState: null,
+    indexingState: null,
+    robotsTxtState: null,
+    pageFetchState: null,
+    lastCrawlTime: null,
+    inspectedAt: "2026-11-02T23:00:00.000Z",
+    userCanonical: null,
+    googleCanonical: null,
+    canonicalMismatch: false,
+    referringUrls: [],
+    sitemaps: [],
+    reason: null,
+    ...overrides,
+  };
+}
+
+function checkedIndexing(
+  urls: GoogleIndexingUrlEvidence[],
+  interpretation: "listed_and_processed" | "listed_pending_or_errors" | "none_listed" = "none_listed",
+): GoogleIndexingEvidenceInput {
+  return {
+    kind: "checked",
+    inspectedAt: "2026-11-02T23:00:00.000Z",
+    reused: false,
+    urls,
+    sitemap: {
+      crawledSitemapUrls: ["https://selcukdemirci.me/sitemap.xml"],
+      listedInSearchConsole: interpretation !== "none_listed",
+      sitemaps: [],
+      interpretation,
+    },
+  };
+}
+
+describe("Google indexing observation", () => {
+  it("A. marks an explicit indexed homepage as verified without treating analytics as indexing", () => {
+    const check = googleIndexingCheck(
+      checkedIndexing([
+        indexingUrl({
+          url: "https://selcukdemirci.me/",
+          role: "homepage",
+          verdict: "indexed",
+          coverageState: "Submitted and indexed",
+          indexingState: "INDEXING_ALLOWED",
+          reason: "Submitted and indexed",
+        }),
+      ]),
+    );
+    expect(check.status).toBe("verified");
+    expect(check.summary).toMatch(/homepage as indexed/i);
+    expect(check.detail).toMatch(/not a live URL test/i);
+    expect(check.detail).toMatch(/INDEXING_ALLOWED is not proof of indexing/i);
+  });
+
+  it("B/C/D. treats unknown, crawled-not-indexed, and noindex homepage results as needs attention", () => {
+    expect(
+      googleIndexingCheck(
+        checkedIndexing([
+          indexingUrl({
+            url: "https://selcukdemirci.me/",
+            role: "homepage",
+            verdict: "not_indexed",
+            coverageState: "URL is unknown to Google",
+            reason: "URL is unknown to Google",
+          }),
+        ]),
+      ).status,
+    ).toBe("needs_attention");
+    expect(
+      googleIndexingCheck(
+        checkedIndexing([
+          indexingUrl({
+            url: "https://selcukdemirci.me/",
+            role: "homepage",
+            verdict: "not_indexed",
+            coverageState: "Crawled - currently not indexed",
+            reason: "Crawled - currently not indexed",
+          }),
+        ]),
+      ).summary,
+    ).toMatch(/homepage is not indexed/i);
+    expect(
+      googleIndexingCheck(
+        checkedIndexing([
+          indexingUrl({
+            url: "https://selcukdemirci.me/",
+            role: "homepage",
+            verdict: "not_indexed",
+            coverageState: "Excluded by ‘noindex’ tag",
+            indexingState: "BLOCKED_BY_META_TAG",
+            reason: "Excluded by ‘noindex’ tag",
+          }),
+        ]),
+      ).status,
+    ).toBe("needs_attention");
+  });
+
+  it("E. treats a Google-selected canonical mismatch as needs attention even when indexed", () => {
+    const check = googleIndexingCheck(
+      checkedIndexing([
+        indexingUrl({
+          url: "https://selcukdemirci.me/about",
+          role: "important_page",
+          verdict: "indexed",
+          canonicalMismatch: true,
+          userCanonical: "https://selcukdemirci.me/about",
+          googleCanonical: "https://selcukdemirci.me/",
+        }),
+      ]),
+    );
+    expect(check.status).toBe("needs_attention");
+    expect(check.summary).toMatch(/canonical issue/i);
+  });
+
+  it("F. keeps missing inspection fields as not a live indexed result", () => {
+    const check = googleIndexingCheck(
+      checkedIndexing([
+        indexingUrl({
+          url: "https://selcukdemirci.me/",
+          role: "homepage",
+          verdict: "unknown",
+          indexingState: "INDEXING_ALLOWED",
+        }),
+      ]),
+    );
+    expect(check.status).toBe("data_unavailable");
+    expect(check.summary).toMatch(/did not clearly report/i);
+  });
+
+  it("J. keeps empty Search Analytics distinct from an indexed homepage", () => {
+    const assessment = evaluateCrawlFoundations({
+      context: selcukContext(),
+      findings: [],
+    });
+    const next = interpretFoundationNextStep(
+      assessment,
+      { kind: "empty", windowDays: 28 },
+      checkedIndexing([
+        indexingUrl({
+          url: "https://selcukdemirci.me/",
+          role: "homepage",
+          verdict: "indexed",
+          coverageState: "Submitted and indexed",
+        }),
+      ]),
+    );
+    expect(next.code).toBe("wait_for_google_discovery");
+    expect(next.message).toMatch(/homepage as indexed/i);
+    expect(next.message).toMatch(/Search performance can stay empty/i);
+    expect(next.message).not.toMatch(/you should rewrite/i);
+  });
+
+  it("K. keeps empty Search Analytics and an unknown URL from becoming an indexed claim", () => {
+    const assessment = evaluateCrawlFoundations({
+      context: selcukContext(),
+      findings: [],
+    });
+    const next = interpretFoundationNextStep(
+      assessment,
+      { kind: "empty", windowDays: 28 },
+      checkedIndexing([
+        indexingUrl({
+          url: "https://selcukdemirci.me/",
+          role: "homepage",
+          verdict: "unknown",
+        }),
+      ]),
+    );
+    expect(next.code).toBe("wait_for_google_discovery");
+    expect(next.message).toMatch(/indexing is unknown/i);
+    expect(next.message).not.toMatch(/homepage as indexed/i);
   });
 });

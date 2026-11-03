@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { evaluateGooglePerformance, visibleGoogleEvidenceForWebsite } from "./evaluate";
+import {
+  evaluateGooglePerformance,
+  visibleGoogleEvidenceForWebsite,
+  visibleGoogleIndexingForWebsite,
+} from "./evaluate";
 import {
   googleInputFromResponse,
   shouldCommitGooglePerformanceResponse,
@@ -123,6 +127,51 @@ describe("Google evidence isolation on website A → website B navigation", () =
     expect(visibleA.evidence).toEqual(ownerReportedA.evidence);
     expect(evaluateGooglePerformance(visibleA.evidence).summary).toMatch(
       /Google reported search performance/i,
+    );
+  });
+
+  it("does not reuse website A Google indexing evidence on website B", () => {
+    const storedA = {
+      websiteId: WEBSITE_A,
+      evidence: {
+        kind: "checked" as const,
+        inspectedAt: "2026-11-02T23:00:00.000Z",
+        reused: false,
+        urls: [
+          {
+            url: "https://a.example/",
+            role: "homepage" as const,
+            verdict: "indexed" as const,
+            coverageState: "Submitted and indexed",
+            indexingState: "INDEXING_ALLOWED",
+            robotsTxtState: null,
+            pageFetchState: null,
+            lastCrawlTime: null,
+            inspectedAt: "2026-11-02T23:00:00.000Z",
+            userCanonical: null,
+            googleCanonical: null,
+            canonicalMismatch: false,
+            referringUrls: [],
+            sitemaps: [],
+            reason: "Submitted and indexed",
+          },
+        ],
+        sitemap: {
+          crawledSitemapUrls: [],
+          listedInSearchConsole: false,
+          sitemaps: [],
+          interpretation: "none_listed" as const,
+        },
+      },
+      loadError: null,
+    };
+
+    const firstRenderForB = visibleGoogleIndexingForWebsite(storedA, WEBSITE_B);
+    expect(firstRenderForB.websiteId).toBe(WEBSITE_B);
+    expect(firstRenderForB.evidence).toEqual({ kind: "not_checked" });
+    expect(firstRenderForB.loadError).toBeNull();
+    expect(buildFirstValueView(websiteOverview(WEBSITE_B, "b.example"), null, firstRenderForB.evidence).unknownBody).not.toMatch(
+      /homepage as indexed/i,
     );
   });
 });
