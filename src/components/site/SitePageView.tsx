@@ -128,7 +128,7 @@ export default function SitePageView({
 
       {overview.siteModel ? (
         <SiteUnderstandingSection
-          key={websiteId}
+          key={`understanding:${websiteId}`}
           websiteId={websiteId}
           siteModel={overview.siteModel}
           onUpdated={refreshOverviewAndDecide}
@@ -144,7 +144,7 @@ export default function SitePageView({
       ) : null}
 
       <SiteObserveSection
-        key={websiteId}
+        key={`observe:${websiteId}`}
         websiteId={websiteId}
         notice={observeNotice}
         onUpdated={refreshDecide}
