@@ -78,4 +78,23 @@ describe("disconnect/property-change Google-metric cleanup", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
+
+  it("propagates a Decision Engine cleanup failure instead of reporting success", async () => {
+    vi.clearAllMocks();
+    disconnectAnalysisRequestsForWebsiteMock.mockResolvedValue(undefined);
+    deleteOpenActionsForWebsiteMock.mockResolvedValue(undefined);
+    deleteActionLearningSnapshotsForWebsiteMock.mockResolvedValue(undefined);
+    scrubGoogleMetricsFromActionEvidenceMock.mockResolvedValue(undefined);
+    scrubGoogleMetricsFromReviewEvidenceMock.mockResolvedValue(undefined);
+    deleteDecisionEngineForWebsiteMock.mockRejectedValue(
+      new Error("Failed to delete targeted observations: temporary outage"),
+    );
+    deleteSearchAnalyticsForWebsiteMock.mockResolvedValue(undefined);
+
+    await expect(removeGoogleDerivedOwnerDataForWebsite("website-1")).rejects.toThrow(
+      /temporary outage/,
+    );
+    expect(deleteDecisionEngineForWebsiteMock).toHaveBeenCalledWith("website-1");
+    expect(deleteSearchAnalyticsForWebsiteMock).not.toHaveBeenCalled();
+  });
 });
