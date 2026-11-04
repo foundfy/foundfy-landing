@@ -338,18 +338,22 @@ export function evaluateManualSeoRegression(
           if (expectedChangeFor(spec.expectedChanges, url, related)) {
             continue;
           }
+          const relatedBefore = beforePage.fields[related] ?? unknownField();
           const relatedAfter = afterPage.fields[related] ?? unknownField();
-          if (relatedAfter.presence === "unknown") {
+          if (relatedAfter.presence === "unknown" || relatedBefore.presence === "unknown") {
             checks.push({
               url,
               field: related,
               role: "related",
               outcome: "unknown",
-              before: beforePage.fields[related] ?? unknownField(),
+              before: relatedBefore,
               after: relatedAfter,
               result: "not_verified",
               note: "Related social description was not stored, so Foundfy cannot confirm it followed the approved copy.",
             });
+            continue;
+          }
+          if (relatedBefore.presence === "absent" && relatedAfter.presence === "absent") {
             continue;
           }
           checks.push(
@@ -357,7 +361,7 @@ export function evaluateManualSeoRegression(
               url,
               field: related,
               expectedAfter: change.after,
-              before: beforePage.fields[related] ?? unknownField(),
+              before: relatedBefore,
               after: relatedAfter,
               role: "related",
             }),
@@ -426,6 +430,10 @@ export function evaluateManualSeoRegression(
       : verdict === "fail"
         ? "A required expected value differs, or a confirmed unapproved regression exists."
         : "Required evidence is missing, incomplete, or cannot be reliably compared.";
+
+  limitations.push(
+    "PASS means crawl evidence preserved the declared metadata invariants. It does not mean a social platform rendered a preview or that an image URL is reachable.",
+  );
 
   if (checks.some((check) => check.outcome === "unknown")) {
     limitations.push(

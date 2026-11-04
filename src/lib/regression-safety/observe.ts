@@ -1,3 +1,7 @@
+import {
+  parseCollectedSocialMetadata,
+  type StoredSocialMetadataKey,
+} from "@/lib/crawler/social-metadata";
 import type { ParsedPage, ParsedSocialMetadata } from "@/lib/crawler/types";
 import { normalizeComparisonUrl } from "@/lib/findings/comparison/normalize-comparison-url";
 import type {
@@ -112,6 +116,52 @@ export function pageEvidenceFromStoredPage(input: {
   };
 }
 
+function collectedStoredField(
+  collected: ReturnType<typeof parseCollectedSocialMetadata>,
+  key: StoredSocialMetadataKey,
+): ObservedField {
+  if (!collected || !Object.prototype.hasOwnProperty.call(collected.values, key)) {
+    return unknownField();
+  }
+
+  return collectedField(collected.values[key]);
+}
+
+export function pageEvidenceFromPersistedPage(input: {
+  requestedUrl: string;
+  finalUrl: string;
+  statusCode: number | null;
+  title: string | null;
+  metaDescription: string | null;
+  canonical: string | null;
+  robotsMeta: string | null;
+  socialMetadata: unknown;
+}): PageMetadataEvidence {
+  const collected = parseCollectedSocialMetadata(input.socialMetadata);
+  if (!collected) {
+    return pageEvidenceFromStoredPage(input);
+  }
+
+  return {
+    requestedUrl: input.requestedUrl,
+    finalUrl: input.finalUrl,
+    statusCode: input.statusCode,
+    fields: {
+      title: collectedField(input.title),
+      meta_description: collectedStoredField(collected, "html_meta_description"),
+      canonical: collectedField(input.canonical),
+      robots_meta: collectedField(input.robotsMeta),
+      og_description: collectedStoredField(collected, "og_description"),
+      og_image: collectedStoredField(collected, "og_image"),
+      og_image_alt: collectedStoredField(collected, "og_image_alt"),
+      twitter_description: collectedStoredField(collected, "twitter_description"),
+      twitter_image: collectedStoredField(collected, "twitter_image"),
+      twitter_image_alt: collectedStoredField(collected, "twitter_image_alt"),
+      twitter_card: collectedStoredField(collected, "twitter_card"),
+    },
+  };
+}
+
 export function pageEvidenceFromParsedPage(page: ParsedPage): PageMetadataEvidence {
   const social: ParsedSocialMetadata | undefined = page.socialMetadata;
   return {
@@ -120,7 +170,10 @@ export function pageEvidenceFromParsedPage(page: ParsedPage): PageMetadataEviden
     statusCode: page.statusCode,
     fields: {
       title: collectedField(page.title),
-      meta_description: collectedField(page.metaDescription),
+      meta_description:
+        page.htmlMetaDescription !== undefined
+          ? collectedField(page.htmlMetaDescription)
+          : collectedField(page.metaDescription),
       canonical: collectedField(page.canonical),
       robots_meta: collectedField(page.robotsMeta),
       og_description: social ? collectedField(social.ogDescription) : unknownField(),

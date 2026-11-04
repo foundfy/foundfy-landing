@@ -44,6 +44,7 @@ describe("parseHtmlPage", () => {
     const parsed = parseHtmlPage(buildFetchResult(html), "foundfy.me");
 
     expect(parsed.title).toBe("Foundfy");
+    expect(parsed.htmlMetaDescription).toBe("Search visibility for startups");
     expect(parsed.metaDescription).toBe("Search visibility for startups");
     expect(parsed.canonical).toBe("https://foundfy.me/");
     expect(parsed.robotsMeta).toBe("index,follow");
@@ -141,6 +142,7 @@ describe("parseHtmlPage", () => {
       </html>`;
 
     const parsed = parseHtmlPage(buildFetchResult(html), "foundfy.me");
+    expect(parsed.htmlMetaDescription).toBeNull();
     expect(parsed.metaDescription).toBe("OG only.");
     expect(parsed.socialMetadata?.ogDescription).toBe("OG only.");
   });

@@ -57,6 +57,16 @@ export type ManualSeoImprovementSpec = {
   originalFindingRuleKey?: string;
 };
 
+export type PersistedRegressionCheckInput = {
+  websiteId: string;
+  baselineCrawlId: string;
+  verificationCrawlId: string;
+  urls: string[];
+  expectedChanges: ExpectedFieldChange[];
+  preserveFields?: RegressionSafetyField[];
+  originalFindingRuleKey?: string;
+};
+
 export type FieldCheckOutcome = "unchanged" | "changed" | "removed" | "missing" | "unknown";
 
 export type FieldCheck = {

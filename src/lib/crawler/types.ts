@@ -70,6 +70,7 @@ export type ParsedPage = {
   redirectChain: RedirectHop[];
   title: string | null;
   metaDescription: string | null;
+  htmlMetaDescription?: string | null;
   canonical: string | null;
   robotsMeta: string | null;
   xRobotsTag: string | null;

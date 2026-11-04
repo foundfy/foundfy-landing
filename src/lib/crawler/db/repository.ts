@@ -3,6 +3,7 @@ import {
   CRAWL_RUN_PURPOSE_SITE_SAMPLE,
   isNonSiteSamplePurpose,
 } from "../purpose";
+import { serializeCollectedSocialMetadata } from "../social-metadata";
 import type {
   CrawlRunStatus,
   CrawlRunSummary,
@@ -626,6 +627,50 @@ export async function listPageHostVariantEvidence(
   }));
 }
 
+export const PAGE_REGRESSION_EVIDENCE_SELECT =
+  "crawl_run_id, website_id, requested_url, final_url, status_code, title, meta_description, canonical, robots_meta, social_metadata";
+
+export type PersistedPageMetadataRow = {
+  crawlRunId: string;
+  websiteId: string;
+  requestedUrl: string;
+  finalUrl: string;
+  statusCode: number | null;
+  title: string | null;
+  metaDescription: string | null;
+  canonical: string | null;
+  robotsMeta: string | null;
+  socialMetadata: unknown;
+};
+
+export async function listPageMetadataForCrawlRun(
+  crawlRunId: string,
+): Promise<PersistedPageMetadataRow[]> {
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase
+    .from("pages")
+    .select(PAGE_REGRESSION_EVIDENCE_SELECT)
+    .eq("crawl_run_id", crawlRunId);
+
+  if (error) {
+    throw new Error(`Failed to load page metadata for crawl: ${error.message}`);
+  }
+
+  return (data ?? []).map((row) => ({
+    crawlRunId: row.crawl_run_id,
+    websiteId: row.website_id,
+    requestedUrl: row.requested_url,
+    finalUrl: row.final_url,
+    statusCode: row.status_code,
+    title: row.title,
+    metaDescription: row.meta_description,
+    canonical: row.canonical,
+    robotsMeta: row.robots_meta,
+    socialMetadata: row.social_metadata,
+  }));
+}
+
 export async function findPageByRequestedUrl(
   crawlRunId: string,
   requestedUrl: string,
@@ -823,6 +868,7 @@ export async function saveParsedPage(input: {
       redirect_chain: input.parsed.redirectChain,
       title: input.parsed.title,
       meta_description: input.parsed.metaDescription,
+      social_metadata: serializeCollectedSocialMetadata(input.parsed),
       canonical: input.parsed.canonical,
       robots_meta: input.parsed.robotsMeta,
       x_robots_tag: input.parsed.xRobotsTag,

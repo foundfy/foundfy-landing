@@ -108,6 +108,7 @@ export function parseHtmlPage(
     redirectChain: fetchResult.redirectChain,
     title,
     metaDescription,
+    htmlMetaDescription: nameDescription,
     canonical,
     robotsMeta,
     xRobotsTag,

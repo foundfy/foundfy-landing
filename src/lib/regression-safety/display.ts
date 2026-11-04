@@ -18,6 +18,47 @@ function originalIssueCopy(status: OriginalIssueStatus | null): string | null {
   return null;
 }
 
+export function formatOperatorRegressionReport(report: RegressionSafetyReport): string {
+  const formatted = formatRegressionSafetyReport(report);
+  const verdict = report.verdict.toUpperCase().replace("_", " ");
+  const matchedUrls = report.urls
+    .filter((item) => item.matched)
+    .map((item) => item.url);
+  const unmatchedUrls = report.urls
+    .filter((item) => !item.matched)
+    .map((item) => item.url);
+
+  return [
+    `${formatted.heading}: ${verdict}`,
+    formatted.summary,
+    formatted.ownerPublishedNote,
+    `Website: ${report.websiteId}`,
+    `URLs: ${report.urls.map((item) => item.url).join(", ") || "(none)"}`,
+    matchedUrls.length > 0 ? `Matched URLs: ${matchedUrls.join(", ")}` : null,
+    unmatchedUrls.length > 0 ? `Unmatched URLs: ${unmatchedUrls.join(", ")}` : null,
+    `Baseline crawl: ${report.baselineCrawlId} at ${report.baselineCompletedAt ?? "unknown"}`,
+    `Verification crawl: ${report.verificationCrawlId} at ${report.verificationCompletedAt ?? "unknown"}`,
+    formatted.originalIssue ? `Original issue: ${formatted.originalIssue}` : null,
+    formatted.expected.length > 0
+      ? `Expected changes:\n${formatted.expected.map((line) => `- ${line}`).join("\n")}`
+      : "Expected changes: none verified",
+    formatted.preserved.length > 0
+      ? `Preserved metadata:\n${formatted.preserved.map((line) => `- ${line}`).join("\n")}`
+      : "Preserved metadata: none fully observed",
+    formatted.missing.length > 0
+      ? `Confirmed regressions:\n${formatted.missing.map((line) => `- ${line}`).join("\n")}`
+      : "Confirmed regressions: none",
+    formatted.unverified.length > 0
+      ? `Unknown or unverified fields:\n${formatted.unverified.map((line) => `- ${line}`).join("\n")}`
+      : "Unknown or unverified fields: none",
+    formatted.limitations.length > 0
+      ? `Limitations:\n${formatted.limitations.map((line) => `- ${line}`).join("\n")}`
+      : null,
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join("\n");
+}
+
 export function formatRegressionSafetyReport(report: RegressionSafetyReport): {
   heading: string;
   summary: string;
