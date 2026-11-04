@@ -33,7 +33,7 @@ describe("public vs owner-private OBSERVE boundary", () => {
     );
     expect(page).toContain("selectGoogleEvidenceForWebsite(google, websiteId)");
     expect(page).toContain("useGoogleIndexingEvidence(websiteId)");
-    expect(foundationsUi).toContain("GOOGLE_INDEXING_CHECK_LABEL");
+    expect(foundationsUi).toContain("googleIndexingOwnerAction");
     expect(foundationsUi).not.toMatch(/urlInspection|sitemaps\.submit|request indexing/i);
   });
 

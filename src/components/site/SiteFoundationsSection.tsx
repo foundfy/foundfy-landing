@@ -1,10 +1,14 @@
 import {
   FOUNDATION_CHECK_LABELS,
   FOUNDATION_STATUS_LABELS,
-  GOOGLE_INDEXING_CHECK_LABEL,
+  GOOGLE_INDEXING_CHECKED_LABEL,
+  GOOGLE_INDEXING_PREVIOUS_RESULTS_COPY,
   GOOGLE_INDEXING_VERDICT_LABELS,
   buildTechnicalFoundationsView,
+  countGoogleIndexingVerdicts,
+  formatGoogleIndexingVerdictSummary,
   formatGoogleSitemapObservationCopy,
+  googleIndexingOwnerAction,
 } from "@/lib/foundations/display";
 import {
   selectGoogleEvidenceForWebsite,
@@ -96,6 +100,16 @@ export default function SiteFoundationsSection({
     visibleIndexing.evidence,
   );
   const indexingEvidence = visibleIndexing.evidence;
+  const indexingAction = googleIndexingOwnerAction({
+    available: indexingCheckAvailable,
+    busy: indexingBusy,
+    evidence: indexingEvidence,
+    loadError: visibleIndexing.loadError,
+  });
+  const showCompletedChrome =
+    indexingAction.state === "completed" && indexingEvidence?.kind === "checked";
+  const showPreviousResultsNote =
+    indexingAction.state === "error" && indexingEvidence?.kind === "checked";
 
   return (
     <section className={styles.section} aria-labelledby="site-foundations">
@@ -139,6 +153,27 @@ export default function SiteFoundationsSection({
             ) : null}
             {check.id === "google_indexing" ? (
               <div className={styles.indexingPanel}>
+                {showCompletedChrome && indexingEvidence?.kind === "checked" ? (
+                  <>
+                    <p className={styles.indexingCheckedLabel}>{GOOGLE_INDEXING_CHECKED_LABEL}</p>
+                    <p className={styles.foundationsDetail}>
+                      Checked {formatSiteScanDate(indexingEvidence.inspectedAt)}.
+                    </p>
+                    <p className={styles.foundationsSummary}>
+                      {formatGoogleIndexingVerdictSummary(
+                        countGoogleIndexingVerdicts(indexingEvidence.urls),
+                      )}
+                    </p>
+                  </>
+                ) : null}
+                {visibleIndexing.loadError ? (
+                  <p className={styles.foundationsDetail} role="alert">
+                    {visibleIndexing.loadError}
+                  </p>
+                ) : null}
+                {showPreviousResultsNote ? (
+                  <p className={styles.foundationsDetail}>{GOOGLE_INDEXING_PREVIOUS_RESULTS_COPY}</p>
+                ) : null}
                 {indexingEvidence?.kind === "checked" ? (
                   <>
                     <ul className={styles.indexingUrlList}>
@@ -182,19 +217,18 @@ export default function SiteFoundationsSection({
                     ) : null}
                   </>
                 ) : null}
-                {visibleIndexing.loadError ? (
-                  <p className={styles.foundationsDetail} role="alert">
-                    {visibleIndexing.loadError}
-                  </p>
-                ) : null}
-                {indexingCheckAvailable ? (
+                {indexingAction.visible ? (
                   <button
                     type="button"
-                    className={styles.observeConnectButton}
+                    className={
+                      indexingAction.emphasis === "secondary"
+                        ? `${styles.observeConnectButton} ${styles.indexingSecondaryButton}`
+                        : styles.observeConnectButton
+                    }
                     onClick={onCheckIndexing}
-                    disabled={indexingBusy}
+                    disabled={indexingAction.disabled}
                   >
-                    {indexingBusy ? "Checking Google indexing…" : GOOGLE_INDEXING_CHECK_LABEL}
+                    {indexingAction.label}
                   </button>
                 ) : null}
               </div>

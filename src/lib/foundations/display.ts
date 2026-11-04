@@ -8,6 +8,7 @@ import type {
   CrawlFoundationsAssessment,
   FoundationStatus,
   GoogleIndexingEvidenceInput,
+  GoogleIndexingUrlEvidence,
   GooglePerformanceEvidenceInput,
   GoogleSitemapObservation,
   TechnicalFoundationsView,
@@ -38,12 +39,133 @@ export const FOUNDATION_CHECK_LABELS = {
 } as const;
 
 export const GOOGLE_INDEXING_CHECK_LABEL = "Check Google indexing";
+export const GOOGLE_INDEXING_CHECKING_LABEL = "Checking Google indexing…";
+export const GOOGLE_INDEXING_CHECKED_LABEL = "Google indexing checked";
+export const GOOGLE_INDEXING_CHECK_AGAIN_LABEL = "Check again";
+export const GOOGLE_INDEXING_RETRY_LABEL = "Retry check";
+export const GOOGLE_INDEXING_PREVIOUS_RESULTS_COPY =
+  "The results below are from the previous check. They are not from this failed attempt.";
 
 export const GOOGLE_INDEXING_VERDICT_LABELS = {
   indexed: "Indexed",
   not_indexed: "Not indexed",
   unknown: "Unknown / not checked",
 } as const;
+
+export type GoogleIndexingVerdictCounts = {
+  indexed: number;
+  notIndexed: number;
+  unknown: number;
+};
+
+export type GoogleIndexingOwnerActionState =
+  | "hidden"
+  | "never_checked"
+  | "checking"
+  | "completed"
+  | "error";
+
+export type GoogleIndexingOwnerAction = {
+  visible: boolean;
+  label: string;
+  disabled: boolean;
+  emphasis: "primary" | "secondary";
+  state: GoogleIndexingOwnerActionState;
+};
+
+export function countGoogleIndexingVerdicts(
+  urls: Pick<GoogleIndexingUrlEvidence, "verdict">[],
+): GoogleIndexingVerdictCounts {
+  const counts: GoogleIndexingVerdictCounts = {
+    indexed: 0,
+    notIndexed: 0,
+    unknown: 0,
+  };
+
+  for (const url of urls) {
+    if (url.verdict === "indexed") {
+      counts.indexed += 1;
+    } else if (url.verdict === "not_indexed") {
+      counts.notIndexed += 1;
+    } else {
+      counts.unknown += 1;
+    }
+  }
+
+  return counts;
+}
+
+export function formatGoogleIndexingVerdictSummary(
+  counts: GoogleIndexingVerdictCounts,
+): string {
+  const parts = [`Indexed: ${counts.indexed}`, `Not indexed: ${counts.notIndexed}`];
+  if (counts.unknown > 0) {
+    parts.push(`Unknown: ${counts.unknown}`);
+  }
+  return parts.join(" · ");
+}
+
+export function googleIndexingOwnerAction(input: {
+  available: boolean;
+  busy: boolean;
+  evidence: GoogleIndexingEvidenceInput | null;
+  loadError: string | null;
+}): GoogleIndexingOwnerAction {
+  if (!input.available) {
+    return {
+      visible: false,
+      label: "",
+      disabled: true,
+      emphasis: "primary",
+      state: "hidden",
+    };
+  }
+
+  if (input.busy) {
+    return {
+      visible: true,
+      label: GOOGLE_INDEXING_CHECKING_LABEL,
+      disabled: true,
+      emphasis: input.evidence?.kind === "checked" ? "secondary" : "primary",
+      state: "checking",
+    };
+  }
+
+  const failedAttempt =
+    Boolean(input.loadError) ||
+    input.evidence?.kind === "unavailable" ||
+    input.evidence?.kind === "no_session" ||
+    input.evidence?.kind === "expired" ||
+    input.evidence?.kind === "not_connected";
+
+  if (failedAttempt) {
+    return {
+      visible: true,
+      label: GOOGLE_INDEXING_RETRY_LABEL,
+      disabled: false,
+      emphasis: "primary",
+      state: "error",
+    };
+  }
+
+  if (input.evidence?.kind === "checked") {
+    return {
+      visible: true,
+      label: GOOGLE_INDEXING_CHECK_AGAIN_LABEL,
+      disabled: false,
+      emphasis: "secondary",
+      state: "completed",
+    };
+  }
+
+  return {
+    visible: true,
+    label: GOOGLE_INDEXING_CHECK_LABEL,
+    disabled: false,
+    emphasis: "primary",
+    state: "never_checked",
+  };
+}
 
 export function formatGoogleSitemapObservationCopy(sitemap: GoogleSitemapObservation): string {
   const crawledCount = sitemap.crawledSitemapUrls.length;

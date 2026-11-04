@@ -4,8 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { visibleGoogleIndexingForWebsite } from "@/lib/foundations/evaluate";
 import {
   emptyIndexingSnapshot,
-  googleIndexingFromResponse,
-  googleIndexingLoadErrorFromResponse,
+  nextGoogleIndexingSnapshot,
   shouldCommitGoogleIndexingResponse,
 } from "@/lib/foundations/indexing-input";
 import type {
@@ -67,6 +66,13 @@ export function useGoogleIndexingEvidence(websiteId: string): GoogleIndexingEvid
     const requestedWebsiteId = websiteIdRef.current;
     const requestGeneration = ++generationRef.current;
     setChecking(true);
+    setSnapshot((current) => {
+      if (current.websiteId !== requestedWebsiteId || current.loadError == null) {
+        return current;
+      }
+
+      return { ...current, loadError: null };
+    });
 
     let status: number | null = null;
     let payload: IndexingFetchPayload = {};
@@ -95,14 +101,14 @@ export function useGoogleIndexingEvidence(websiteId: string): GoogleIndexingEvid
     }
 
     const mappedStatus = status ?? 0;
-    setSnapshot({
-      websiteId: requestedWebsiteId,
-      evidence: googleIndexingFromResponse(mappedStatus, payload),
-      loadError: googleIndexingLoadErrorFromResponse(
-        mappedStatus,
-        "error" in payload ? payload.error : undefined,
-      ),
-    });
+    setSnapshot((current) =>
+      nextGoogleIndexingSnapshot({
+        previous: current,
+        websiteId: requestedWebsiteId,
+        status: mappedStatus,
+        payload,
+      }),
+    );
     setChecking(false);
   }, []);
 

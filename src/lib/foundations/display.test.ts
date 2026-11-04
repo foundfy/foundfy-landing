@@ -5,7 +5,15 @@ import {
   FOUNDATION_CHECK_LABELS,
   FOUNDATION_STATUS_LABELS,
   FOUNDATIONS_HEADING,
+  GOOGLE_INDEXING_CHECK_AGAIN_LABEL,
+  GOOGLE_INDEXING_CHECK_LABEL,
+  GOOGLE_INDEXING_CHECKED_LABEL,
+  GOOGLE_INDEXING_CHECKING_LABEL,
+  GOOGLE_INDEXING_RETRY_LABEL,
   buildTechnicalFoundationsView,
+  countGoogleIndexingVerdicts,
+  formatGoogleIndexingVerdictSummary,
+  googleIndexingOwnerAction,
 } from "./display";
 import { evaluateCrawlFoundations } from "./evaluate";
 
@@ -180,5 +188,109 @@ describe("buildTechnicalFoundationsView — selcukdemirci.me", () => {
     expect(noSession.checks.find((check) => check.id === "google_indexing")?.status).toBe(
       "not_checked",
     );
+  });
+});
+
+describe("Google indexing owner action", () => {
+  it("keeps never-checked as the primary action and does not mark it complete", () => {
+    const action = googleIndexingOwnerAction({
+      available: true,
+      busy: false,
+      evidence: { kind: "not_checked" },
+      loadError: null,
+    });
+    expect(action).toEqual({
+      visible: true,
+      label: GOOGLE_INDEXING_CHECK_LABEL,
+      disabled: false,
+      emphasis: "primary",
+      state: "never_checked",
+    });
+    expect(action.label).not.toBe(GOOGLE_INDEXING_CHECKED_LABEL);
+  });
+
+  it("disables duplicate clicks while a check is in progress", () => {
+    const action = googleIndexingOwnerAction({
+      available: true,
+      busy: true,
+      evidence: { kind: "not_checked" },
+      loadError: null,
+    });
+    expect(action.state).toBe("checking");
+    expect(action.label).toBe(GOOGLE_INDEXING_CHECKING_LABEL);
+    expect(action.disabled).toBe(true);
+  });
+
+  it("summarizes mixed Indexed / Not indexed / Unknown results without merging Unknown", () => {
+    const counts = countGoogleIndexingVerdicts([
+      { verdict: "indexed" },
+      { verdict: "not_indexed" },
+      { verdict: "unknown" },
+    ]);
+    expect(counts).toEqual({ indexed: 1, notIndexed: 1, unknown: 1 });
+    expect(formatGoogleIndexingVerdictSummary(counts)).toBe(
+      "Indexed: 1 · Not indexed: 1 · Unknown: 1",
+    );
+    expect(formatGoogleIndexingVerdictSummary({ indexed: 2, notIndexed: 1, unknown: 0 })).toBe(
+      "Indexed: 2 · Not indexed: 1",
+    );
+  });
+
+  it("makes Check again secondary after a completed inspection", () => {
+    const action = googleIndexingOwnerAction({
+      available: true,
+      busy: false,
+      evidence: {
+        kind: "checked",
+        inspectedAt: "2026-11-03T23:44:07.651Z",
+        reused: false,
+        urls: [],
+        sitemap: {
+          crawledSitemapUrls: [],
+          listedInSearchConsole: false,
+          sitemaps: [],
+          interpretation: "none_listed",
+        },
+      },
+      loadError: null,
+    });
+    expect(action.state).toBe("completed");
+    expect(action.label).toBe(GOOGLE_INDEXING_CHECK_AGAIN_LABEL);
+    expect(action.emphasis).toBe("secondary");
+    expect(action.disabled).toBe(false);
+  });
+
+  it("offers Retry after an error and hides the action when the owner is ineligible", () => {
+    expect(
+      googleIndexingOwnerAction({
+        available: true,
+        busy: false,
+        evidence: { kind: "unavailable", code: "unavailable" },
+        loadError: "Foundfy could not load Google indexing data right now.",
+      }),
+    ).toMatchObject({
+      visible: true,
+      label: GOOGLE_INDEXING_RETRY_LABEL,
+      disabled: false,
+      state: "error",
+    });
+
+    expect(
+      googleIndexingOwnerAction({
+        available: false,
+        busy: false,
+        evidence: { kind: "pilot_ineligible" },
+        loadError: null,
+      }).visible,
+    ).toBe(false);
+
+    expect(
+      googleIndexingOwnerAction({
+        available: true,
+        busy: false,
+        evidence: { kind: "not_checked" },
+        loadError: null,
+      }).state,
+    ).not.toBe("completed");
   });
 });
