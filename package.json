@@ -19,7 +19,8 @@
     "priorities:generate": "tsx --env-file=.env.local scripts/generate-priorities.ts",
     "priorities:preview": "tsx --env-file=.env.local scripts/preview-priorities.ts",
     "priorities:verify-idempotency": "tsx --env-file=.env.local scripts/verify-priorities-idempotency.ts",
-    "priorities:apply-migration": "tsx --env-file=.env.local scripts/apply-priorities-migration.ts"
+    "priorities:apply-migration": "tsx --env-file=.env.local scripts/apply-priorities-migration.ts",
+    "regression:check": "tsx --env-file=.env.local scripts/check-regression-safety.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

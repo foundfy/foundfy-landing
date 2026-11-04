@@ -50,6 +50,19 @@ export type JsonLdPropertySnippet = {
   location?: string;
 };
 
+export type ParsedSocialMetadata = {
+  ogDescription: string | null;
+  ogImage: string | null;
+  ogImageAlt: string | null;
+  ogImageType: string | null;
+  ogImageWidth: string | null;
+  ogImageHeight: string | null;
+  twitterCard: string | null;
+  twitterDescription: string | null;
+  twitterImage: string | null;
+  twitterImageAlt: string | null;
+};
+
 export type ParsedPage = {
   requestedUrl: string;
   finalUrl: string;
@@ -57,6 +70,7 @@ export type ParsedPage = {
   redirectChain: RedirectHop[];
   title: string | null;
   metaDescription: string | null;
+  htmlMetaDescription?: string | null;
   canonical: string | null;
   robotsMeta: string | null;
   xRobotsTag: string | null;
@@ -76,6 +90,7 @@ export type ParsedPage = {
   jsonLdTypes: string[];
   jsonLdProperties: JsonLdPropertySnippet[];
   wordCount: number;
+  socialMetadata?: ParsedSocialMetadata;
 };
 
 export type RobotsRules = {
