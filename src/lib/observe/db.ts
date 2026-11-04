@@ -192,6 +192,27 @@ export async function finalizeTargetedObservation(input: {
   return asFinalizeResult(data as Record<string, unknown>);
 }
 
+/**
+ * Google disconnect / property-change cleanup only (see deleteDecisionEngineForWebsite).
+ * Website-scoped. Includes an observation that is still running: its later
+ * finalize fails with "observation was not found" and cannot recreate the row.
+ */
+export async function deleteTargetedObservationsForWebsite(websiteId: string): Promise<void> {
+  if (!websiteId) {
+    throw new Error("Failed to delete targeted observations: website id is required.");
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from("targeted_observations")
+    .delete()
+    .eq("website_id", websiteId);
+
+  if (error) {
+    throw new Error(`Failed to delete targeted observations: ${error.message}`);
+  }
+}
+
 export async function findTargetedObservationForWebsite(input: {
   websiteId: string;
   observationId: string;

@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/db/supabase-admin";
+import { deleteTargetedObservationsForWebsite } from "@/lib/observe/db";
 import { DECISION_ENGINE_VERSION } from "./config";
 import {
   RESEARCH_INSPECT_DECISION_TYPE,
@@ -393,8 +394,35 @@ export async function findDecisionById(
   );
 }
 
+/**
+ * Google disconnect / property-change cleanup. Website-scoped.
+ *
+ * targeted_observations and decision_runs reference each other with ON DELETE RESTRICT:
+ * a T1 inspect run points at its targeted observation, and the observation points at
+ * the T0 inspect run that justified it. A single decision_runs delete therefore fails
+ * once a targeted observation exists, so delete in dependency order:
+ *   1. T1 runs that reference a targeted observation
+ *   2. the website's targeted observations
+ *   3. the remaining runs (T0 and Decision v1; decisions cascade)
+ * Every step is idempotent, so a retry after a partial failure completes the cleanup.
+ */
 export async function deleteDecisionEngineForWebsite(websiteId: string): Promise<void> {
+  if (!websiteId) {
+    throw new Error("Failed to delete Decision Engine data: website id is required.");
+  }
+
   const supabase = getSupabaseAdmin();
+  const { error: observedRunsError } = await supabase
+    .from("decision_runs")
+    .delete()
+    .eq("website_id", websiteId)
+    .not("targeted_observation_id", "is", null);
+  if (observedRunsError) {
+    throw new Error(`Failed to delete Decision Engine data: ${observedRunsError.message}`);
+  }
+
+  await deleteTargetedObservationsForWebsite(websiteId);
+
   const { error } = await supabase.from("decision_runs").delete().eq("website_id", websiteId);
   if (error) {
     throw new Error(`Failed to delete Decision Engine data: ${error.message}`);
