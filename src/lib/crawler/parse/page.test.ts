@@ -70,5 +70,78 @@ describe("parseHtmlPage", () => {
       { type: "Organization", name: "Foundfy" },
     ]);
     expect(parsed.wordCount).toBeGreaterThan(5);
+    expect(parsed.socialMetadata).toEqual({
+      ogDescription: null,
+      ogImage: null,
+      ogImageAlt: null,
+      ogImageType: null,
+      ogImageWidth: null,
+      ogImageHeight: null,
+      twitterCard: null,
+      twitterDescription: null,
+      twitterImage: null,
+      twitterImageAlt: null,
+    });
+  });
+
+  it("keeps name=description independent from Open Graph and Twitter image tags", () => {
+    const html = `<!doctype html>
+      <html>
+        <head>
+          <title>About</title>
+          <meta name="description" content="About the director." />
+          <meta property="og:description" content="About the director." />
+          <meta property="og:image" content="https://example.com/opengraph-image.jpg" />
+          <meta property="og:image:alt" content="Portrait" />
+          <meta property="og:image:type" content="image/jpeg" />
+          <meta property="og:image:width" content="1200" />
+          <meta property="og:image:height" content="630" />
+          <meta name="twitter:card" content="summary_large_image" />
+          <meta name="twitter:description" content="About the director." />
+          <meta name="twitter:image" content="https://example.com/opengraph-image.jpg" />
+          <meta name="twitter:image:alt" content="Portrait" />
+        </head>
+        <body><h1>About</h1></body>
+      </html>`;
+
+    const parsed = parseHtmlPage(buildFetchResult(html), "foundfy.me");
+    expect(parsed.metaDescription).toBe("About the director.");
+    expect(parsed.socialMetadata?.ogDescription).toBe("About the director.");
+    expect(parsed.socialMetadata?.ogImage).toBe("https://example.com/opengraph-image.jpg");
+    expect(parsed.socialMetadata?.ogImageWidth).toBe("1200");
+    expect(parsed.socialMetadata?.twitterImage).toBe("https://example.com/opengraph-image.jpg");
+    expect(parsed.socialMetadata?.twitterCard).toBe("summary_large_image");
+  });
+
+  it("does not treat a missing twitter:image as the Open Graph image", () => {
+    const html = `<!doctype html>
+      <html>
+        <head>
+          <meta name="description" content="About the director." />
+          <meta property="og:description" content="About the director." />
+          <meta property="og:image" content="https://example.com/opengraph-image.jpg" />
+          <meta name="twitter:card" content="summary_large_image" />
+          <meta name="twitter:description" content="About the director." />
+        </head>
+        <body></body>
+      </html>`;
+
+    const parsed = parseHtmlPage(buildFetchResult(html), "foundfy.me");
+    expect(parsed.socialMetadata?.ogImage).toBe("https://example.com/opengraph-image.jpg");
+    expect(parsed.socialMetadata?.twitterImage).toBeNull();
+  });
+
+  it("still falls back to og:description for stored metaDescription when name=description is absent", () => {
+    const html = `<!doctype html>
+      <html>
+        <head>
+          <meta property="og:description" content="OG only." />
+        </head>
+        <body></body>
+      </html>`;
+
+    const parsed = parseHtmlPage(buildFetchResult(html), "foundfy.me");
+    expect(parsed.metaDescription).toBe("OG only.");
+    expect(parsed.socialMetadata?.ogDescription).toBe("OG only.");
   });
 });

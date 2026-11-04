@@ -32,9 +32,9 @@ export function parseHtmlPage(
 ): ParsedPage {
   const $ = cheerio.load(fetchResult.body);
   const title = $("title").first().text().trim() || null;
-  const metaDescription =
-    getMetaContent($, 'meta[name="description"]') ??
-    getMetaContent($, 'meta[property="og:description"]');
+  const nameDescription = getMetaContent($, 'meta[name="description"]');
+  const ogDescription = getMetaContent($, 'meta[property="og:description"]');
+  const metaDescription = nameDescription ?? ogDescription;
   const canonicalRaw = $('link[rel="canonical"]').attr("href")?.trim() ?? null;
   const canonical = canonicalRaw
     ? normalizeCrawlUrl(canonicalRaw, fetchResult.finalUrl)
@@ -127,5 +127,17 @@ export function parseHtmlPage(
     jsonLdTypes,
     jsonLdProperties,
     wordCount: countWords(bodyText),
+    socialMetadata: {
+      ogDescription,
+      ogImage: getMetaContent($, 'meta[property="og:image"]'),
+      ogImageAlt: getMetaContent($, 'meta[property="og:image:alt"]'),
+      ogImageType: getMetaContent($, 'meta[property="og:image:type"]'),
+      ogImageWidth: getMetaContent($, 'meta[property="og:image:width"]'),
+      ogImageHeight: getMetaContent($, 'meta[property="og:image:height"]'),
+      twitterCard: getMetaContent($, 'meta[name="twitter:card"]'),
+      twitterDescription: getMetaContent($, 'meta[name="twitter:description"]'),
+      twitterImage: getMetaContent($, 'meta[name="twitter:image"]'),
+      twitterImageAlt: getMetaContent($, 'meta[name="twitter:image:alt"]'),
+    },
   };
 }
