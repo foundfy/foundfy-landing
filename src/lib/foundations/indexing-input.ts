@@ -67,3 +67,41 @@ export function emptyIndexingSnapshot(websiteId: string): StoredGoogleIndexingEv
     loadError: null,
   };
 }
+
+export function nextGoogleIndexingSnapshot(input: {
+  previous: StoredGoogleIndexingEvidence;
+  websiteId: string;
+  status: number;
+  payload: GoogleIndexingEvidenceInput | { error?: string; code?: string };
+}): StoredGoogleIndexingEvidence {
+  const evidence = googleIndexingFromResponse(input.status, input.payload);
+  const loadError = googleIndexingLoadErrorFromResponse(
+    input.status,
+    "error" in input.payload ? input.payload.error : undefined,
+  );
+
+  if (evidence.kind === "checked") {
+    return {
+      websiteId: input.websiteId,
+      evidence,
+      loadError: null,
+    };
+  }
+
+  if (
+    input.previous.websiteId === input.websiteId &&
+    input.previous.evidence?.kind === "checked"
+  ) {
+    return {
+      websiteId: input.websiteId,
+      evidence: input.previous.evidence,
+      loadError: loadError ?? "Foundfy could not complete a new Google indexing check.",
+    };
+  }
+
+  return {
+    websiteId: input.websiteId,
+    evidence,
+    loadError,
+  };
+}

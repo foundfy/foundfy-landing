@@ -56,7 +56,7 @@ describe("First Value UX v0 boundary", () => {
       indexingHook.slice(indexingHook.indexOf("useEffect"), indexingHook.indexOf("const check")),
     ).not.toMatch(/fetch|indexing\/check/);
     expect(page).toContain("useGoogleIndexingEvidence(websiteId)");
-    expect(foundationsUi).toContain("GOOGLE_INDEXING_CHECK_LABEL");
+    expect(foundationsUi).toContain("googleIndexingOwnerAction");
     expect(foundationsUi).toContain("indexingCheckAvailable");
     expect(page).toContain("indexingCheckAvailable");
     expect(foundationsUi).not.toMatch(/urlInspection|sitemaps\.submit|request indexing/i);

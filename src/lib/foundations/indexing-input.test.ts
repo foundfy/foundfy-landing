@@ -3,6 +3,7 @@ import { GOOGLE_ACCESS_EXPIRED_ERROR } from "./google-input";
 import {
   emptyIndexingSnapshot,
   googleIndexingFromResponse,
+  nextGoogleIndexingSnapshot,
   shouldCommitGoogleIndexingResponse,
 } from "./indexing-input";
 import { visibleGoogleIndexingForWebsite } from "./evaluate";
@@ -72,5 +73,65 @@ describe("Google indexing response mapping", () => {
     expect(visibleB.evidence).toEqual({ kind: "not_checked" });
     expect(visibleB.loadError).toBeNull();
     expect(emptyIndexingSnapshot(WEBSITE_B).evidence).toEqual({ kind: "not_checked" });
+  });
+
+  it("preserves previous checked evidence when a new attempt fails", () => {
+    const previous = {
+      websiteId: WEBSITE_A,
+      evidence: {
+        kind: "checked" as const,
+        inspectedAt: "2026-11-02T12:00:00.000Z",
+        reused: false,
+        urls: [],
+        sitemap: {
+          crawledSitemapUrls: [],
+          listedInSearchConsole: false,
+          sitemaps: [],
+          interpretation: "none_listed" as const,
+        },
+      },
+      loadError: null,
+    };
+
+    const next = nextGoogleIndexingSnapshot({
+      previous,
+      websiteId: WEBSITE_A,
+      status: 502,
+      payload: { error: "Foundfy could not load Google indexing data right now." },
+    });
+
+    expect(next.evidence).toEqual(previous.evidence);
+    expect(next.loadError).toBe("Foundfy could not load Google indexing data right now.");
+    expect(next.evidence?.kind).toBe("checked");
+  });
+
+  it("does not keep website A results when a website B attempt fails", () => {
+    const previous = {
+      websiteId: WEBSITE_A,
+      evidence: {
+        kind: "checked" as const,
+        inspectedAt: "2026-11-02T12:00:00.000Z",
+        reused: false,
+        urls: [],
+        sitemap: {
+          crawledSitemapUrls: [],
+          listedInSearchConsole: false,
+          sitemaps: [],
+          interpretation: "none_listed" as const,
+        },
+      },
+      loadError: null,
+    };
+
+    const next = nextGoogleIndexingSnapshot({
+      previous,
+      websiteId: WEBSITE_B,
+      status: 502,
+      payload: { error: "Foundfy could not load Google indexing data right now." },
+    });
+
+    expect(next.websiteId).toBe(WEBSITE_B);
+    expect(next.evidence).toEqual({ kind: "unavailable", code: "unavailable" });
+    expect(next.evidence?.kind).not.toBe("checked");
   });
 });

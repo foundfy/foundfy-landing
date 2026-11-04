@@ -38,7 +38,7 @@ describe("Google Indexing Observation v0 boundary", () => {
     ).not.toMatch(/fetch|indexing\/check/);
     expect(page).toContain("useGoogleIndexingEvidence(websiteId)");
     expect(page.match(/useGoogleIndexingEvidence\(/g)?.length).toBe(1);
-    expect(ui).toContain("GOOGLE_INDEXING_CHECK_LABEL");
+    expect(ui).toContain("googleIndexingOwnerAction");
     expect(ui).toContain("indexingCheckAvailable");
     expect(ui).toContain("onCheckIndexing");
     expect(ui).not.toMatch(/useEffect/);
