@@ -476,4 +476,116 @@ describe("manual SEO regression safety", () => {
     expect(copy.ownerPublishedNote).not.toMatch(/Foundfy published/i);
     expect(copy.unverified.join(" ")).toMatch(/did not collect|did not store/i);
   });
+
+  describe("requested scope must be fully verified before PASS", () => {
+    const WORK = "https://selcukdemirci.me/work";
+
+    it("fully observed requested scope still PASSes", () => {
+      const report = evaluateManualSeoRegression(
+        spec({ baseline: baselineParsed, verification: verificationParsed }),
+      );
+      expect(report.verdict).toBe("pass");
+    });
+
+    it("NOT VERIFIED when one requested URL passes and another has no matching page", () => {
+      const report = evaluateManualSeoRegression(
+        spec({
+          baseline: baselineParsed,
+          verification: verificationParsed,
+          urls: [HOME, ABOUT, CONTACT, WORK],
+        }),
+      );
+      expect(report.checks.length).toBeGreaterThan(0);
+      expect(report.checks.some((check) => check.result === "fail")).toBe(false);
+      expect(report.urls).toEqual(
+        expect.arrayContaining([{ url: WORK, matched: false }]),
+      );
+      expect(report.verdict).toBe("not_verified");
+      expect(report.limitations.join(" ")).toContain(`No matching page evidence for ${WORK}.`);
+    });
+
+    it("NOT VERIFIED when a requested URL was not fetched successfully in the verification crawl", () => {
+      const report = evaluateManualSeoRegression(
+        spec({
+          baseline: baselineParsed,
+          verification: {
+            ...verificationParsed,
+            pages: verificationParsed.pages.map((page) =>
+              page.requestedUrl === CONTACT ? { ...page, statusCode: 500 } : page,
+            ),
+          },
+        }),
+      );
+      expect(report.urls).toEqual(
+        expect.arrayContaining([{ url: CONTACT, matched: false }]),
+      );
+      expect(report.verdict).toBe("not_verified");
+    });
+
+    it("NOT VERIFIED when an expected change targets a URL outside the compared URLs", () => {
+      const report = evaluateManualSeoRegression(
+        spec({
+          baseline: baselineParsed,
+          verification: verificationParsed,
+          expectedChanges: [
+            { url: HOME, field: "meta_description", after: HOME_NEW },
+            { url: ABOUT, field: "meta_description", after: ABOUT_NEW },
+            { url: WORK, field: "meta_description", after: "Approved work copy" },
+          ],
+        }),
+      );
+      expect(report.checks.some((check) => check.result === "fail")).toBe(false);
+      expect(report.verdict).toBe("not_verified");
+      expect(report.limitations.join(" ")).toMatch(/not one of the compared URLs/);
+    });
+
+    it("NOT VERIFIED when no expected change is declared, even if preserved fields match", () => {
+      const report = evaluateManualSeoRegression(
+        spec({
+          baseline: baselineParsed,
+          verification: verificationParsed,
+          expectedChanges: [],
+          originalFindingRuleKey: undefined,
+        }),
+      );
+      expect(report.checks.length).toBeGreaterThan(0);
+      expect(report.checks.every((check) => check.result === "pass")).toBe(true);
+      expect(report.verdict).toBe("not_verified");
+      expect(report.limitations.join(" ")).toMatch(/No expected change was declared/);
+    });
+
+    it("FAIL still takes precedence over an unmatched requested URL", () => {
+      const report = evaluateManualSeoRegression(
+        spec({
+          baseline: baselineParsed,
+          verification: {
+            ...verificationParsed,
+            pages: [
+              ...verificationParsed.pages.filter((page) => page.requestedUrl !== ABOUT),
+              pageEvidenceFromParsedPage(
+                parsedPage({
+                  url: ABOUT,
+                  title: TITLE_ABOUT,
+                  description: ABOUT_NEW,
+                  ogImage: null,
+                  twitterImage: IMAGE,
+                }),
+              ),
+            ],
+          },
+          urls: [HOME, ABOUT, CONTACT, WORK],
+        }),
+      );
+      expect(report.urls).toEqual(
+        expect.arrayContaining([{ url: WORK, matched: false }]),
+      );
+      expect(
+        report.checks.some(
+          (check) =>
+            check.url === ABOUT && check.field === "og_image" && check.result === "fail",
+        ),
+      ).toBe(true);
+      expect(report.verdict).toBe("fail");
+    });
+  });
 });

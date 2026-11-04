@@ -302,6 +302,33 @@ describe("persisted regression-safety evidence path", () => {
     expect(pages.filter((page) => page.crawlRunId === "verify-1")).toHaveLength(1);
   });
 
+  it("NOT VERIFIED when another requested URL has no persisted page in the compared crawls", async () => {
+    const { runs, pages, stores } = createStores();
+    runs.set("baseline-1", completedRun("baseline-1", "2026-11-04T10:00:00.000Z"));
+    runs.set("verify-restored", completedRun("verify-restored", "2026-11-04T12:00:00.000Z"));
+    insertParsedPage(pages, {
+      crawlRunId: "baseline-1",
+      websiteId: WEBSITE,
+      html: aboutHtml({ description: OLD_DESC, images: true }),
+    });
+    insertParsedPage(pages, {
+      crawlRunId: "verify-restored",
+      websiteId: WEBSITE,
+      html: aboutHtml({ description: NEW_DESC, images: true }),
+    });
+
+    const report = await evaluatePersistedManualSeoRegression(
+      spec({
+        verificationCrawlId: "verify-restored",
+        urls: [ABOUT, "https://selcukdemirci.me/work"],
+      }),
+      stores,
+    );
+    expect(report.checks.some((check) => check.result === "fail")).toBe(false);
+    expect(report.verdict).toBe("not_verified");
+    expect(formatOperatorRegressionReport(report)).toMatch(/NOT VERIFIED/);
+  });
+
   it("does not compare crawls from another website", async () => {
     const { runs, pages, stores } = createStores();
     runs.set("baseline-1", completedRun("baseline-1", "2026-11-04T10:00:00.000Z"));

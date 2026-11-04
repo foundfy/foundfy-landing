@@ -21,10 +21,11 @@ function readSpec(path: string): PersistedRegressionCheckInput {
     !raw.verificationCrawlId ||
     !Array.isArray(raw.urls) ||
     raw.urls.length === 0 ||
-    !Array.isArray(raw.expectedChanges)
+    !Array.isArray(raw.expectedChanges) ||
+    raw.expectedChanges.length === 0
   ) {
     throw new Error(
-      "Spec must include websiteId, baselineCrawlId, verificationCrawlId, urls, and expectedChanges.",
+      "Spec must include websiteId, baselineCrawlId, verificationCrawlId, non-empty urls, and non-empty expectedChanges.",
     );
   }
 

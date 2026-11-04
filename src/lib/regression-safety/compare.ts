@@ -294,6 +294,28 @@ export function evaluateManualSeoRegression(
   const preserveFields = spec.preserveFields ?? [...DEFAULT_PRESERVE_FIELDS];
   const checks: FieldCheck[] = [];
 
+  // Every declared expected change must target one of the compared URLs;
+  // otherwise it would be silently skipped and could not block PASS.
+  const requestedUrlKeys = new Set(
+    spec.urls
+      .map((url) => pageIdentityKey(url))
+      .filter((key): key is string => key != null),
+  );
+  const unscopedExpectedChanges = spec.expectedChanges.filter((change) => {
+    const key = pageIdentityKey(change.url);
+    return key == null || !requestedUrlKeys.has(key);
+  });
+  for (const change of unscopedExpectedChanges) {
+    limitations.push(
+      `Expected ${change.field} change for ${change.url} is not one of the compared URLs.`,
+    );
+  }
+  if (spec.expectedChanges.length === 0) {
+    limitations.push(
+      "No expected change was declared, so Foundfy cannot verify an approved change.",
+    );
+  }
+
   for (const url of spec.urls) {
     const beforePage = findPage(spec.baseline, url);
     const afterPage = findPage(spec.verification, url);
@@ -418,9 +440,15 @@ export function evaluateManualSeoRegression(
 
   const failed = checks.some((check) => check.result === "fail");
   const unverified = checks.some((check) => check.result === "not_verified");
+  // PASS requires reliable evidence for every requested URL and every declared
+  // expected change. A confirmed FAIL still takes precedence.
+  const incompleteScope =
+    urls.some((item) => !item.matched) ||
+    unscopedExpectedChanges.length > 0 ||
+    spec.expectedChanges.length === 0;
   const verdict: RegressionSafetyVerdict = failed
     ? "fail"
-    : unverified || issueStatus === "not_verified"
+    : unverified || incompleteScope || issueStatus === "not_verified"
       ? "not_verified"
       : "pass";
 
