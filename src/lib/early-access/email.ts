@@ -34,18 +34,19 @@ function formatSubmissionTime(isoDate: string) {
   }).format(new Date(isoDate));
 }
 
-export async function sendEarlyAccessNotification(
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+export function buildEarlyAccessNotificationEmail(
   submission: EarlyAccessSubmission,
   submittedAt: string,
-) {
-  const fromEmail = process.env.RESEND_FROM_EMAIL;
-  const notificationEmail = process.env.EARLY_ACCESS_NOTIFICATION_EMAIL;
-
-  if (!fromEmail || !notificationEmail) {
-    throw new Error("Resend configuration is missing.");
-  }
-
-  const resend = getResendClient();
+): { subject: string; text: string; html: string } {
   const submittedAtLabel = formatSubmissionTime(submittedAt);
   const websiteLabel = submission.website ?? "Not provided";
 
@@ -61,17 +62,41 @@ export async function sendEarlyAccessNotification(
 
   const html = `
     <h2>New Early Access submission</h2>
-    <p><strong>Role:</strong> ${ROLE_LABELS[submission.role]}</p>
-    <p><strong>Interest:</strong> ${INTEREST_LABELS[submission.interest]}</p>
-    <p><strong>Website:</strong> ${websiteLabel}</p>
-    <p><strong>Email:</strong> ${submission.email}</p>
-    <p><strong>Submitted:</strong> ${submittedAtLabel} (UTC)</p>
+    <p><strong>Role:</strong> ${escapeHtml(ROLE_LABELS[submission.role])}</p>
+    <p><strong>Interest:</strong> ${escapeHtml(INTEREST_LABELS[submission.interest])}</p>
+    <p><strong>Website:</strong> ${escapeHtml(websiteLabel)}</p>
+    <p><strong>Email:</strong> ${escapeHtml(submission.email)}</p>
+    <p><strong>Submitted:</strong> ${escapeHtml(submittedAtLabel)} (UTC)</p>
   `.trim();
+
+  return {
+    subject: `New Early Access lead — ${submission.email}`,
+    text,
+    html,
+  };
+}
+
+export async function sendEarlyAccessNotification(
+  submission: EarlyAccessSubmission,
+  submittedAt: string,
+) {
+  const fromEmail = process.env.RESEND_FROM_EMAIL;
+  const notificationEmail = process.env.EARLY_ACCESS_NOTIFICATION_EMAIL;
+
+  if (!fromEmail || !notificationEmail) {
+    throw new Error("Resend configuration is missing.");
+  }
+
+  const resend = getResendClient();
+  const { subject, text, html } = buildEarlyAccessNotificationEmail(
+    submission,
+    submittedAt,
+  );
 
   const { error } = await resend.emails.send({
     from: fromEmail,
     to: notificationEmail,
-    subject: `New Early Access lead — ${submission.email}`,
+    subject,
     text,
     html,
   });
