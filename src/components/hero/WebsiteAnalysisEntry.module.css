@@ -1206,6 +1206,48 @@
   outline-offset: 2px;
 }
 
+/*
+ * Landing results sit inside the centered hero and inherit its centered text.
+ * Center the finding title block and the help CTA button to match.
+ * /scan and /site are unaffected.
+ */
+.resultsLanding .helpCtaLink {
+  justify-self: center;
+}
+
+.resultsLanding .findingCardHeader {
+  position: relative;
+  justify-content: center;
+}
+
+.resultsLanding .findingProblemBlock {
+  flex: 1 1 auto;
+  padding: 0 84px;
+}
+
+.resultsLanding .findingCardHeader .priorityBadge {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+@media (max-width: 768px) {
+  .resultsLanding .findingCardHeader {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .resultsLanding .findingProblemBlock {
+    padding: 0;
+  }
+
+  .resultsLanding .findingCardHeader .priorityBadge {
+    position: static;
+    order: -1;
+  }
+}
+
 .rescanError {
   width: 100%;
   margin: 0;
