@@ -75,6 +75,10 @@
   margin-bottom: 0;
 }
 
+.accent {
+  color: #ff5b22;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .backgroundGlow {
     animation: none;

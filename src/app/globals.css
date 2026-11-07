@@ -483,3 +483,60 @@ textarea {
     overflow: visible;
   }
 }
+
+/* ─── Cursor spotlight on cards and the crawl field ─── */
+[data-cursor-glow-card] {
+  --mx: 50%;
+  --my: 50%;
+  --glow: 255, 74, 28;
+  isolation: isolate;
+}
+
+.cursorGlowFill,
+.cursorGlowEdge {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.cursorGlowFill {
+  z-index: 0;
+  background: radial-gradient(
+    360px circle at var(--mx) var(--my),
+    rgba(var(--glow), 0.08) 0%,
+    transparent 65%
+  );
+}
+
+.cursorGlowEdge {
+  z-index: 3;
+  padding: 1px;
+  background: radial-gradient(
+    260px circle at var(--mx) var(--my),
+    rgba(var(--glow), 0.4) 0%,
+    transparent 70%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+
+[data-cursor-glow-card].is-glowing > .cursorGlowFill,
+[data-cursor-glow-card].is-glowing > .cursorGlowEdge {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cursorGlowFill,
+  .cursorGlowEdge {
+    display: none;
+  }
+}

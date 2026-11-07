@@ -13,6 +13,8 @@ const statements = [
   "Bigger opportunities",
 ];
 
+const cardDelays = [0, 100, 160, 240];
+
 const cards = [
   {
     icon: IconCircle,
@@ -45,51 +47,64 @@ export default function WhyNow() {
         <div className={styles.backgroundGrain} />
       </div>
 
-      <Reveal className={styles.content}>
+      <div className={styles.content}>
         <div className={styles.grid}>
-          <p className={styles.eyebrow}>
-            02
-            <br />
-            Why now
-          </p>
+          <Reveal>
+            <p className={styles.eyebrow}>
+              02
+              <br />
+              Why now
+            </p>
+          </Reveal>
 
           <div className={styles.main}>
-            <h2 className={styles.headline}>
-              <span className={styles.headlineLine}>Search is changing.</span>
-              <br />
-              So are we.
-            </h2>
+            <Reveal>
+              <h2 className={styles.headline}>
+                <span className={styles.headlineLine}>Search is changing.</span>
+                <br />
+                So are we.
+              </h2>
+            </Reveal>
 
-            <div className={styles.supporting}>
+            <Reveal className={styles.supporting} delay={100}>
               <p>
                 People discover brands in more ways than ever. Foundfy is
                 designed for this new era — starting with on-page SEO, and
                 building toward AI search.
               </p>
-            </div>
+            </Reveal>
           </div>
 
           <div className={styles.cards}>
-            {cards.map(({ icon: Icon, title, description }) => (
-              <div key={title} className={styles.card}>
+            {cards.map(({ icon: Icon, title, description }, index) => (
+              <Reveal
+                key={title}
+                className={styles.card}
+                delay={cardDelays[index]}
+                data-cursor-glow-card
+              >
+                <span className="cursorGlowFill" aria-hidden="true" />
+                <span className="cursorGlowEdge" aria-hidden="true" />
                 <Icon size={24} className={styles.cardIcon} />
                 <h3 className={styles.cardTitle}>{title}</h3>
                 <p className={styles.cardDesc}>{description}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
 
-          <div className={styles.bottom}>
-            <div className={styles.statements}>
-              {statements.map((label) => (
-                <div key={label} className={styles.statement}>
-                  <span className={styles.statementLabel}>{label}</span>
-                </div>
-              ))}
+          <Reveal>
+            <div className={styles.bottom}>
+              <div className={styles.statements}>
+                {statements.map((label) => (
+                  <div key={label} className={styles.statement}>
+                    <span className={styles.statementLabel}>{label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          </Reveal>
         </div>
-      </Reveal>
+      </div>
     </section>
   );
 }

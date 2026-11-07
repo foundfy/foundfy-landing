@@ -72,8 +72,11 @@ export default function WebsiteAnalysisEntry() {
         <form
           className={`${styles.form} ${hasSubmitted && error ? styles.formInvalid : ""}`}
           onSubmit={handleSubmit}
+          data-cursor-glow-card
           noValidate
         >
+          <span className="cursorGlowFill" aria-hidden="true" />
+          <span className="cursorGlowEdge" aria-hidden="true" />
           <div className={styles.inputShell}>
             {showAnimatedPlaceholder ? (
               <span className={styles.placeholder} aria-hidden="true">
@@ -146,8 +149,11 @@ export default function WebsiteAnalysisEntry() {
           <form
             className={`${styles.form} ${hasSubmitted && error ? styles.formInvalid : ""}`}
             onSubmit={handleSubmit}
+            data-cursor-glow-card
             noValidate
           >
+            <span className="cursorGlowFill" aria-hidden="true" />
+            <span className="cursorGlowEdge" aria-hidden="true" />
             <div className={styles.inputShell}>
               {showAnimatedPlaceholder ? (
                 <span className={styles.placeholder} aria-hidden="true">
