@@ -1208,14 +1208,9 @@
 
 /*
  * Landing results sit inside the centered hero and inherit its centered text.
- * Align the flex and grid items to match. /scan and /site are unaffected.
+ * Center the finding title block and the help CTA button to match.
+ * /scan and /site are unaffected.
  */
-.resultsLanding .resultsHeadingRow,
-.resultsLanding .resultsActions {
-  justify-content: center;
-}
-
-.resultsLanding .allFindingsToggle,
 .resultsLanding .helpCtaLink {
   justify-self: center;
 }
