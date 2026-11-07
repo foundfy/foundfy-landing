@@ -76,7 +76,12 @@ export default function AnalysisResultsView({
   const { scanAgain, isRescanning, rescanError } = useRescanNavigation(websiteId);
 
   return (
-    <div className={`${styles.analyzingGroup} ${styles.resultsGroup}`} aria-live="polite">
+    <div
+      className={`${styles.analyzingGroup} ${styles.resultsGroup} ${
+        surface === "landing" ? styles.resultsLanding : ""
+      }`.trim()}
+      aria-live="polite"
+    >
       <div className={`${styles.resultsCard} ${styles.resultsCardVisible}`}>
         <div className={styles.resultsHeader}>
           <div className={styles.resultsHeadingRow}>
