@@ -12,6 +12,7 @@ import {
   resolveWebsiteStepKeyDown,
 } from "@/lib/early-access/form";
 import { isValidEarlyAccessEmail } from "@/lib/early-access/validation";
+import Reveal from "./Reveal";
 import styles from "./EarlyAccess.module.css";
 
 const ROLES = [
@@ -284,7 +285,7 @@ export default function EarlyAccessContent() {
 
       <div className={`section-inner ${styles.inner}`}>
         <div className={`grid-2 ${styles.layout}`}>
-          <div className={styles.copy}>
+          <Reveal className={styles.copy}>
             <p className={`eyebrow ${styles.copyOrange}`} style={{ marginBottom: "var(--space-lg)" }}>
               Get early access
             </p>
@@ -301,9 +302,9 @@ export default function EarlyAccessContent() {
                 hello@foundfy.me
               </a>
             </p>
-          </div>
+          </Reveal>
 
-          <div className={styles.formArea}>
+          <Reveal className={styles.formArea} delay={120}>
             {success ? (
               <div className={styles.successState} aria-live="polite">
                 <p className={styles.successHeadline}>{copy.successHeadline}</p>
@@ -516,7 +517,7 @@ export default function EarlyAccessContent() {
                 </div>
               </form>
             )}
-          </div>
+          </Reveal>
         </div>
       </div>
     </>

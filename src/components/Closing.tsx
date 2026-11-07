@@ -11,22 +11,24 @@ export default function Closing() {
         <div className={styles.backgroundGrain} />
       </div>
 
-      <Reveal className={`section-inner ${styles.inner}`}>
-        <div className={styles.content}>
+      <div className={`section-inner ${styles.inner}`}>
+        <Reveal className={styles.content}>
           <h2 className={`heading-xl ${styles.headline}`}>
             Found today.
             <br />
-            <span className="text-gradient">Further</span>
+            <span className={styles.accent}>Further</span>
             <br />
             tomorrow.
           </h2>
-        </div>
+        </Reveal>
 
-        <SectionFooter
-          variant="dark"
-          text="Be found wherever people search."
-        />
-      </Reveal>
+        <Reveal delay={140}>
+          <SectionFooter
+            variant="dark"
+            text="Be found wherever people search."
+          />
+        </Reveal>
+      </div>
     </section>
   );
 }

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Instrument_Serif, Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import BackToTop from "@/components/BackToTop";
@@ -7,7 +7,16 @@ import "./globals.css";
 
 const inter = Inter({
   subsets: ["latin"],
+  style: ["normal", "italic"],
   variable: "--font-inter",
+  display: "swap",
+});
+
+const instrumentSerif = Instrument_Serif({
+  weight: "400",
+  style: "italic",
+  subsets: ["latin"],
+  variable: "--font-instrument-serif",
   display: "swap",
 });
 
@@ -53,7 +62,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${inter.className}`}>
+      <head>
+        <link
+          rel="stylesheet"
+          href="https://api.fontshare.com/v2/css?f[]=general-sans@500&display=swap"
+        />
+      </head>
+      <body className={`${inter.variable} ${instrumentSerif.variable} ${inter.className}`}>
         <div className="grain" aria-hidden="true" />
         {/* SVG filter for gradient grain */}
         <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true">

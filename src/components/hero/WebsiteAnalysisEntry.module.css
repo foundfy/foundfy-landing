@@ -3,6 +3,7 @@
   isolation: isolate;
   width: 100%;
   max-width: 520px;
+  margin-inline: auto;
 }
 
 .wrapper::before {
@@ -516,6 +517,7 @@
 
 .wrapperResults {
   max-width: 560px;
+  margin-inline: auto;
 }
 
 .wrapperResults::before,

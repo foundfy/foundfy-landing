@@ -95,12 +95,15 @@ export function AnalysisAnalyzingViewInner({
           isCompleting ? styles.formAnalyzingComplete : ""
         }`}
         style={pillStyle}
+        data-cursor-glow-card
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuetext={statusCopy}
         aria-label="Analysis progress"
       >
+        <span className="cursorGlowFill" aria-hidden="true" />
+        <span className="cursorGlowEdge" aria-hidden="true" />
         <span className={styles.pillLightField} aria-hidden="true">
           <span className={styles.pillLightTint} />
           <span className={styles.pillLightTrail} />

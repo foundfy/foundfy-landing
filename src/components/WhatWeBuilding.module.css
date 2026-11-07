@@ -60,15 +60,9 @@
 }
 
 .feature {
-  padding: 0 clamp(20px, 2.5vw, 36px);
-}
-
-.feature:first-child {
-  padding-left: 0;
-}
-
-.feature:last-child {
-  padding-right: 0;
+  position: relative;
+  padding: 32px clamp(24px, 2.2vw, 36px) 36px;
+  overflow: hidden;
 }
 
 .feature + .feature {
@@ -189,6 +183,35 @@
   max-width: 220px;
 }
 
+@media (min-width: 1025px) {
+  .featureDesc {
+    min-height: 3em;
+  }
+}
+
+.featureDetail {
+  display: none;
+}
+
+@media (hover: hover) and (min-width: 1025px) {
+  .featureDetail {
+    display: block;
+    max-width: 220px;
+    min-height: 2.9em;
+    margin-top: 8px;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.45;
+    color: rgba(10, 10, 10, 0.48);
+    opacity: 0;
+    transition: opacity 0.45s ease;
+  }
+
+  .feature:hover .featureDetail {
+    opacity: 1;
+  }
+}
+
 /* ─── Footer ─── */
 .footer {
   display: flex;
@@ -218,11 +241,10 @@
   }
 
   .feature {
-    padding: 0 clamp(16px, 2vw, 24px);
+    padding: 28px clamp(20px, 2vw, 28px) 32px;
   }
 
   .feature:nth-child(odd) {
-    padding-left: 0;
     border-left: none;
   }
 
@@ -232,7 +254,7 @@
 
   .feature:nth-child(3),
   .feature:nth-child(4) {
-    padding-top: clamp(8px, 1vw, 16px);
+    margin-top: clamp(8px, 1vw, 16px);
   }
 
   .supporting {
@@ -279,10 +301,7 @@
   .features .feature:nth-child(3),
   .features .feature:nth-child(4),
   .features .feature + .feature {
-    padding-left: 0;
-    padding-right: 0;
-    padding-bottom: 0;
-    padding-top: 0;
+    padding: 28px 20px 36px;
     border: none;
     border-left: none;
     border-right: none;
@@ -315,5 +334,9 @@
 @media (prefers-reduced-motion: reduce) {
   .featureIcon {
     animation: none !important;
+  }
+
+  .featureDetail {
+    transition: none;
   }
 }
