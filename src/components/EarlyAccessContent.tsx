@@ -1,9 +1,13 @@
 "use client";
 
 import { FocusEvent, FormEvent, KeyboardEvent, ReactNode, useState } from "react";
+import { useAnalysis } from "@/contexts/AnalysisContext";
 import {
+  getEarlyAccessCopy,
   getWebsiteStepError,
+  resolveAnalyzedHostname,
   resolveEmailStepSubmit,
+  resolveWebsitePrefill,
   resolveWebsiteStepAdvance,
   resolveWebsiteStepKeyDown,
 } from "@/lib/early-access/form";
@@ -111,6 +115,16 @@ export default function EarlyAccessContent() {
   const [email, setEmail] = useState("");
   const [websiteError, setWebsiteError] = useState("");
 
+  const { phase: analysisPhase, domain: analyzedDomain } = useAnalysis();
+  const analyzedHostname = resolveAnalyzedHostname({
+    phase: analysisPhase,
+    hostname: analyzedDomain?.hostname,
+  });
+  const copy = getEarlyAccessCopy({
+    analyzedHostname,
+    submittedWebsite: website,
+  });
+
   const transitionToStep = (nextStep: Step) => {
     if (isTransitioning) return;
     setIsTransitioning(true);
@@ -154,6 +168,9 @@ export default function EarlyAccessContent() {
   const handleInterestChange = (value: string) => {
     if (!value || isTransitioning) return;
     setInterest(value);
+    setWebsite((current) =>
+      resolveWebsitePrefill({ website: current, analyzedHostname }),
+    );
     transitionToStep(3);
   };
 
@@ -271,13 +288,13 @@ export default function EarlyAccessContent() {
             <p className={`eyebrow ${styles.copyOrange}`} style={{ marginBottom: "var(--space-lg)" }}>
               Get early access
             </p>
-            <h2 className="heading-lg" style={{ marginBottom: "var(--space-md)" }}>
-              Tell us a bit about yourself.
+            <h2
+              className="heading-lg"
+              style={{ marginBottom: "var(--space-md)", overflowWrap: "anywhere" }}
+            >
+              {copy.heading}
             </h2>
-            <p className={`body-lg ${styles.copyText}`}>
-              Join the early access list and help shape what&apos;s next. We&apos;re
-              building Foundfy with the people who&apos;ll use it most.
-            </p>
+            <p className={`body-lg ${styles.copyText}`}>{copy.body}</p>
             <p className={`body-sm ${styles.email}`}>
               Or just say hello{" "}
               <a href="mailto:hello@foundfy.me" className={styles.emailLink}>
@@ -289,10 +306,8 @@ export default function EarlyAccessContent() {
           <div className={styles.formArea}>
             {success ? (
               <div className={styles.successState} aria-live="polite">
-                <p className={styles.successHeadline}>YOU&apos;RE EARLY.</p>
-                <p className={styles.successSubline}>
-                  We&apos;ll let you know when there&apos;s more to discover.
-                </p>
+                <p className={styles.successHeadline}>{copy.successHeadline}</p>
+                <p className={styles.successSubline}>{copy.successSubline}</p>
               </div>
             ) : (
               <form className={styles.form} onSubmit={handleSubmit} noValidate>

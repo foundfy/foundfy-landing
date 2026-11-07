@@ -6,7 +6,9 @@ import {
   getScanResultsResetLabel,
   getSiteRescanLabel,
   getSiteScanLinkLabel,
+  RESULTS_HELP_CTA_COPY,
   shouldShowLandingFullAnalysisLink,
+  shouldShowResultsHelpCta,
   shouldShowScanAgain,
 } from "./landing-persistent-bridge";
 
@@ -100,5 +102,30 @@ describe("landing persistent bridge", () => {
         crawlRunId,
       }),
     ).toBe(true);
+  });
+});
+
+describe("results help CTA", () => {
+  it("shows on landing results that have findings", () => {
+    expect(
+      shouldShowResultsHelpCta({ surface: "landing", findingsCount: 3 }),
+    ).toBe(true);
+  });
+
+  it("does not show on landing results without findings", () => {
+    expect(
+      shouldShowResultsHelpCta({ surface: "landing", findingsCount: 0 }),
+    ).toBe(false);
+  });
+
+  it("does not show on the scan page", () => {
+    expect(
+      shouldShowResultsHelpCta({ surface: "scan", findingsCount: 3 }),
+    ).toBe(false);
+  });
+
+  it("points to the early access section on the same page", () => {
+    expect(RESULTS_HELP_CTA_COPY.href).toBe("#early-access");
+    expect(RESULTS_HELP_CTA_COPY.linkLabel).toBe("Get help with this →");
   });
 });

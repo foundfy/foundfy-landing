@@ -9,7 +9,9 @@ import {
   buildFullAnalysisHref,
   getLandingScanPageLinkLabel,
   getScanAgainLabel,
+  RESULTS_HELP_CTA_COPY,
   shouldShowLandingFullAnalysisLink,
+  shouldShowResultsHelpCta,
   shouldShowScanAgain,
   type ResultsCtaSurface,
 } from "@/lib/analysis/landing-persistent-bridge";
@@ -67,6 +69,10 @@ export default function AnalysisResultsView({
   const zeroFindingsCopy = model.zeroFindingsCopy;
   const emptyHighlightsCopy = model.emptyHighlightsCopy;
   const showScanAgain = shouldShowScanAgain({ surface, websiteId });
+  const showHelpCta = shouldShowResultsHelpCta({
+    surface,
+    findingsCount: findings.length,
+  });
   const { scanAgain, isRescanning, rescanError } = useRescanNavigation(websiteId);
 
   return (
@@ -179,6 +185,18 @@ export default function AnalysisResultsView({
             </section>
           </>
         )}
+
+        {showHelpCta ? (
+          <section className={styles.helpCta} aria-labelledby="results-help-cta">
+            <h3 id="results-help-cta" className={styles.helpCtaTitle}>
+              {RESULTS_HELP_CTA_COPY.heading}
+            </h3>
+            <p className={styles.helpCtaBody}>{RESULTS_HELP_CTA_COPY.body}</p>
+            <a href={RESULTS_HELP_CTA_COPY.href} className={styles.helpCtaLink}>
+              {RESULTS_HELP_CTA_COPY.linkLabel}
+            </a>
+          </section>
+        ) : null}
 
         {showScanAgain ? (
           <div className={styles.scanAgainContextual}>
