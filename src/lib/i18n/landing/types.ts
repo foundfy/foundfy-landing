@@ -121,7 +121,8 @@ export type LandingCopy = {
   };
   earlyAccess: EarlyAccessFormCopy;
   closing: {
-    headline: readonly [string, string, string];
+    /** `lead` renders in white, `accent` in orange; `tail` is an optional third line. */
+    headline: { lead: string; accent: string; tail?: string };
     footerText: string;
   };
   footer: {

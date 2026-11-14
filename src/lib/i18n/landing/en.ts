@@ -259,7 +259,7 @@ export const EN_LANDING_COPY = {
     },
   },
   closing: {
-    headline: ["Found today.", "Further", "tomorrow."],
+    headline: { lead: "Found today.", accent: "Further", tail: "tomorrow." },
     footerText: "Be found wherever people search.",
   },
   footer: {

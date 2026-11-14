@@ -21,11 +21,15 @@ export default function Closing({
       <div className={`section-inner ${styles.inner}`}>
         <Reveal className={styles.content}>
           <h2 className={`heading-xl ${styles.headline}`}>
-            {copy.headline[0]}
+            {copy.headline.lead}
             <br />
-            <span className={styles.accent}>{copy.headline[1]}</span>
-            <br />
-            {copy.headline[2]}
+            <span className={styles.accent}>{copy.headline.accent}</span>
+            {copy.headline.tail ? (
+              <>
+                <br />
+                {copy.headline.tail}
+              </>
+            ) : null}
           </h2>
         </Reveal>
 

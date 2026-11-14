@@ -7,7 +7,7 @@ import { PRIVACY_SECTIONS_ES } from "@/lib/privacy/content-es";
 
 // Keys that may legitimately differ between locales: optional additions, and the
 // server-error override (English keeps the server message, Spanish replaces it).
-const OPTIONAL_KEYS = new Set(["sectionId", "exampleNote", "server"]);
+const OPTIONAL_KEYS = new Set(["sectionId", "exampleNote", "server", "tail"]);
 
 function shape(value: unknown): unknown {
   if (Array.isArray(value)) {
@@ -105,6 +105,18 @@ describe("landing copy dictionaries", () => {
       expect(href.startsWith("#"), href).toBe(true);
       expect(ids.has(href.slice(1)), href).toBe(true);
     }
+  });
+
+  it("uses the agreed Spanish closing: white lead, orange accent, no third line", () => {
+    expect(ES_LANDING_COPY.closing.headline).toEqual({
+      lead: "Tú llevas tu negocio.",
+      accent: "Foundfy se ocupa del SEO.",
+    });
+    expect(EN_LANDING_COPY.closing.headline).toEqual({
+      lead: "Found today.",
+      accent: "Further",
+      tail: "tomorrow.",
+    });
   });
 
   it("replaces English server errors in Spanish but keeps them in English", () => {

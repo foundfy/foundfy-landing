@@ -272,7 +272,7 @@ export const ES_LANDING_COPY = {
     },
   },
   closing: {
-    headline: ["Que te encuentren hoy.", "Y también", "mañana."],
+    headline: { lead: "Tú llevas tu negocio.", accent: "Foundfy se ocupa del SEO." },
     footerText: "Que te encuentren, busquen donde busquen.",
   },
   footer: {
