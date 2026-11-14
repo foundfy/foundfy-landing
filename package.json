@@ -20,7 +20,8 @@
     "priorities:preview": "tsx --env-file=.env.local scripts/preview-priorities.ts",
     "priorities:verify-idempotency": "tsx --env-file=.env.local scripts/verify-priorities-idempotency.ts",
     "priorities:apply-migration": "tsx --env-file=.env.local scripts/apply-priorities-migration.ts",
-    "regression:check": "tsx --env-file=.env.local scripts/check-regression-safety.ts"
+    "regression:check": "tsx --env-file=.env.local scripts/check-regression-safety.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
@@ -35,6 +36,7 @@
     "resend": "^6.26.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/cheerio": "^0.22.35",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
