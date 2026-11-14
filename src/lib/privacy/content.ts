@@ -14,11 +14,11 @@ export const PRIVACY_SECTIONS = [
   },
   {
     title: "What we store",
-    body: "Crawl data and analysis results are stored so you can return to scan history. If you join the early access list, Foundfy stores your email and the fields you submit: role, interest, and an optional website.",
+    body: "Crawl data and analysis results are stored so you can return to scan history. If you join the early access list, Foundfy stores your email and the fields you submit: role, interest, and an optional website. These details are stored in Foundfy's database, hosted by Supabase, and are also sent by email to the Foundfy team through Resend, an email delivery service, so the team can handle your early access request.",
   },
   {
-    title: "Explain further",
-    body: "If you use optional Explain further, limited finding evidence may be sent to OpenAI to generate that explanation.",
+    title: "AI explanations (OpenAI)",
+    body: "Foundfy uses OpenAI automatically. When a completed analysis is opened, Foundfy sends OpenAI the website's hostname, the number of pages analyzed, and limited evidence about the highlighted findings, such as each finding's title and description, page addresses, status codes, redirects, page titles, meta descriptions, canonical and indexing directives, link details, and sitemap or robots.txt details, to generate plain-language explanations. When a website's page in Foundfy is opened, Foundfy sends OpenAI the website address and what the analysis found on its pages, such as page addresses, titles, headings, text excerpts of up to 1,000 characters per page, navigation labels, languages, and structured-data types, to generate a draft interpretation of the website. You do not need to request either: the optional Explain further button only displays an explanation that has already been generated. The generated explanations and interpretations are stored with the analysis.",
   },
   {
     title: "Questions and deletion",

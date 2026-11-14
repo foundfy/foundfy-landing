@@ -21,6 +21,34 @@ describe("privacy page content", () => {
     expect(text).not.toMatch(/legal basis|subprocessor|retain for|registered in/i);
   });
 
+  it("discloses that OpenAI processing is automatic and what is sent", () => {
+    const aiSection = PRIVACY_SECTIONS.find((section) => section.title === "AI explanations (OpenAI)");
+    expect(aiSection).toBeDefined();
+    const body = aiSection?.body ?? "";
+    expect(body).toContain("Foundfy uses OpenAI automatically");
+    expect(body).toContain("When a completed analysis is opened");
+    expect(body).toContain("When a website's page in Foundfy is opened");
+    expect(body).toContain("Explain further button only displays an explanation that has already been generated");
+    expect(body).toContain("limited evidence about the highlighted findings");
+    expect(body).toContain("text excerpts of up to 1,000 characters per page");
+    expect(body).toContain("stored with the analysis");
+    // The old wording implied OpenAI was only used on request.
+    expect(body).not.toMatch(/if you use optional explain further/i);
+    // No retention or deletion promises about OpenAI.
+    expect(body).not.toMatch(/zero data retention|not stored by openai|deleted by openai|store: false/i);
+  });
+
+  it("discloses where early access details go", () => {
+    const storeSection = PRIVACY_SECTIONS.find((section) => section.title === "What we store");
+    expect(storeSection).toBeDefined();
+    const body = storeSection?.body ?? "";
+    expect(body).toContain("hosted by Supabase");
+    expect(body).toContain("through Resend, an email delivery service");
+    expect(body).toContain("so the team can handle your early access request");
+    // No new purposes such as marketing.
+    expect(body).not.toMatch(/marketing|newsletter|promotional/i);
+  });
+
   it("discloses Search Console performance evidence and disconnect deletion", () => {
     const googleSection = PRIVACY_SECTIONS.find((section) => section.title === "Google account");
     expect(googleSection).toBeDefined();
