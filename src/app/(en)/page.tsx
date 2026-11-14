@@ -1,14 +1,6 @@
 import type { Metadata } from "next";
-import { AnalysisProvider } from "@/contexts/AnalysisContext";
-import CursorGlow from "@/components/CursorGlow";
-import Hero from "@/components/Hero";
-import WhatWeBuilding from "@/components/WhatWeBuilding";
-import WhyNow from "@/components/WhyNow";
-import ProductFlow from "@/components/product/ProductFlow";
-import CapabilityGrid from "@/components/product/CapabilityGrid";
-import EarlyAccess from "@/components/EarlyAccess";
-import Closing from "@/components/Closing";
-import Footer from "@/components/Footer";
+import LandingPage from "@/components/LandingPage";
+import { EN_LANDING_COPY } from "@/lib/i18n/landing/en";
 import { HOMEPAGE_META_DESCRIPTION } from "@/lib/seo/homepage-description";
 
 const homepageOpenGraph = {
@@ -42,19 +34,5 @@ export const metadata: Metadata =
       };
 
 export default function Home() {
-  return (
-    <AnalysisProvider>
-      <CursorGlow />
-      <main>
-        <Hero />
-        <WhatWeBuilding />
-        <WhyNow />
-        <ProductFlow />
-        <CapabilityGrid />
-        <EarlyAccess />
-        <Closing />
-      </main>
-      <Footer />
-    </AnalysisProvider>
-  );
+  return <LandingPage copy={EN_LANDING_COPY} />;
 }

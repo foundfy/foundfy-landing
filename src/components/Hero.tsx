@@ -1,22 +1,10 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import Logo from "./Logo";
 import Reveal from "./Reveal";
 import WebsiteAnalysisEntry from "./hero/WebsiteAnalysisEntry";
+import type { LandingCopy } from "@/lib/i18n/landing/types";
 import styles from "./Hero.module.css";
-
-const navLinks = [
-  { href: "/product", label: "Product" },
-  { href: "/pricing", label: "Pricing" },
-  { href: "/changelog", label: "Changelog" },
-  { href: "/resources", label: "Resources" },
-];
-
-const proof = [
-  "Google search",
-  "AI search",
-  "Content opportunities",
-  "Technical actions",
-];
 
 function RollingLabel({ text }: { text: string }) {
   const letters = Array.from(text);
@@ -87,7 +75,13 @@ function ProofCheck() {
   );
 }
 
-export default function Hero() {
+export default function Hero({
+  copy,
+  a11y,
+}: {
+  copy: LandingCopy["hero"];
+  a11y: LandingCopy["a11y"];
+}) {
   return (
     <section className={styles.hero}>
       <div className={styles.bg} aria-hidden="true">
@@ -100,20 +94,27 @@ export default function Hero() {
       <div className={styles.grid}>
         <Reveal>
           <header className={styles.header}>
-            <Logo variant="light" className={styles.logo} />
-            <nav className={styles.nav} aria-label="Primary">
-              {navLinks.map((link) => (
+            <Logo
+              variant="light"
+              className={styles.logo}
+              href={a11y.logoHref}
+              label={a11y.logoLabel}
+            />
+            <nav className={styles.nav} aria-label={a11y.primaryNav}>
+              {copy.navLinks.map((link) => (
                 <Link key={link.href} href={link.href} className={styles.navLink}>
                   <RollingLabel text={link.label} />
                 </Link>
               ))}
             </nav>
             <div className={styles.headerActions}>
-              <Link href="/sign-in" className={styles.signIn}>
-                <RollingLabel text="Sign in" />
-              </Link>
-              <a href="#early-access" className={styles.getStarted}>
-                <RollingLabel text="Get started" />
+              {copy.signIn ? (
+                <Link href={copy.signIn.href} className={styles.signIn}>
+                  <RollingLabel text={copy.signIn.label} />
+                </Link>
+              ) : null}
+              <a href={copy.getStarted.href} className={styles.getStarted}>
+                <RollingLabel text={copy.getStarted.label} />
               </a>
             </div>
           </header>
@@ -123,10 +124,10 @@ export default function Hero() {
           <div className={styles.main}>
             <div className={styles.content}>
               <Reveal delay={100} distance={18}>
-                <Link href="/changelog" className={styles.announcement}>
-                  <span className={styles.announcementBadge}>New</span>
+                <Link href={copy.announcement.href} className={styles.announcement}>
+                  <span className={styles.announcementBadge}>{copy.announcement.badge}</span>
                   <span className={styles.announcementText}>
-                    Execute and verify approved changes
+                    {copy.announcement.text}
                   </span>
                   <svg
                     className={styles.announcementChevron}
@@ -149,13 +150,13 @@ export default function Hero() {
 
               <h1 className={styles.headline}>
                 <HeadlineWords
-                  text="Be found wherever"
+                  text={copy.headline.firstLine}
                   className={styles.firstLine}
                   start={0.1}
                 />
                 <br />
                 <HeadlineWords
-                  text="people search."
+                  text={copy.headline.highlight}
                   className={styles.highlight}
                   start={0.28}
                 />
@@ -163,9 +164,9 @@ export default function Hero() {
 
               <Reveal delay={450} distance={18}>
                 <p className={styles.description}>
-                  A simpler way to understand your search visibility{" "}
+                  {copy.description.lead}{" "}
                   <br className={styles.descriptionBreak} />
-                  and make the right changes happen.
+                  {copy.description.tail}
                 </p>
               </Reveal>
 
@@ -175,21 +176,22 @@ export default function Hero() {
 
               <Reveal delay={720} distance={18}>
                 <p className={styles.offer}>
-                  Free for one website
-                  <span className={styles.offerDot} aria-hidden="true">
-                    ·
-                  </span>
-                  Up to 10 pages
-                  <span className={styles.offerDot} aria-hidden="true">
-                    ·
-                  </span>
-                  No credit card required
+                  {copy.offer.map((item, index) => (
+                    <Fragment key={item}>
+                      {index > 0 ? (
+                        <span className={styles.offerDot} aria-hidden="true">
+                          ·
+                        </span>
+                      ) : null}
+                      {item}
+                    </Fragment>
+                  ))}
                 </p>
               </Reveal>
 
               <Reveal delay={800} distance={18}>
                 <ul className={styles.proof}>
-                  {proof.map((item) => (
+                  {copy.proof.map((item) => (
                     <li key={item}>
                       <ProofCheck />
                       <span>{item}</span>
@@ -204,7 +206,7 @@ export default function Hero() {
         <Reveal delay={900} distance={18}>
           <div className={styles.bottom}>
             <div className={styles.scroll}>
-              <span>Scroll</span>
+              <span>{copy.scroll}</span>
               <span className={styles.scrollLine} />
             </div>
           </div>

@@ -16,7 +16,8 @@ export default defineConfig({
     toHaveScreenshot: {
       animations: "disabled",
       caret: "hide",
-      maxDiffPixelRatio: 0.002,
+      // Small tolerance for anti-aliasing; set E2E_MAX_DIFF_PIXEL_RATIO=0 for a strict run.
+      maxDiffPixelRatio: Number(process.env.E2E_MAX_DIFF_PIXEL_RATIO ?? 0.002),
     },
   },
   use: {

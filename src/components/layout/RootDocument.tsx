@@ -1,9 +1,9 @@
-import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Instrument_Serif, Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import BackToTop from "@/components/BackToTop";
-import "./globals.css";
+import type { Locale } from "@/lib/i18n/locales";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -20,48 +20,19 @@ const instrumentSerif = Instrument_Serif({
   display: "swap",
 });
 
-const siteTitle = "Foundfy | Be found wherever people search.";
-const siteDescription =
-  "Foundfy turns on-page SEO insights into clear actions. Built for a world where people search in more places.";
-
-export const metadata: Metadata = {
-  metadataBase: new URL("https://www.foundfy.me"),
-  title: siteTitle,
-  description: siteDescription,
-  alternates: {
-    canonical: "/",
-  },
-  openGraph: {
-    title: siteTitle,
-    description: siteDescription,
-    url: "/",
-    siteName: "Foundfy",
-    locale: "en_US",
-    type: "website",
-    images: [
-      {
-        url: "/og-image.jpg",
-        width: 1200,
-        height: 630,
-        alt: siteTitle,
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: siteTitle,
-    description: siteDescription,
-    images: ["/og-image.jpg"],
-  },
-};
-
-export default function RootLayout({
+// Shared <html> document for each language's root layout. Each route group
+// ((en), (es)) has its own root layout so every page declares its real language.
+export default function RootDocument({
+  lang,
+  backToTopLabel,
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: {
+  lang: Locale;
+  backToTopLabel: string;
+  children: ReactNode;
+}) {
   return (
-    <html lang="en">
+    <html lang={lang}>
       <head>
         <link
           rel="stylesheet"
@@ -86,7 +57,7 @@ export default function RootLayout({
           </defs>
         </svg>
         {children}
-        <BackToTop />
+        <BackToTop label={backToTopLabel} />
         <Analytics />
         <SpeedInsights />
       </body>

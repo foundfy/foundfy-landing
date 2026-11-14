@@ -8,6 +8,7 @@ import {
   resolveWebsiteStepAdvance,
   resolveWebsiteStepKeyDown,
 } from "./form";
+import { ES_LANDING_COPY } from "@/lib/i18n/landing/es";
 
 describe("early access website step", () => {
   it("advances on Next when the website is empty", () => {
@@ -223,5 +224,48 @@ describe("early access analyzed-site context", () => {
         submittedWebsite: "",
       }).successSubline,
     ).toBe("We'll let you know when there's more to discover.");
+  });
+});
+
+describe("early access copy in Spanish", () => {
+  const text = ES_LANDING_COPY.earlyAccess.text;
+
+  it("uses the Spanish default copy when nothing was analyzed", () => {
+    expect(
+      getEarlyAccessCopy({ analyzedHostname: null, submittedWebsite: "", text }),
+    ).toEqual({
+      heading: "Cuéntanos sobre tu negocio.",
+      body: text.body,
+      successHeadline: "¡SOLICITUD RECIBIDA!",
+      successSubline: "Te escribiremos por email.",
+    });
+  });
+
+  it("personalizes the Spanish copy with the analyzed hostname", () => {
+    const copy = getEarlyAccessCopy({
+      analyzedHostname: "example.com",
+      submittedWebsite: "example.com",
+      text,
+    });
+    expect(copy.heading).toBe("Trabajemos en example.com.");
+    expect(copy.body).toBe(text.personalizedBody);
+    expect(copy.successSubline).toBe("Te escribiremos sobre example.com.");
+  });
+
+  it("does not name the analyzed site in Spanish when another website was submitted", () => {
+    expect(
+      getEarlyAccessCopy({
+        analyzedHostname: "example.com",
+        submittedWebsite: "other.com",
+        text,
+      }).successSubline,
+    ).toBe("Te escribiremos por email.");
+  });
+
+  it("returns the Spanish website error only for invalid input", () => {
+    const message = ES_LANDING_COPY.earlyAccess.errors.websiteInvalid;
+    expect(getWebsiteStepError("not a url", message)).toBe(message);
+    expect(getWebsiteStepError("example.com", message)).toBeNull();
+    expect(getWebsiteStepError("", message)).toBeNull();
   });
 });

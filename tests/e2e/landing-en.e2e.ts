@@ -10,6 +10,8 @@ import {
 
 // The English experience must stay visually and functionally unchanged.
 // These baselines were captured from `main` before the Spanish work started.
+// The only expected pixel noise is the hero input's typing placeholder, which is
+// timer-driven and may be caught mid-word; the default tolerance absorbs it.
 
 test("English home looks unchanged", async ({ page }) => {
   const { unexpectedApiCalls } = await guardNetwork(page);

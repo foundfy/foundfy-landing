@@ -53,6 +53,13 @@
   color: rgba(245, 244, 240, 0.62);
 }
 
+.exampleNote {
+  margin-top: 0.75rem;
+  font-size: 13px;
+  line-height: 1.4;
+  color: rgba(245, 244, 240, 0.5);
+}
+
 .board {
   display: grid;
   grid-template-columns: repeat(6, 1fr);

@@ -336,6 +336,13 @@
   white-space: nowrap;
 }
 
+/* Spanish headline lines are longer than the English ones: let them wrap
+   between words instead of overflowing on narrow screens. English is untouched. */
+:lang(es) .firstLine,
+:lang(es) .highlight {
+  white-space: normal;
+}
+
 /* ─── Description ─── */
 .description {
   font-size: clamp(16px, 1vw, 17px);
