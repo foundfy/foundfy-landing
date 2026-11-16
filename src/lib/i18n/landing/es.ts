@@ -44,6 +44,12 @@ export const ES_LANDING_COPY = {
       "Acciones técnicas",
     ],
     scroll: "Desliza",
+    analysisEntry: {
+      placeholders: ["tuweb.es", "tuempresa.com", "foundfy.me", "tumarca.es"],
+      submit: "Analizar",
+      inputLabel: "Dirección de tu web",
+      invalidWebsite: "Introduce una web válida, por ejemplo: tuweb.es.",
+    },
   },
   whatWeBuilding: {
     sectionId: "como-funciona",
@@ -274,6 +280,7 @@ export const ES_LANDING_COPY = {
   closing: {
     headline: { lead: "Tú llevas tu negocio.", accent: "Foundfy se ocupa del SEO." },
     footerText: "Que te encuentren, busquen donde busquen.",
+    sectionFooterLogo: false,
   },
   footer: {
     privacy: { href: "/es/privacidad", label: "Privacidad" },

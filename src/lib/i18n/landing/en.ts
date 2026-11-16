@@ -37,6 +37,12 @@ export const EN_LANDING_COPY = {
     offer: ["Free for one website", "Up to 10 pages", "No credit card required"],
     proof: ["Google search", "AI search", "Content opportunities", "Technical actions"],
     scroll: "Scroll",
+    analysisEntry: {
+      placeholders: ["yourwebsite.com", "acme.com", "foundfy.me", "yourbrand.io"],
+      submit: "Analyze",
+      inputLabel: "Website URL",
+      invalidWebsite: "Enter a valid website, such as example.com.",
+    },
   },
   whatWeBuilding: {
     eyebrow: "How Foundfy works",
@@ -261,6 +267,7 @@ export const EN_LANDING_COPY = {
   closing: {
     headline: { lead: "Found today.", accent: "Further", tail: "tomorrow." },
     footerText: "Be found wherever people search.",
+    sectionFooterLogo: true,
   },
   footer: {
     privacy: { href: "/privacy", label: "Privacy" },

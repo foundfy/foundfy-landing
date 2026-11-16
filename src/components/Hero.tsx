@@ -171,7 +171,7 @@ export default function Hero({
               </Reveal>
 
               <Reveal delay={600} distance={18}>
-                <WebsiteAnalysisEntry />
+                <WebsiteAnalysisEntry copy={copy.analysisEntry} />
               </Reveal>
 
               <Reveal delay={720} distance={18}>

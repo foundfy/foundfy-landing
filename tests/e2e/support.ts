@@ -81,3 +81,32 @@ export async function completeEarlyAccessForm(
 export function expectNoUnexpectedApiCalls(calls: string[]) {
   expect(calls, "unexpected API calls during the test").toEqual([]);
 }
+
+// Viewports where the fixed "Back to top" button used to cover the closing tagline.
+export const BACK_TO_TOP_VIEWPORTS = [
+  { width: 1024, height: 768 },
+  { width: 1280, height: 800 },
+  { width: 1440, height: 900 },
+  { width: 1512, height: 982 },
+  { width: 1920, height: 1080 },
+] as const;
+
+export async function backToTopOverlaps(page: Page) {
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const button = page.locator('button[class*="backToTop"]');
+  await expect(button).toBeVisible();
+  return page.evaluate(() => {
+    const box = (selector: string) => document.querySelector(selector)?.getBoundingClientRect();
+    const button = box('button[class*="backToTop"]');
+    const targets = [box(".section-footer__text"), box('footer [class*="links"]')];
+    return targets.some(
+      (target) =>
+        !!button &&
+        !!target &&
+        button.left < target.right &&
+        button.right > target.left &&
+        button.top < target.bottom &&
+        button.bottom > target.top,
+    );
+  });
+}

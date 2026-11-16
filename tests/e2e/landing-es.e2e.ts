@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import {
+  BACK_TO_TOP_VIEWPORTS,
   SCREENSHOT_STYLE,
+  backToTopOverlaps,
   completeEarlyAccessForm,
   expectNoUnexpectedApiCalls,
   guardNetwork,
@@ -112,6 +114,34 @@ test("Spanish form replaces a server error with a Spanish message", async ({ pag
   });
   await expect(section.getByText("Revisa tus respuestas e inténtalo de nuevo.")).toBeVisible();
   await expect(section.getByText("Please choose a role.")).toHaveCount(0);
+});
+
+test("Spanish hero input is in Spanish", async ({ page }) => {
+  const { unexpectedApiCalls } = await guardNetwork(page);
+  await page.goto("/es");
+  const input = page.getByRole("textbox", { name: "Dirección de tu web" }).first();
+  await expect(input).toBeVisible();
+  await expect(page.getByRole("button", { name: "Analizar" }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Analyze" })).toHaveCount(0);
+  await expect(page.getByText("yourwebsite.com")).toHaveCount(0);
+  await input.fill("no es una web");
+  await page.getByRole("button", { name: "Analizar" }).first().click();
+  await expect(page.getByText("Introduce una web válida, por ejemplo: tuweb.es.")).toBeVisible();
+  expectNoUnexpectedApiCalls(unexpectedApiCalls);
+});
+
+test("Spanish closing has no duplicate logo and Volver arriba clears the tagline", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "desktop layout check");
+  await guardNetwork(page);
+  for (const viewport of BACK_TO_TOP_VIEWPORTS) {
+    await page.setViewportSize(viewport);
+    await page.goto("/es");
+    await expect(page.locator(".section-footer a")).toHaveCount(0);
+    expect(await backToTopOverlaps(page), `${viewport.width}x${viewport.height}`).toBe(false);
+  }
 });
 
 test.describe("Spanish routes", () => {

@@ -204,6 +204,16 @@ textarea {
   gap: var(--space-md);
 }
 
+/* Tagline only: left-aligned, which also keeps the fixed "Back to top" button
+   (bottom right) from covering it. */
+.section-footer--text-only {
+  justify-content: flex-start;
+}
+
+.section-footer--text-only .section-footer__text {
+  text-align: left;
+}
+
 .section-footer--dark {
   border-color: rgba(255, 255, 255, 0.12);
 }

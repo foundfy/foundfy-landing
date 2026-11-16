@@ -37,6 +37,7 @@ export default function Closing({
           <SectionFooter
             variant="dark"
             text={copy.footerText}
+            showLogo={copy.sectionFooterLogo}
             logoHref={a11y.logoHref}
             logoLabel={a11y.logoLabel}
           />

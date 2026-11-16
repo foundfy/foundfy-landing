@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import {
+  BACK_TO_TOP_VIEWPORTS,
   SCREENSHOT_STYLE,
+  backToTopOverlaps,
   completeEarlyAccessForm,
   expectNoUnexpectedApiCalls,
   guardNetwork,
@@ -72,6 +74,37 @@ test("English form rejects an invalid email in English", async ({ page }) => {
   await section.locator("input#email").press("Enter");
   await expect(section.getByRole("button", { name: "Get early access" })).toBeDisabled();
   expect(earlyAccessRequests).toEqual([]);
+});
+
+test("English hero input keeps its English copy", async ({ page }) => {
+  await guardNetwork(page);
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Analyze" }).first()).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Website URL" }).first()).toBeVisible();
+  await page.getByRole("textbox", { name: "Website URL" }).first().fill("not a site");
+  await page.getByRole("button", { name: "Analyze" }).first().click();
+  await expect(page.getByText("Enter a valid website, such as example.com.")).toBeVisible();
+});
+
+test("English closing keeps its logo for now", async ({ page }) => {
+  await guardNetwork(page);
+  await page.goto("/");
+  // Pending owner decision: apply the Spanish change (no logo here, tagline on
+  // the left) to English too. Until then English stays as it was.
+  await expect(page.locator(".section-footer a")).toHaveCount(1);
+});
+
+// PENDING (owner decision 2026-11-17): in English the fixed Back to top button still
+// covers the closing tagline at 1280-1512 px wide. It is fixed together with the
+// pending English closing change above; enable this test then.
+test.fixme("English Back to top clears the closing tagline", async ({ page, isMobile }) => {
+  test.skip(isMobile, "desktop layout check");
+  await guardNetwork(page);
+  for (const viewport of BACK_TO_TOP_VIEWPORTS) {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+    expect(await backToTopOverlaps(page), `${viewport.width}x${viewport.height}`).toBe(false);
+  }
 });
 
 test.describe("public routes", () => {

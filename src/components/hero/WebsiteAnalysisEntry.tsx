@@ -6,11 +6,17 @@ import { useAnimatedPlaceholder } from "@/hooks/useAnimatedPlaceholder";
 import { useCrawlPolling } from "@/hooks/useCrawlPolling";
 import { useExplanationEnrichmentPolling } from "@/hooks/useExplanationEnrichmentPolling";
 import { validateDomainInput } from "@/lib/analysis/domain";
+import { EN_LANDING_COPY } from "@/lib/i18n/landing/en";
+import type { LandingCopy } from "@/lib/i18n/landing/types";
 import AnalysisAnalyzingView from "./AnalysisAnalyzingView";
 import AnalysisResultsView from "./AnalysisResultsView";
 import styles from "./WebsiteAnalysisEntry.module.css";
 
-export default function WebsiteAnalysisEntry() {
+export default function WebsiteAnalysisEntry({
+  copy = EN_LANDING_COPY.hero.analysisEntry,
+}: {
+  copy?: LandingCopy["hero"]["analysisEntry"];
+}) {
   const {
     domain,
     phase,
@@ -29,7 +35,10 @@ export default function WebsiteAnalysisEntry() {
   const [isFocused, setIsFocused] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
-  const animatedPlaceholder = useAnimatedPlaceholder(!input && !isFocused);
+  const animatedPlaceholder = useAnimatedPlaceholder(
+    !input && !isFocused,
+    copy.placeholders,
+  );
   const showAnimatedPlaceholder = !input && !isFocused;
   const isAnalyzing = phase === "starting" && !!domain;
   const isCompleted = phase === "completed" && !!domain;
@@ -58,7 +67,7 @@ export default function WebsiteAnalysisEntry() {
     const result = validateDomainInput(input);
 
     if (!result.valid) {
-      setError(result.message);
+      setError(copy.invalidWebsite);
       return;
     }
 
@@ -92,7 +101,7 @@ export default function WebsiteAnalysisEntry() {
               name="website"
               className={styles.input}
               placeholder=""
-              aria-label="Website URL"
+              aria-label={copy.inputLabel}
               value={input}
               aria-invalid={hasSubmitted && !!error}
               aria-describedby={error ? "website-analysis-error" : undefined}
@@ -108,7 +117,7 @@ export default function WebsiteAnalysisEntry() {
             />
           </div>
           <button type="submit" className={styles.button}>
-            Analyze
+            {copy.submit}
           </button>
         </form>
         {error ? (
@@ -169,7 +178,7 @@ export default function WebsiteAnalysisEntry() {
                 name="website"
                 className={styles.input}
                 placeholder=""
-                aria-label="Website URL"
+                aria-label={copy.inputLabel}
                 value={input}
                 aria-invalid={hasSubmitted && !!error}
                 aria-describedby={error ? "website-analysis-error" : undefined}
@@ -185,7 +194,7 @@ export default function WebsiteAnalysisEntry() {
               />
             </div>
             <button type="submit" className={styles.button}>
-              Analyze
+              {copy.submit}
             </button>
           </form>
           {error ? (
