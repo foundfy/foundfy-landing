@@ -126,6 +126,12 @@ test.describe("Spanish routes", () => {
     expect(head.title).toBe("Privacidad | Foundfy");
     expect(head.robots).toBe("noindex, follow");
     await expect(page.getByRole("heading", { level: 1, name: "Privacidad" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Explicaciones con IA (OpenAI)" }),
+    ).toBeVisible();
+    await expect(page.getByText("Foundfy usa OpenAI de forma automática")).toBeVisible();
+    await expect(page.getByText("a través de Resend, un servicio de envío de emails")).toBeVisible();
+    await expect(page.getByText("Explicación ampliada")).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Privacidad" })).toHaveAttribute(
       "href",
       "/es/privacidad",

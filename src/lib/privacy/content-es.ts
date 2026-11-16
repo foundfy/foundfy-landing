@@ -19,11 +19,11 @@ export const PRIVACY_SECTIONS_ES = [
   },
   {
     title: "Qué guardamos",
-    body: "Los datos de los análisis y sus resultados se guardan para que puedas volver a consultar el historial. Si nos envías el formulario de solicitud, Foundfy guarda tu email y los campos que envías: rol, interés y, opcionalmente, una web.",
+    body: "Los datos de los análisis y sus resultados se guardan para que puedas volver a consultar el historial. Si nos envías el formulario de solicitud, Foundfy guarda tu email y los campos que envías: rol, interés y, opcionalmente, una web. Estos datos se guardan en la base de datos de Foundfy, alojada en Supabase, y además se envían por email al equipo de Foundfy a través de Resend, un servicio de envío de emails, para que el equipo pueda gestionar tu solicitud.",
   },
   {
-    title: "Explicación ampliada",
-    body: "Si usas la opción de explicación ampliada (Explain further), puede enviarse a OpenAI evidencia limitada del hallazgo para generar esa explicación.",
+    title: "Explicaciones con IA (OpenAI)",
+    body: "Foundfy usa OpenAI de forma automática. Al abrir un análisis completado, Foundfy envía a OpenAI el dominio de la web, el número de páginas analizadas y datos limitados sobre los hallazgos destacados (como el título y la descripción de cada hallazgo, las direcciones de las páginas, los códigos de estado, las redirecciones, los títulos de las páginas, las meta descripciones, las directivas de canonical e indexación, datos de los enlaces y datos del sitemap o del robots.txt) para redactar explicaciones fáciles de entender. Al abrir la página de una web en Foundfy, Foundfy envía a OpenAI la dirección de la web y lo que el análisis encontró en sus páginas (como direcciones, títulos, encabezados, fragmentos de texto de hasta 1.000 caracteres por página, etiquetas de navegación, idiomas y tipos de datos estructurados) para generar una interpretación preliminar de la web. No tienes que pedir ninguna de las dos cosas: el botón opcional «Explain further» solo muestra una explicación que ya se ha generado. Las explicaciones e interpretaciones generadas se guardan con el análisis.",
   },
   {
     title: "Preguntas y eliminación de datos",
