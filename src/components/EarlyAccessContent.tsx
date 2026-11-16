@@ -12,23 +12,14 @@ import {
   resolveWebsiteStepKeyDown,
 } from "@/lib/early-access/form";
 import { isValidEarlyAccessEmail } from "@/lib/early-access/validation";
+import type { EarlyAccessFormCopy } from "@/lib/i18n/landing/types";
 import Reveal from "./Reveal";
 import styles from "./EarlyAccess.module.css";
 
-const ROLES = [
-  { value: "business-owner", label: "Business / Brand" },
-  { value: "seo-professional", label: "SEO Professional" },
-  { value: "agency", label: "Agency" },
-  { value: "other", label: "Other" },
-] as const;
+// Submitted values stay the same in every language; only the labels change.
+const ROLE_VALUES = ["business-owner", "seo-professional", "agency", "other"] as const;
 
-const INTERESTS = [
-  { value: "seo", label: "SEO insights" },
-  { value: "ai", label: "AI visibility" },
-  { value: "content", label: "Content opportunities" },
-  { value: "technical", label: "Technical checks" },
-  { value: "all", label: "All of the above" },
-] as const;
+const INTEREST_VALUES = ["seo", "ai", "content", "technical", "all"] as const;
 
 type Step = 1 | 2 | 3 | 4;
 type ChoiceOption = { value: string; label: string };
@@ -67,21 +58,23 @@ function CompletedStep({ stepNum, label, value, onEdit }: CompletedStepProps) {
 type PreviousButtonProps = {
   onClick: () => void;
   disabled?: boolean;
+  label: string;
+  text: string;
 };
 
-function PreviousButton({ onClick, disabled }: PreviousButtonProps) {
+function PreviousButton({ onClick, disabled, label, text }: PreviousButtonProps) {
   return (
     <button
       type="button"
       className={`${styles.previousBtn} ${styles.stepChild}`}
       onClick={onClick}
       disabled={disabled}
-      aria-label="Go back to previous question"
+      aria-label={label}
     >
       <span className={styles.previousArrow} aria-hidden="true">
         ←
       </span>
-      Back
+      {text}
     </button>
   );
 }
@@ -102,7 +95,13 @@ function ActiveStepShell({
   );
 }
 
-export default function EarlyAccessContent() {
+export default function EarlyAccessContent({ copy: formCopy }: { copy: EarlyAccessFormCopy }) {
+  const ROLES = ROLE_VALUES.map((value) => ({ value, label: formCopy.roles[value] }));
+  const INTERESTS = INTEREST_VALUES.map((value) => ({
+    value,
+    label: formCopy.interests[value],
+  }));
+
   const [step, setStep] = useState<Step>(1);
   const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -124,7 +123,9 @@ export default function EarlyAccessContent() {
   const copy = getEarlyAccessCopy({
     analyzedHostname,
     submittedWebsite: website,
+    text: formCopy.text,
   });
+  const previousButtonText = { label: formCopy.backLabel, text: formCopy.back };
 
   const transitionToStep = (nextStep: Step) => {
     if (isTransitioning) return;
@@ -179,7 +180,7 @@ export default function EarlyAccessContent() {
     const decision = resolveWebsiteStepAdvance({ website, isTransitioning });
     if (decision === "block") {
       if (!isTransitioning) {
-        setWebsiteError(getWebsiteStepError(website) ?? "");
+        setWebsiteError(getWebsiteStepError(website, formCopy.errors.websiteInvalid) ?? "");
       }
       return;
     }
@@ -220,7 +221,7 @@ export default function EarlyAccessContent() {
       return;
     }
 
-    setWebsiteError(getWebsiteStepError(website) ?? "");
+    setWebsiteError(getWebsiteStepError(website, formCopy.errors.websiteInvalid) ?? "");
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -230,7 +231,7 @@ export default function EarlyAccessContent() {
       "ignore"
     ) {
       if (email.trim() && !isValidEarlyAccessEmail(email)) {
-        setSubmitError("Please enter a valid email address.");
+        setSubmitError(formCopy.errors.emailInvalid);
       }
       return;
     }
@@ -258,14 +259,14 @@ export default function EarlyAccessContent() {
 
       if (!response.ok) {
         setSubmitError(
-          data.error || "Something went wrong. Please try again.",
+          formCopy.errors.server ?? (data.error || formCopy.errors.generic),
         );
         return;
       }
 
       setSuccess(true);
     } catch {
-      setSubmitError("Something went wrong. Please try again.");
+      setSubmitError(formCopy.errors.generic);
     } finally {
       setIsSubmitting(false);
     }
@@ -287,7 +288,7 @@ export default function EarlyAccessContent() {
         <div className={`grid-2 ${styles.layout}`}>
           <Reveal className={styles.copy}>
             <p className={`eyebrow ${styles.copyOrange}`} style={{ marginBottom: "var(--space-lg)" }}>
-              Get early access
+              {formCopy.eyebrow}
             </p>
             <h2
               className="heading-lg"
@@ -297,7 +298,7 @@ export default function EarlyAccessContent() {
             </h2>
             <p className={`body-lg ${styles.copyText}`}>{copy.body}</p>
             <p className={`body-sm ${styles.email}`}>
-              Or just say hello{" "}
+              {formCopy.helloPrefix}{" "}
               <a href="mailto:hello@foundfy.me" className={styles.emailLink}>
                 hello@foundfy.me
               </a>
@@ -316,7 +317,7 @@ export default function EarlyAccessContent() {
                   {step > 1 && role && leavingStep !== 1 && (
                     <CompletedStep
                       stepNum="01"
-                      label="What best describes you?"
+                      label={formCopy.questions.role}
                       value={getLabel(ROLES, role).toUpperCase()}
                       onEdit={() => handleEdit(1)}
                     />
@@ -326,7 +327,7 @@ export default function EarlyAccessContent() {
                     <ActiveStepShell exiting={leavingStep === 1}>
                       <p className={`${styles.stepCounter} ${styles.stepChild}`}>01 / 04</p>
                       <h3 className={`${styles.activeQuestion} ${styles.stepChild}`}>
-                        What best describes you?
+                        {formCopy.questions.role}
                       </h3>
                       <div className={`${styles.fieldShell} ${styles.stepChild}`}>
                         <select
@@ -338,7 +339,7 @@ export default function EarlyAccessContent() {
                           disabled={isTransitioning}
                         >
                           <option value="" disabled>
-                            Select one
+                            {formCopy.selectPlaceholder}
                           </option>
                           {ROLES.map(({ value, label }) => (
                             <option key={value} value={value}>
@@ -353,7 +354,7 @@ export default function EarlyAccessContent() {
                   {step > 2 && interest && leavingStep !== 2 && (
                     <CompletedStep
                       stepNum="02"
-                      label="What are you most interested in?"
+                      label={formCopy.questions.interest}
                       value={getLabel(INTERESTS, interest).toUpperCase()}
                       onEdit={() => handleEdit(2)}
                     />
@@ -363,7 +364,7 @@ export default function EarlyAccessContent() {
                     <ActiveStepShell exiting={leavingStep === 2}>
                       <p className={`${styles.stepCounter} ${styles.stepChild}`}>02 / 04</p>
                       <h3 className={`${styles.activeQuestion} ${styles.stepChild}`}>
-                        What are you most interested in?
+                        {formCopy.questions.interest}
                       </h3>
                       <div className={`${styles.fieldShell} ${styles.stepChild}`}>
                         <select
@@ -375,7 +376,7 @@ export default function EarlyAccessContent() {
                           disabled={isTransitioning}
                         >
                           <option value="" disabled>
-                            Select one
+                            {formCopy.selectPlaceholder}
                           </option>
                           {INTERESTS.map(({ value, label }) => (
                             <option key={value} value={value}>
@@ -384,14 +385,14 @@ export default function EarlyAccessContent() {
                           ))}
                         </select>
                       </div>
-                      <PreviousButton onClick={handlePrevious} disabled={isTransitioning} />
+                      <PreviousButton onClick={handlePrevious} disabled={isTransitioning} {...previousButtonText} />
                     </ActiveStepShell>
                   )}
 
                   {step > 3 && website.trim() && leavingStep !== 3 && (
                     <CompletedStep
                       stepNum="03"
-                      label="Website"
+                      label={formCopy.questions.websiteSummary}
                       value={website.trim().toUpperCase()}
                       onEdit={() => handleEdit(3)}
                     />
@@ -401,7 +402,7 @@ export default function EarlyAccessContent() {
                     <ActiveStepShell exiting={leavingStep === 3}>
                       <p className={`${styles.stepCounter} ${styles.stepChild}`}>03 / 04</p>
                       <h3 className={`${styles.activeQuestion} ${styles.stepChild}`}>
-                        Your website (optional)
+                        {formCopy.questions.website}
                       </h3>
                       <div className={`${styles.fieldShell} ${styles.fieldWithAction} ${styles.stepChild}`}>
                         <input
@@ -411,7 +412,7 @@ export default function EarlyAccessContent() {
                           inputMode="url"
                           autoComplete="url"
                           className={styles.editorialInput}
-                          placeholder="https://"
+                          placeholder={formCopy.websitePlaceholder}
                           value={website}
                           onChange={(event) => {
                             setWebsite(event.target.value);
@@ -422,7 +423,7 @@ export default function EarlyAccessContent() {
                           onBlur={handleWebsiteBlur}
                           onKeyDown={handleWebsiteKeyDown}
                           disabled={isTransitioning}
-                          aria-label="Your website (optional)"
+                          aria-label={formCopy.websiteLabel}
                           aria-required={false}
                           aria-invalid={!!websiteError}
                           aria-describedby={websiteError ? "website-step-error" : undefined}
@@ -434,11 +435,11 @@ export default function EarlyAccessContent() {
                           disabled={isTransitioning}
                           aria-label={
                             website.trim()
-                              ? "Continue"
-                              : "Skip website and continue"
+                              ? formCopy.continueLabel
+                              : formCopy.skipLabel
                           }
                         >
-                          Next
+                          {formCopy.next}
                           <span aria-hidden="true">→</span>
                         </button>
                       </div>
@@ -451,7 +452,7 @@ export default function EarlyAccessContent() {
                           {websiteError}
                         </p>
                       ) : null}
-                      <PreviousButton onClick={handlePrevious} disabled={isTransitioning} />
+                      <PreviousButton onClick={handlePrevious} disabled={isTransitioning} {...previousButtonText} />
                     </ActiveStepShell>
                   )}
 
@@ -459,7 +460,7 @@ export default function EarlyAccessContent() {
                     <ActiveStepShell exiting={leavingStep === 4}>
                       <p className={`${styles.stepCounter} ${styles.stepChild}`}>04 / 04</p>
                       <h3 className={`${styles.activeQuestion} ${styles.stepChild}`}>
-                        Where should we keep you posted?
+                        {formCopy.questions.email}
                       </h3>
                       <div className={`${styles.fieldShell} ${styles.stepChild}`}>
                         <input
@@ -467,17 +468,18 @@ export default function EarlyAccessContent() {
                           name="email"
                           type="email"
                           className={styles.editorialInput}
-                          placeholder="you@company.com"
+                          placeholder={formCopy.emailPlaceholder}
                           value={email}
                           onChange={(event) => setEmail(event.target.value)}
                           required
-                          aria-label="Your email"
+                          aria-label={formCopy.emailLabel}
                         />
                       </div>
                       <div className={`${styles.stepActions} ${styles.stepChild}`}>
                         <PreviousButton
                           onClick={handlePrevious}
                           disabled={isTransitioning || isSubmitting}
+                          {...previousButtonText}
                         />
                         <button
                           type="submit"
@@ -499,7 +501,7 @@ export default function EarlyAccessContent() {
                           }
                           aria-busy={isSubmitting}
                         >
-                          {isSubmitting ? "Submitting…" : "Get early access"}
+                          {isSubmitting ? formCopy.submitting : formCopy.submit}
                           {!isSubmitting && (
                             <span className={styles.submitArrow} aria-hidden="true">
                               →

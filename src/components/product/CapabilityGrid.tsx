@@ -1,57 +1,54 @@
 import Reveal from "../Reveal";
 import { CursorGlowSurface } from "../CursorGlow";
+import type { LandingCopy } from "@/lib/i18n/landing/types";
 import styles from "./CapabilityGrid.module.css";
 
-const pages = [
-  { path: "/guides/getting-started", detail: "1,240 impressions · 86 clicks" },
-  { path: "/pricing", detail: "640 impressions · 41 clicks" },
-  { path: "/", detail: "210 impressions · 28 clicks" },
-];
+export default function CapabilityGrid({
+  copy,
+}: {
+  copy: LandingCopy["capabilityGrid"];
+}) {
+  const pages = copy.visibility.pages;
+  const technical = copy.technical.items;
 
-const technical = [
-  { label: "Canonical", value: "/es/guide points elsewhere" },
-  { label: "Metadata", value: "Missing meta description" },
-  { label: "Indexability", value: "Page is in the crawl" },
-  { label: "Internal links", value: "Thin path to this page" },
-];
-
-export default function CapabilityGrid() {
   return (
-    <section className={styles.section} aria-labelledby="capability-heading">
+    <section
+      id={copy.sectionId}
+      className={styles.section}
+      aria-labelledby="capability-heading"
+    >
       <div className={styles.grid}>
         <Reveal>
           <p className={styles.eyebrow}>
             04
             <br />
-            Capabilities
+            {copy.eyebrow}
           </p>
         </Reveal>
 
         <div className={styles.intro}>
           <Reveal>
             <h2 id="capability-heading" className={styles.heading}>
-              Everything you need to move search forward.
+              {copy.heading}
             </h2>
           </Reveal>
           <Reveal className={styles.supporting} delay={80}>
-            <p>
-              The same signals Foundfy already uses: search evidence, site
-              evidence, a decision, and a check that the change landed.
-            </p>
+            <p>{copy.supporting}</p>
+            {copy.exampleNote ? (
+              <p className={styles.exampleNote}>{copy.exampleNote}</p>
+            ) : null}
           </Reveal>
         </div>
 
         <div className={styles.board}>
           <Reveal className={`${styles.cell} ${styles.visibility}`} data-cursor-glow-card>
             <CursorGlowSurface />
-            <p className={styles.kicker}>Search visibility</p>
-            <h3 className={styles.cellTitle}>
-              Queries, landing pages, clicks, and impressions.
-            </h3>
+            <p className={styles.kicker}>{copy.visibility.kicker}</p>
+            <h3 className={styles.cellTitle}>{copy.visibility.title}</h3>
             <div className={styles.fragment}>
               <div className={styles.fragmentHead}>
-                <span>Google Search</span>
-                <span>Last 28 days</span>
+                <span>{copy.visibility.head[0]}</span>
+                <span>{copy.visibility.head[1]}</span>
               </div>
               <ul className={styles.pageList}>
                 {pages.map((page) => (
@@ -66,32 +63,28 @@ export default function CapabilityGrid() {
 
           <Reveal className={`${styles.cell} ${styles.content}`} delay={80} data-cursor-glow-card>
             <CursorGlowSurface />
-            <p className={styles.kicker}>Content opportunities</p>
-            <h3 className={styles.cellTitle}>
-              Grounded in real search demand and intent.
-            </h3>
+            <p className={styles.kicker}>{copy.content.kicker}</p>
+            <h3 className={styles.cellTitle}>{copy.content.title}</h3>
             <div className={styles.fragment}>
-              <p className={styles.query}>getting started guide</p>
+              <p className={styles.query}>{copy.content.query}</p>
               <dl className={styles.metaList}>
                 <div>
-                  <dt>Leading page</dt>
-                  <dd>/guides/getting-started</dd>
+                  <dt>{copy.content.leadingPage.label}</dt>
+                  <dd>{copy.content.leadingPage.value}</dd>
                 </div>
                 <div>
-                  <dt>Demand</dt>
-                  <dd>1,240 appearances · 86 visits</dd>
+                  <dt>{copy.content.demand.label}</dt>
+                  <dd>{copy.content.demand.value}</dd>
                 </div>
               </dl>
-              <p className={styles.note}>Review this opportunity</p>
+              <p className={styles.note}>{copy.content.note}</p>
             </div>
           </Reveal>
 
           <Reveal className={`${styles.cell} ${styles.technical}`} delay={120} data-cursor-glow-card>
             <CursorGlowSurface />
-            <p className={styles.kicker}>Technical actions</p>
-            <h3 className={styles.cellTitle}>
-              Canonicals, metadata, indexability, internal linking, crawl issues.
-            </h3>
+            <p className={styles.kicker}>{copy.technical.kicker}</p>
+            <h3 className={styles.cellTitle}>{copy.technical.title}</h3>
             <ul className={styles.issueList}>
               {technical.map((item) => (
                 <li key={item.label}>
@@ -104,42 +97,40 @@ export default function CapabilityGrid() {
 
           <Reveal className={`${styles.cell} ${styles.ai}`} delay={40} data-cursor-glow-card>
             <CursorGlowSurface />
-            <p className={styles.kicker}>AI search</p>
-            <h3 className={styles.cellTitle}>Visibility beyond traditional search.</h3>
+            <p className={styles.kicker}>{copy.ai.kicker}</p>
+            <h3 className={styles.cellTitle}>{copy.ai.title}</h3>
             <div className={styles.ahead}>
-              <span className={styles.aheadMark}>Ahead</span>
-              <p>Building toward how this site shows up when people ask an assistant.</p>
+              <span className={styles.aheadMark}>{copy.ai.ahead}</span>
+              <p>{copy.ai.text}</p>
             </div>
           </Reveal>
 
           <Reveal className={`${styles.cell} ${styles.execution}`} delay={100} data-cursor-glow-card>
             <CursorGlowSurface />
-            <p className={styles.kicker}>Execution</p>
-            <h3 className={styles.cellTitle}>Prepare, preview, approve, apply.</h3>
+            <p className={styles.kicker}>{copy.execution.kicker}</p>
+            <h3 className={styles.cellTitle}>{copy.execution.title}</h3>
             <ol className={styles.actions}>
-              <li>Prepare this change</li>
-              <li className={styles.actionCurrent}>Approve</li>
-              <li>Apply this change</li>
+              <li>{copy.execution.actions[0]}</li>
+              <li className={styles.actionCurrent}>{copy.execution.actions[1]}</li>
+              <li>{copy.execution.actions[2]}</li>
             </ol>
           </Reveal>
 
           <Reveal className={`${styles.cell} ${styles.verification}`} delay={140} data-cursor-glow-card>
             <CursorGlowSurface />
-            <p className={styles.kicker}>Verification</p>
-            <h3 className={styles.cellTitle}>
-              Re-crawl and confirm that the change actually happened.
-            </h3>
+            <p className={styles.kicker}>{copy.verification.kicker}</p>
+            <h3 className={styles.cellTitle}>{copy.verification.title}</h3>
             <div className={styles.compare}>
               <div>
-                <p>Expected</p>
-                <p>Approved meta description</p>
+                <p>{copy.verification.expected.label}</p>
+                <p>{copy.verification.expected.value}</p>
               </div>
               <div>
-                <p>Observed</p>
-                <p>Same description on the fresh crawl</p>
+                <p>{copy.verification.observed.label}</p>
+                <p>{copy.verification.observed.value}</p>
               </div>
             </div>
-            <p className={styles.match}>Verified · page matches</p>
+            <p className={styles.match}>{copy.verification.match}</p>
           </Reveal>
         </div>
       </div>

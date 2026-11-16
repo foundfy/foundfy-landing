@@ -5,7 +5,7 @@ import styles from "./BackToTop.module.css";
 
 const BOTTOM_THRESHOLD = 96;
 
-export default function BackToTop() {
+export default function BackToTop({ label = "Back to top" }: { label?: string }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -36,11 +36,11 @@ export default function BackToTop() {
       type="button"
       className={`${styles.backToTop} ${visible ? styles.visible : ""}`}
       onClick={scrollToTop}
-      aria-label="Back to top"
+      aria-label={label}
       aria-hidden={!visible}
       tabIndex={visible ? 0 : -1}
     >
-      Back to top ↑
+      {label} ↑
     </button>
   );
 }

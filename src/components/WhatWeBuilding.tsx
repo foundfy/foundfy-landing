@@ -7,58 +7,42 @@ import {
   IconImprove,
   IconStayAhead,
 } from "./WhatWeBuildingIcons";
+import type { LandingCopy } from "@/lib/i18n/landing/types";
 import styles from "./WhatWeBuilding.module.css";
 
 const featureDelays = [0, 100, 160, 240];
 
-const features = [
-  {
-    icon: IconFind,
-    label: "Find",
-    description: "See what's holding you back.",
-    detail: "Crawl your site and uncover what's blocking visibility.",
-  },
-  {
-    icon: IconUnderstand,
-    label: "Understand",
-    description: "Know what matters and why.",
-    detail: "Combine site evidence with search data to see what matters.",
-  },
-  {
-    icon: IconImprove,
-    label: "Improve",
-    description: "Turn priorities into approved changes.",
-    detail: "Preview, approve, and move the right changes forward.",
-  },
-  {
-    icon: IconStayAhead,
-    label: "Stay ahead",
-    description: "Verify what changed and keep adapting.",
-    detail: "Recheck, verify, and keep adapting as search changes.",
-  },
-];
+const featureIcons = [IconFind, IconUnderstand, IconImprove, IconStayAhead];
 
-export default function WhatWeBuilding() {
+export default function WhatWeBuilding({
+  copy,
+  a11y,
+}: {
+  copy: LandingCopy["whatWeBuilding"];
+  a11y: LandingCopy["a11y"];
+}) {
+  const features = copy.features.map((feature, index) => ({
+    ...feature,
+    icon: featureIcons[index],
+  }));
+
   return (
-    <section className={styles.section}>
+    <section id={copy.sectionId} className={styles.section}>
       <div className={styles.grid}>
         <Reveal>
-          <p className={styles.eyebrow}>How Foundfy works</p>
+          <p className={styles.eyebrow}>{copy.eyebrow}</p>
         </Reveal>
 
         <div className={styles.intro}>
           <Reveal>
             <h2 className={styles.heading}>
-              Know what matters.
+              {copy.heading[0]}
               <br />
-              Know what to do next.
+              {copy.heading[1]}
             </h2>
           </Reveal>
           <Reveal className={styles.supporting} delay={100}>
-            <p>
-              Foundfy reviews your website, finds what matters, and turns
-              search signals into clear actions you can move forward with.
-            </p>
+            <p>{copy.supporting}</p>
           </Reveal>
         </div>
 
@@ -81,11 +65,11 @@ export default function WhatWeBuilding() {
 
         <Reveal>
           <div className={styles.footer}>
-            <Logo variant="dark" />
+            <Logo variant="dark" href={a11y.logoHref} label={a11y.logoLabel} />
             <p className={styles.footerText}>
-              Search changes.
+              {copy.footer[0]}
               <br />
-              Foundfy changes with it.
+              {copy.footer[1]}
             </p>
           </div>
         </Reveal>

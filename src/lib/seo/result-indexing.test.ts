@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { metadata as scanMetadata } from "@/app/scan/layout";
-import { metadata as siteMetadata } from "@/app/site/layout";
+import { metadata as scanMetadata } from "@/app/(en)/scan/layout";
+import { metadata as siteMetadata } from "@/app/(en)/site/layout";
 import robots from "@/app/robots";
 import { RESULT_PAGE_ROBOTS, RESULT_ROBOTS_DISALLOW } from "./result-indexing";
 

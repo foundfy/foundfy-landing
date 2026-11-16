@@ -1,8 +1,15 @@
 import Reveal from "./Reveal";
 import SectionFooter from "./SectionFooter";
+import type { LandingCopy } from "@/lib/i18n/landing/types";
 import styles from "./Closing.module.css";
 
-export default function Closing() {
+export default function Closing({
+  copy,
+  a11y,
+}: {
+  copy: LandingCopy["closing"];
+  a11y: LandingCopy["a11y"];
+}) {
   return (
     <section className={`section section-dark ${styles.closing}`}>
       <div className={styles.backgroundArtwork} aria-hidden="true">
@@ -14,18 +21,24 @@ export default function Closing() {
       <div className={`section-inner ${styles.inner}`}>
         <Reveal className={styles.content}>
           <h2 className={`heading-xl ${styles.headline}`}>
-            Found today.
+            {copy.headline.lead}
             <br />
-            <span className={styles.accent}>Further</span>
-            <br />
-            tomorrow.
+            <span className={styles.accent}>{copy.headline.accent}</span>
+            {copy.headline.tail ? (
+              <>
+                <br />
+                {copy.headline.tail}
+              </>
+            ) : null}
           </h2>
         </Reveal>
 
         <Reveal delay={140}>
           <SectionFooter
             variant="dark"
-            text="Be found wherever people search."
+            text={copy.footerText}
+            logoHref={a11y.logoHref}
+            logoLabel={a11y.logoLabel}
           />
         </Reveal>
       </div>

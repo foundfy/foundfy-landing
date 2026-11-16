@@ -1,62 +1,41 @@
 import Reveal from "../Reveal";
 import { CursorGlowSurface } from "../CursorGlow";
+import type { LandingCopy } from "@/lib/i18n/landing/types";
 import styles from "./ProductFlow.module.css";
 
-const evidenceRows = [
-  { label: "Query", value: "getting started guide" },
-  { label: "Page", value: "/guides/getting-started" },
-  { label: "Impressions", value: "1,240" },
-  { label: "Clicks", value: "86" },
-  { label: "Match", value: "Exact page", accent: true },
-  { label: "Crawl evidence", value: "Missing meta description" },
-];
+export default function ProductFlow({ copy }: { copy: LandingCopy["productFlow"] }) {
+  const evidenceRows = copy.observe.rows;
+  const decisionFields = copy.decide.fields;
+  const lifecycle = copy.act.lifecycle;
 
-const decisionFields = [
-  {
-    label: "Why it matters",
-    value:
-      "This page already receives Google visibility and has no meta description.",
-  },
-  {
-    label: "Website evidence",
-    value: "Missing meta description on a crawled page.",
-  },
-  {
-    label: "Goal context",
-    value: "Prioritize pages that already show up before suggesting new content.",
-  },
-  {
-    label: "Evidence period",
-    value: "Last 28 days · 1,240 appearances · 86 visits",
-  },
-];
-
-const lifecycle = ["Prepared", "Approved", "Executed", "Verified"];
-
-export default function ProductFlow() {
   return (
-    <section className={styles.section} aria-labelledby="product-flow-heading">
+    <section
+      id={copy.sectionId}
+      className={styles.section}
+      aria-labelledby="product-flow-heading"
+    >
       <div className={styles.grid}>
         <Reveal>
           <p className={styles.eyebrow}>
             03
             <br />
-            The loop
+            {copy.eyebrow}
           </p>
         </Reveal>
 
         <div className={styles.intro}>
           <Reveal>
             <h2 id="product-flow-heading" className={styles.heading}>
-              From signal to <span className={styles.accent}>verified</span> change.
+              {copy.heading.before}
+              <span className={styles.accent}>{copy.heading.accent}</span>
+              {copy.heading.after}
             </h2>
           </Reveal>
           <Reveal className={styles.supporting} delay={100}>
-            <p>
-              Foundfy does not stop at findings. It connects evidence to a
-              decision, helps execute the approved change, then verifies the
-              result.
-            </p>
+            <p>{copy.supporting}</p>
+            {copy.exampleNote ? (
+              <p className={styles.exampleNote}>{copy.exampleNote}</p>
+            ) : null}
           </Reveal>
         </div>
 
@@ -64,17 +43,14 @@ export default function ProductFlow() {
           <Reveal as="li" className={styles.step}>
             <div className={styles.stepCopy}>
               <p className={styles.stepIndex}>01</p>
-              <h3 className={styles.stepTitle}>Observe</h3>
-              <p className={styles.stepBody}>
-                Foundfy combines crawl evidence, Google Search Console data,
-                and what the site is trying to do.
-              </p>
+              <h3 className={styles.stepTitle}>{copy.observe.title}</h3>
+              <p className={styles.stepBody}>{copy.observe.body}</p>
             </div>
-            <div className={styles.panel} aria-label="Example search and crawl evidence" data-cursor-glow-card>
+            <div className={styles.panel} aria-label={copy.observe.panelLabel} data-cursor-glow-card>
               <CursorGlowSurface />
               <div className={styles.panelHead}>
-                <span>Google Search evidence</span>
-                <span>Last 28 days</span>
+                <span>{copy.observe.panelHead[0]}</span>
+                <span>{copy.observe.panelHead[1]}</span>
               </div>
               <dl className={styles.rows}>
                 {evidenceRows.map((row) => (
@@ -90,20 +66,16 @@ export default function ProductFlow() {
           <Reveal as="li" className={styles.step} delay={80}>
             <div className={styles.stepCopy}>
               <p className={styles.stepIndex}>02</p>
-              <h3 className={styles.stepTitle}>Decide</h3>
-              <p className={styles.stepBody}>
-                Foundfy turns that evidence into one prioritized decision.
-              </p>
+              <h3 className={styles.stepTitle}>{copy.decide.title}</h3>
+              <p className={styles.stepBody}>{copy.decide.body}</p>
             </div>
-            <article className={styles.panel} aria-label="Example prioritized decision" data-cursor-glow-card>
+            <article className={styles.panel} aria-label={copy.decide.panelLabel} data-cursor-glow-card>
               <CursorGlowSurface />
               <div className={styles.panelHead}>
-                <span className={styles.chip}>Do first</span>
-                <span>Why this?</span>
+                <span className={styles.chip}>{copy.decide.chip}</span>
+                <span>{copy.decide.why}</span>
               </div>
-              <h4 className={styles.panelTitle}>
-                Add a meta description on /guides/getting-started
-              </h4>
+              <h4 className={styles.panelTitle}>{copy.decide.panelTitle}</h4>
               <dl className={styles.rows}>
                 {decisionFields.map((field) => (
                   <div key={field.label} className={styles.stackRow}>
@@ -118,13 +90,10 @@ export default function ProductFlow() {
           <Reveal as="li" className={styles.step} delay={140}>
             <div className={styles.stepCopy}>
               <p className={styles.stepIndex}>03</p>
-              <h3 className={styles.stepTitle}>Act and verify</h3>
-              <p className={styles.stepBody}>
-                The approved change moves from a preview to the page. Foundfy
-                then re-checks that it is live.
-              </p>
+              <h3 className={styles.stepTitle}>{copy.act.title}</h3>
+              <p className={styles.stepBody}>{copy.act.body}</p>
             </div>
-            <div className={styles.panel} aria-label="Example action from preview to verification" data-cursor-glow-card>
+            <div className={styles.panel} aria-label={copy.act.panelLabel} data-cursor-glow-card>
               <CursorGlowSurface />
               <ol className={styles.lifecycle}>
                 {lifecycle.map((stage, index) => (
@@ -138,28 +107,22 @@ export default function ProductFlow() {
                 ))}
               </ol>
               <div className={styles.preview}>
-                <p className={styles.previewLabel}>Exact change · Update meta description</p>
-                <p className={styles.previewPage}>/guides/getting-started</p>
+                <p className={styles.previewLabel}>{copy.act.previewLabel}</p>
+                <p className={styles.previewPage}>{copy.act.previewPage}</p>
                 <div className={styles.previewPair}>
                   <div>
-                    <p className={styles.pairLabel}>Current</p>
-                    <p>None</p>
+                    <p className={styles.pairLabel}>{copy.act.current.label}</p>
+                    <p>{copy.act.current.value}</p>
                   </div>
                   <div>
-                    <p className={styles.pairLabel}>Proposed</p>
-                    <p>
-                      A practical guide for the search that already reaches this
-                      page.
-                    </p>
+                    <p className={styles.pairLabel}>{copy.act.proposed.label}</p>
+                    <p>{copy.act.proposed.value}</p>
                   </div>
                 </div>
               </div>
               <div className={styles.verified}>
-                <p className={styles.verifiedLabel}>Verification</p>
-                <p>
-                  Verified. Foundfy re-checked the page and the meta description
-                  matches the approved change.
-                </p>
+                <p className={styles.verifiedLabel}>{copy.act.verification.label}</p>
+                <p>{copy.act.verification.value}</p>
               </div>
             </div>
           </Reveal>

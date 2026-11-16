@@ -15,8 +15,8 @@ describe("homepage metadata ownership", () => {
   });
 
   it("lets the homepage override description without stripping layout defaults", () => {
-    const page = readFileSync(path.join(__dirname, "../../app/page.tsx"), "utf8");
-    const layout = readFileSync(path.join(__dirname, "../../app/layout.tsx"), "utf8");
+    const page = readFileSync(path.join(__dirname, "../../app/(en)/page.tsx"), "utf8");
+    const layout = readFileSync(path.join(__dirname, "../../app/(en)/layout.tsx"), "utf8");
     expect(page).toContain("HOMEPAGE_META_DESCRIPTION");
     expect(page).toContain("description: HOMEPAGE_META_DESCRIPTION");
     expect(layout).toContain("const siteDescription =");

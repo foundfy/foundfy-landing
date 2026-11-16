@@ -1,5 +1,8 @@
 import type { AnalysisPhase } from "@/contexts/AnalysisContext";
 import { normalizeDomainInput } from "@/lib/analysis/domain";
+import { EN_LANDING_COPY } from "@/lib/i18n/landing/en";
+import { formatHostTemplate } from "@/lib/i18n/format";
+import type { EarlyAccessText } from "@/lib/i18n/landing/types";
 import { isValidEarlyAccessEmail } from "./validation";
 
 export function resolveAnalyzedHostname(input: {
@@ -35,13 +38,15 @@ export type EarlyAccessCopy = {
 export function getEarlyAccessCopy(input: {
   analyzedHostname: string | null;
   submittedWebsite: string;
+  text?: EarlyAccessText;
 }): EarlyAccessCopy {
   const { analyzedHostname } = input;
+  const text = input.text ?? EN_LANDING_COPY.earlyAccess.text;
   const defaultCopy: EarlyAccessCopy = {
-    heading: "Tell us a bit about yourself.",
-    body: "Join the early access list and help shape what's next. We're building Foundfy with the people who'll use it most.",
-    successHeadline: "YOU'RE EARLY.",
-    successSubline: "We'll let you know when there's more to discover.",
+    heading: text.heading,
+    body: text.body,
+    successHeadline: text.successHeadline,
+    successSubline: text.successSubline,
   };
 
   if (!analyzedHostname) {
@@ -53,11 +58,11 @@ export function getEarlyAccessCopy(input: {
     analyzedHostname.toLowerCase();
 
   return {
-    heading: `Let's work on ${analyzedHostname}.`,
-    body: "Answer a few quick questions and we'll get back to you by email about next steps.",
+    heading: formatHostTemplate(text.personalizedHeading, analyzedHostname),
+    body: text.personalizedBody,
     successHeadline: defaultCopy.successHeadline,
     successSubline: submittedAnalyzedSite
-      ? `We'll email you about ${analyzedHostname}.`
+      ? formatHostTemplate(text.personalizedSuccessSubline, analyzedHostname)
       : defaultCopy.successSubline,
   };
 }
@@ -90,7 +95,10 @@ export function resolveWebsiteStepKeyDown(input: {
   return resolveWebsiteStepAdvance(input);
 }
 
-export function getWebsiteStepError(website: string): string | null {
+export function getWebsiteStepError(
+  website: string,
+  message: string = EN_LANDING_COPY.earlyAccess.errors.websiteInvalid,
+): string | null {
   const trimmed = website.trim();
   if (!trimmed) {
     return null;
@@ -100,7 +108,7 @@ export function getWebsiteStepError(website: string): string | null {
     return null;
   }
 
-  return "Enter a valid website, or leave this blank.";
+  return message;
 }
 
 export function resolveEmailStepSubmit(input: {

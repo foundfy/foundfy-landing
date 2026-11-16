@@ -5,40 +5,17 @@ import {
   IconPulse,
 } from "./Icons";
 import Reveal from "./Reveal";
+import type { LandingCopy } from "@/lib/i18n/landing/types";
 import styles from "./WhyNow.module.css";
-
-const statements = [
-  "More platforms",
-  "New behaviors",
-  "Bigger opportunities",
-];
 
 const cardDelays = [0, 100, 160, 240];
 
-const cards = [
-  {
-    icon: IconCircle,
-    title: "SEO insights",
-    description: "See what's working and what's not.",
-  },
-  {
-    icon: IconLines,
-    title: "Content opportunities",
-    description: "Find new ideas that match real intent.",
-  },
-  {
-    icon: IconTarget,
-    title: "Technical checks",
-    description: "Catch issues before they hold you back.",
-  },
-  {
-    icon: IconPulse,
-    title: "AI search, ahead",
-    description: "We're building toward how brands show up in AI search.",
-  },
-];
+const cardIcons = [IconCircle, IconLines, IconTarget, IconPulse];
 
-export default function WhyNow() {
+export default function WhyNow({ copy }: { copy: LandingCopy["whyNow"] }) {
+  const statements = copy.statements;
+  const cards = copy.cards.map((card, index) => ({ ...card, icon: cardIcons[index] }));
+
   return (
     <section className={styles.section}>
       <div className={styles.backgroundArtwork} aria-hidden="true">
@@ -53,25 +30,21 @@ export default function WhyNow() {
             <p className={styles.eyebrow}>
               02
               <br />
-              Why now
+              {copy.eyebrow}
             </p>
           </Reveal>
 
           <div className={styles.main}>
             <Reveal>
               <h2 className={styles.headline}>
-                <span className={styles.headlineLine}>Search is changing.</span>
+                <span className={styles.headlineLine}>{copy.headline[0]}</span>
                 <br />
-                So are we.
+                {copy.headline[1]}
               </h2>
             </Reveal>
 
             <Reveal className={styles.supporting} delay={100}>
-              <p>
-                People discover brands in more ways than ever. Foundfy is
-                designed for this new era — starting with on-page SEO, and
-                building toward AI search.
-              </p>
+              <p>{copy.supporting}</p>
             </Reveal>
           </div>
 

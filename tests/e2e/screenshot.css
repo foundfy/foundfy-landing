@@ -1,0 +1,7 @@
+/* Applied only while taking screenshots: hides the random-looking grain layers so
+   the comparison focuses on layout and copy, and keeps the image files small. */
+.grain,
+[class*="Grain"],
+[class*="grain"] {
+  visibility: hidden !important;
+}
