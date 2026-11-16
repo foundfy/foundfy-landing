@@ -124,6 +124,14 @@ describe("landing copy dictionaries", () => {
     expect(ES_LANDING_COPY.earlyAccess.errors.server).toMatch(/inténtalo/);
   });
 
+  it("localizes the hero website input in Spanish", () => {
+    const entry = ES_LANDING_COPY.hero.analysisEntry;
+    expect(entry.submit).toBe("Analizar");
+    expect(entry.placeholders.join(" ")).not.toMatch(/yourwebsite|yourbrand|acme/);
+    expect(entry.invalidWebsite).toMatch(/^Introduce una web válida/);
+    expect(EN_LANDING_COPY.hero.analysisEntry.submit).toBe("Analyze");
+  });
+
   it("keeps English free of the Spanish-only additions", () => {
     expect("sectionId" in EN_LANDING_COPY.whatWeBuilding).toBe(false);
     expect("exampleNote" in EN_LANDING_COPY.productFlow).toBe(false);

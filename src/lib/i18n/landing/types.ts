@@ -30,6 +30,13 @@ export type LandingCopy = {
     offer: readonly string[];
     proof: FourOf<string>;
     scroll: string;
+    /** The website input in the hero. Analysis progress and results are not localized yet. */
+    analysisEntry: {
+      placeholders: readonly string[];
+      submit: string;
+      inputLabel: string;
+      invalidWebsite: string;
+    };
   };
   whatWeBuilding: {
     sectionId?: string;

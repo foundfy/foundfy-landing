@@ -2,14 +2,17 @@
 
 import { useEffect, useState } from "react";
 
-const PLACEHOLDER_DOMAINS = [
+export const DEFAULT_PLACEHOLDER_DOMAINS = [
   "yourwebsite.com",
   "acme.com",
   "foundfy.me",
   "yourbrand.io",
 ];
 
-export function useAnimatedPlaceholder(active: boolean) {
+export function useAnimatedPlaceholder(
+  active: boolean,
+  domains: readonly string[] = DEFAULT_PLACEHOLDER_DOMAINS,
+) {
   const [displayText, setDisplayText] = useState("");
   const [domainIndex, setDomainIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -19,7 +22,7 @@ export function useAnimatedPlaceholder(active: boolean) {
       return;
     }
 
-    const currentDomain = PLACEHOLDER_DOMAINS[domainIndex];
+    const currentDomain = domains[domainIndex % domains.length];
     const isComplete = displayText === currentDomain;
     const pauseAtEnd = 2200;
     const pauseBetween = 320;
@@ -44,7 +47,7 @@ export function useAnimatedPlaceholder(active: boolean) {
         }
 
         setIsDeleting(false);
-        setDomainIndex((index) => (index + 1) % PLACEHOLDER_DOMAINS.length);
+        setDomainIndex((index) => (index + 1) % domains.length);
       },
       !isDeleting
         ? isComplete
@@ -56,7 +59,7 @@ export function useAnimatedPlaceholder(active: boolean) {
     );
 
     return () => window.clearTimeout(timeout);
-  }, [active, displayText, domainIndex, isDeleting]);
+  }, [active, displayText, domainIndex, domains, isDeleting]);
 
   return displayText;
 }

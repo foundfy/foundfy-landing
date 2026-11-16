@@ -44,6 +44,12 @@ export const ES_LANDING_COPY = {
       "Acciones técnicas",
     ],
     scroll: "Desliza",
+    analysisEntry: {
+      placeholders: ["tuweb.es", "tuempresa.com", "foundfy.me", "tumarca.es"],
+      submit: "Analizar",
+      inputLabel: "Dirección de tu web",
+      invalidWebsite: "Introduce una web válida, por ejemplo: tuweb.es.",
+    },
   },
   whatWeBuilding: {
     sectionId: "como-funciona",

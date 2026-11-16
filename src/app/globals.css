@@ -197,7 +197,7 @@ textarea {
 .section-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   padding-top: var(--space-md);
   margin-top: var(--space-lg);
   border-top: 1px solid;
@@ -217,7 +217,7 @@ textarea {
   font-weight: 500;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  text-align: right;
+  text-align: left;
   max-width: 420px;
 }
 
