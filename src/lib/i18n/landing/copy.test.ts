@@ -132,6 +132,11 @@ describe("landing copy dictionaries", () => {
     expect(EN_LANDING_COPY.hero.analysisEntry.submit).toBe("Analyze");
   });
 
+  it("hides the closing logo in Spanish only (English pending)", () => {
+    expect(ES_LANDING_COPY.closing.sectionFooterLogo).toBe(false);
+    expect(EN_LANDING_COPY.closing.sectionFooterLogo).toBe(true);
+  });
+
   it("keeps English free of the Spanish-only additions", () => {
     expect("sectionId" in EN_LANDING_COPY.whatWeBuilding).toBe(false);
     expect("exampleNote" in EN_LANDING_COPY.productFlow).toBe(false);

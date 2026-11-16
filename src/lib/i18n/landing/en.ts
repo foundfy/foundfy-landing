@@ -267,6 +267,7 @@ export const EN_LANDING_COPY = {
   closing: {
     headline: { lead: "Found today.", accent: "Further", tail: "tomorrow." },
     footerText: "Be found wherever people search.",
+    sectionFooterLogo: true,
   },
   footer: {
     privacy: { href: "/privacy", label: "Privacy" },

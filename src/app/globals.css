@@ -197,11 +197,21 @@ textarea {
 .section-footer {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   padding-top: var(--space-md);
   margin-top: var(--space-lg);
   border-top: 1px solid;
   gap: var(--space-md);
+}
+
+/* Tagline only: left-aligned, which also keeps the fixed "Back to top" button
+   (bottom right) from covering it. */
+.section-footer--text-only {
+  justify-content: flex-start;
+}
+
+.section-footer--text-only .section-footer__text {
+  text-align: left;
 }
 
 .section-footer--dark {
@@ -217,7 +227,7 @@ textarea {
   font-weight: 500;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  text-align: left;
+  text-align: right;
   max-width: 420px;
 }
 

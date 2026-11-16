@@ -131,6 +131,11 @@ export type LandingCopy = {
     /** `lead` renders in white, `accent` in orange; `tail` is an optional third line. */
     headline: { lead: string; accent: string; tail?: string };
     footerText: string;
+    /**
+     * Show the logo in the closing divider row. Spanish hides it (one logo at the
+     * end of the page); English keeps it until the same change is approved there.
+     */
+    sectionFooterLogo: boolean;
   };
   footer: {
     privacy: LinkCopy;

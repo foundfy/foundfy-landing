@@ -23,7 +23,7 @@ export default function LandingPage({ copy }: { copy: LandingCopy }) {
         <ProductFlow copy={copy.productFlow} />
         <CapabilityGrid copy={copy.capabilityGrid} />
         <EarlyAccess copy={copy.earlyAccess} />
-        <Closing copy={copy.closing} />
+        <Closing copy={copy.closing} a11y={copy.a11y} />
       </main>
       <Footer copy={copy.footer} a11y={copy.a11y} />
     </AnalysisProvider>
