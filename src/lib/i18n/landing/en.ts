@@ -272,4 +272,10 @@ export const EN_LANDING_COPY = {
   footer: {
     privacy: { href: "/privacy", label: "Privacy" },
   },
+  notFound: {
+    metaTitle: "Page not found | Foundfy",
+    heading: "This page doesn't exist.",
+    body: "The link may be broken, or the page may have moved.",
+    homeLink: { href: "/", label: "Go to the home page" },
+  },
 } as const satisfies LandingCopy;

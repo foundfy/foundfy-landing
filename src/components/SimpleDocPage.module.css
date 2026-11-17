@@ -46,3 +46,24 @@
   letter-spacing: -0.02em;
   line-height: 1.35;
 }
+
+.lead {
+  max-width: 34rem;
+  margin-bottom: var(--space-lg);
+  color: var(--grey-muted);
+  font-size: 17px;
+  line-height: 1.55;
+}
+
+.actionLink {
+  color: var(--black);
+  font-size: 15px;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  transition: color var(--transition);
+}
+
+.actionLink:hover {
+  color: var(--grey-muted);
+}
