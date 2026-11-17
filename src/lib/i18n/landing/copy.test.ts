@@ -137,6 +137,12 @@ describe("landing copy dictionaries", () => {
     expect(EN_LANDING_COPY.closing.sectionFooterLogo).toBe(true);
   });
 
+  it("links each 404 page to its own home page", () => {
+    expect(EN_LANDING_COPY.notFound.homeLink.href).toBe("/");
+    expect(ES_LANDING_COPY.notFound.homeLink.href).toBe("/es");
+    expect(ES_LANDING_COPY.notFound.metaTitle).toBe("Página no encontrada | Foundfy");
+  });
+
   it("keeps English free of the Spanish-only additions", () => {
     expect("sectionId" in EN_LANDING_COPY.whatWeBuilding).toBe(false);
     expect("exampleNote" in EN_LANDING_COPY.productFlow).toBe(false);

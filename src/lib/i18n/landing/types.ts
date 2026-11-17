@@ -140,6 +140,12 @@ export type LandingCopy = {
   footer: {
     privacy: LinkCopy;
   };
+  notFound: {
+    metaTitle: string;
+    heading: string;
+    body: string;
+    homeLink: LinkCopy;
+  };
 };
 
 export type EarlyAccessText = {
