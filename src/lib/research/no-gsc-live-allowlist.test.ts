@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { testEnv } from "@/lib/testing/env";
 import {
   isNoGscLiveSpendAllowed,
   parseNoGscLiveAllowlist,
@@ -11,29 +12,29 @@ const identityB = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
 describe("RESEARCH_NO_GSC_LIVE_ALLOWLIST", () => {
   it("fails closed when the env is missing, empty, or malformed", () => {
-    expect(parseNoGscLiveAllowlist({}).ok).toBe(false);
-    expect(parseNoGscLiveAllowlist({ RESEARCH_NO_GSC_LIVE_ALLOWLIST: "" }).ok).toBe(false);
-    expect(parseNoGscLiveAllowlist({ RESEARCH_NO_GSC_LIVE_ALLOWLIST: "   " }).ok).toBe(false);
+    expect(parseNoGscLiveAllowlist(testEnv({})).ok).toBe(false);
+    expect(parseNoGscLiveAllowlist(testEnv({ RESEARCH_NO_GSC_LIVE_ALLOWLIST: "" })).ok).toBe(false);
+    expect(parseNoGscLiveAllowlist(testEnv({ RESEARCH_NO_GSC_LIVE_ALLOWLIST: "   " })).ok).toBe(false);
     expect(
-      parseNoGscLiveAllowlist({
+      parseNoGscLiveAllowlist(testEnv({
         RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteA}:${identityA},not-a-uuid:${identityB}`,
-      }).ok,
+      })).ok,
     ).toBe(false);
     expect(
-      parseNoGscLiveAllowlist({
+      parseNoGscLiveAllowlist(testEnv({
         RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteA}:${identityA},`,
-      }).ok,
+      })).ok,
     ).toBe(false);
     expect(
-      parseNoGscLiveAllowlist({
+      parseNoGscLiveAllowlist(testEnv({
         RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteA}`,
-      }).ok,
+      })).ok,
     ).toBe(false);
     expect(
       isNoGscLiveSpendAllowed({
         websiteId: websiteA,
         googleIdentityId: identityA,
-        env: { RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteA}:${identityA},bad` },
+        env: testEnv({ RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteA}:${identityA},bad` }),
       }),
     ).toBe(false);
   });
@@ -46,28 +47,28 @@ describe("RESEARCH_NO_GSC_LIVE_ALLOWLIST", () => {
       isNoGscLiveSpendAllowed({
         websiteId: websiteA,
         googleIdentityId: identityA,
-        env,
+        env: testEnv(env),
       }),
     ).toBe(true);
     expect(
       isNoGscLiveSpendAllowed({
         websiteId: websiteB,
         googleIdentityId: identityA,
-        env,
+        env: testEnv(env),
       }),
     ).toBe(false);
     expect(
       isNoGscLiveSpendAllowed({
         websiteId: websiteA,
         googleIdentityId: identityB,
-        env,
+        env: testEnv(env),
       }),
     ).toBe(false);
     expect(
       isNoGscLiveSpendAllowed({
         websiteId: websiteA,
         googleIdentityId: null,
-        env,
+        env: testEnv(env),
       }),
     ).toBe(false);
   });
@@ -77,9 +78,9 @@ describe("RESEARCH_NO_GSC_LIVE_ALLOWLIST", () => {
       isNoGscLiveSpendAllowed({
         websiteId: websiteA,
         googleIdentityId: identityA,
-        env: {
+        env: testEnv({
           RESEARCH_NO_GSC_LIVE_ALLOWLIST: undefined,
-        },
+        }),
       }),
     ).toBe(false);
   });

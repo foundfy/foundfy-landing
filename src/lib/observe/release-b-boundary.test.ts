@@ -27,7 +27,7 @@ describe("Release B observe boundaries", () => {
     expect(create).not.toMatch(/purpose: CRAWL_RUN_PURPOSE_TARGETED_OBSERVE/);
     expect(observe).toMatch(/claim_targeted_observation/);
     expect(observe).toMatch(/finalize_targeted_observation/);
-    expect(observe).not.toMatch(/from\(["']targeted_observations["']\)[\s\S]{0,200}\.insert/s);
+    expect(observe).not.toMatch(/from\(["']targeted_observations["']\)[\s\S]{0,200}\.insert/);
     expect(observe).not.toMatch(/processCrawlRun/);
     expect(observe).not.toMatch(/enqueueUrl/);
   });

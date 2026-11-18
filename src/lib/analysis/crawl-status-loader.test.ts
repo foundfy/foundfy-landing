@@ -5,7 +5,7 @@ import {
   resolvePollTransition,
   shouldPollExplanationEnrichment,
 } from "./crawl-status-loader";
-import type { CrawlStatusPayload } from "./crawl-status";
+import type { AnalysisFinding, CrawlStatusPayload } from "./crawl-status";
 
 describe("crawl status loader", () => {
   it("treats completed crawls as completed on initial load", () => {
@@ -61,16 +61,13 @@ describe("crawl status loader", () => {
       pagesCrawled: 2,
       pagesDiscovered: 5,
       errorMessage: null,
-      startedAt: null,
-      completedAt: null,
-      createdAt: "2026-09-11T00:00:00.000Z",
     } satisfies CrawlStatusPayload;
 
     const next = {
       ...current,
       status: "completed" as const,
       pagesCrawled: 10,
-      findings: [{ id: "finding-1" }],
+      findings: [{ id: "finding-1" } as AnalysisFinding],
       findingsSummary: {
         totalCount: 1,
         highlightedFindingIds: ["finding-1"],
@@ -94,9 +91,6 @@ describe("crawl status loader", () => {
       pagesCrawled: 10,
       pagesDiscovered: 10,
       errorMessage: null,
-      startedAt: null,
-      completedAt: "2026-09-11T00:00:00.000Z",
-      createdAt: "2026-09-11T00:00:00.000Z",
       findingsSummary: {
         totalCount: 1,
         highlightedFindingIds: ["finding-1"],

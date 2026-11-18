@@ -37,7 +37,7 @@ describe("Release A has no owner-facing targeted observe capability", () => {
   });
 
   it("does not insert targeted_observations rows", () => {
-    expect(blob).not.toMatch(/from\(["']targeted_observations["']\)[\s\S]{0,200}\.insert/s);
+    expect(blob).not.toMatch(/from\(["']targeted_observations["']\)[\s\S]{0,200}\.insert/);
     expect(blob).not.toMatch(/into public\.targeted_observations/i);
   });
 
@@ -47,7 +47,7 @@ describe("Release A has no owner-facing targeted observe capability", () => {
       "utf8",
     );
     expect(create).not.toMatch(/purpose: CRAWL_RUN_PURPOSE_TARGETED_OBSERVE/);
-    expect(blob).not.toMatch(/from\(["']crawl_runs["']\)[\s\S]{0,400}targeted_observe/s);
+    expect(blob).not.toMatch(/from\(["']crawl_runs["']\)[\s\S]{0,400}targeted_observe/);
   });
 
   it("creates normal crawls with explicit site_sample purpose", () => {

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { testEnv, setTestNodeEnv } from "@/lib/testing/env";
 import { pinResearchTestClock } from "./test-clock";
 
 const requireObserveOwnerMock = vi.fn();
@@ -68,7 +69,7 @@ describe("loadResearchForOwner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.RESEARCH_PROVIDER_MODE = "fixture";
-    process.env.NODE_ENV = "test";
+    setTestNodeEnv("test");
     requireObserveOwnerMock.mockResolvedValue({
       website: { hostname: "example.com" },
       owner: { googleIdentityId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
@@ -406,7 +407,7 @@ describe("loadResearchForOwner", () => {
     const fixtureView = await loadResearchForOwner({
       websiteId: "site-1",
       sessionToken: "session",
-      env: production,
+      env: testEnv(production),
     });
     expect(fixtureView.readiness.surfaceVisible).toBe(false);
     expect(fixtureView.run).toBeNull();
@@ -414,7 +415,7 @@ describe("loadResearchForOwner", () => {
     const sandboxView = await loadResearchForOwner({
       websiteId: "site-1",
       sessionToken: "session",
-      env: { ...production, RESEARCH_PROVIDER_MODE: "sandbox" },
+      env: testEnv({ ...production, RESEARCH_PROVIDER_MODE: "sandbox" }),
     });
     expect(sandboxView.readiness.surfaceVisible).toBe(false);
     expect(sandboxView.run).toBeNull();
@@ -682,7 +683,7 @@ describe("loadResearchForOwner", () => {
     process.env.RESEARCH_LIVE_ENABLED = "true";
     process.env.DATAFORSEO_LOGIN = "login";
     process.env.DATAFORSEO_PASSWORD = "password";
-    process.env.NODE_ENV = "production";
+    setTestNodeEnv("production");
 
     const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
     expect(view.run?.stale).toBe(false);
@@ -758,7 +759,7 @@ describe("loadResearchForOwner", () => {
     process.env.RESEARCH_LIVE_ENABLED = "false";
     process.env.DATAFORSEO_LOGIN = "login";
     process.env.DATAFORSEO_PASSWORD = "password";
-    process.env.NODE_ENV = "production";
+    setTestNodeEnv("production");
 
     const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
     expect(view.readiness.surfaceVisible).toBe(true);
@@ -878,7 +879,7 @@ describe("loadResearchForOwner", () => {
     process.env.RESEARCH_LIVE_ENABLED = "false";
     process.env.DATAFORSEO_LOGIN = "login";
     process.env.DATAFORSEO_PASSWORD = "password";
-    process.env.NODE_ENV = "production";
+    setTestNodeEnv("production");
 
     const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
     expect(view.readiness.executionAvailable).toBe(false);
@@ -948,7 +949,7 @@ describe("loadResearchForOwner", () => {
     );
     process.env.RESEARCH_PROVIDER_MODE = "live";
     process.env.RESEARCH_LIVE_ENABLED = "false";
-    process.env.NODE_ENV = "production";
+    setTestNodeEnv("production");
 
     const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
     expect(view.run?.id).toBe(failedSuccessor.id);
@@ -1018,7 +1019,7 @@ describe("loadResearchForOwner", () => {
     });
     process.env.RESEARCH_PROVIDER_MODE = "live";
     process.env.RESEARCH_LIVE_ENABLED = "false";
-    process.env.NODE_ENV = "production";
+    setTestNodeEnv("production");
 
     const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
     expect(view.run?.id).toBe(newer.id);
@@ -1095,7 +1096,7 @@ describe("loadResearchForOwner", () => {
     );
     process.env.RESEARCH_PROVIDER_MODE = "live";
     process.env.RESEARCH_LIVE_ENABLED = "false";
-    process.env.NODE_ENV = "production";
+    setTestNodeEnv("production");
 
     const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
     expect(view.run?.id).toBe(newer.id);
@@ -1148,7 +1149,7 @@ describe("loadResearchForOwner", () => {
     );
     process.env.RESEARCH_PROVIDER_MODE = "live";
     process.env.RESEARCH_LIVE_ENABLED = "false";
-    process.env.NODE_ENV = "production";
+    setTestNodeEnv("production");
 
     for (const status of ["requested", "running"] as const) {
       const successor = {
@@ -1251,7 +1252,7 @@ describe("loadResearchForOwner", () => {
     );
     process.env.RESEARCH_PROVIDER_MODE = "live";
     process.env.RESEARCH_LIVE_ENABLED = "false";
-    process.env.NODE_ENV = "production";
+    setTestNodeEnv("production");
 
     const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
     expect(view.run?.id).toBe(catalanRun.id);
@@ -1324,7 +1325,7 @@ describe("loadResearchForOwner", () => {
     );
     process.env.RESEARCH_PROVIDER_MODE = "live";
     process.env.RESEARCH_LIVE_ENABLED = "false";
-    process.env.NODE_ENV = "production";
+    setTestNodeEnv("production");
 
     const view = await loadResearchForOwner({ websiteId: "site-1", sessionToken: "session" });
     expect(view.run?.id).toBe(otherRuns[0]?.id);

@@ -319,8 +319,8 @@ describe("learningViewFor", () => {
 
     const first = await learningViewFor(action());
     const second = await learningViewFor(action());
-    expect(first.state).toBe("observed_improvement");
-    expect(second.state).toBe("observed_improvement");
+    expect(first?.state).toBe("observed_improvement");
+    expect(second?.state).toBe("observed_improvement");
     expect(insertActionLearningSnapshotMock).not.toHaveBeenCalled();
   });
 

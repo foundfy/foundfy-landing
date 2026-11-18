@@ -120,7 +120,7 @@ describe("migration 025 targeted observe foundation", () => {
     );
     expect(migration025).toMatch(/decision_runs_targeted_observation_id_fkey/);
     expect(migration025).toMatch(
-      /references public\.targeted_observations \(id\)\s+on delete restrict/s,
+      /references public\.targeted_observations \(id\)\s+on delete restrict/,
     );
     expect(migration025).toMatch(/decision_runs_engine_evidence_check/);
     expect(migration025).toMatch(

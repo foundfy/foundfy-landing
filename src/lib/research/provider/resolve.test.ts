@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { testEnv } from "@/lib/testing/env";
 import { ResearchGateError } from "../errors";
 import { DataForSeoLiveResearchProvider } from "./dataforseo-live";
 import { DataForSeoSandboxResearchProvider } from "./dataforseo-sandbox";
@@ -15,14 +16,14 @@ afterEach(() => {
 
 describe("resolveResearchProvider", () => {
   it("blocks disabled mode before any provider call", () => {
-    expect(() => resolveResearchProvider({ env: { RESEARCH_PROVIDER_MODE: "disabled" } })).toThrow(
+    expect(() => resolveResearchProvider({ env: testEnv({ RESEARCH_PROVIDER_MODE: "disabled" }) })).toThrow(
       ResearchGateError,
     );
   });
 
   it("uses fixture only in fixture mode", () => {
     const provider = resolveResearchProvider({
-      env: { RESEARCH_PROVIDER_MODE: "fixture" },
+      env: testEnv({ RESEARCH_PROVIDER_MODE: "fixture" }),
     });
     expect(provider).toBeInstanceOf(FixtureResearchProvider);
     expect(provider.environment).toBe("fixture");
@@ -30,12 +31,12 @@ describe("resolveResearchProvider", () => {
 
   it("locks sandbox to the sandbox host and never falls through to live", () => {
     const provider = resolveResearchProvider({
-      env: {
+      env: testEnv({
         RESEARCH_PROVIDER_MODE: "sandbox",
         DATAFORSEO_LOGIN: "login",
         DATAFORSEO_PASSWORD: "password",
         DATAFORSEO_BASE_URL: "https://api.dataforseo.com",
-      },
+      }),
       fetchImpl: async () => new Response("{}", { status: 200 }),
     });
     expect(provider).toBeInstanceOf(DataForSeoSandboxResearchProvider);
@@ -46,12 +47,12 @@ describe("resolveResearchProvider", () => {
   it("does not construct the live provider without explicit live enablement", () => {
     expect(() =>
       resolveResearchProvider({
-        env: {
+        env: testEnv({
           RESEARCH_PROVIDER_MODE: "live",
           RESEARCH_LIVE_ENABLED: "false",
           DATAFORSEO_LOGIN: "login",
           DATAFORSEO_PASSWORD: "password",
-        },
+        }),
       }),
     ).toThrow(/not available|not enabled/i);
   });
@@ -59,11 +60,11 @@ describe("resolveResearchProvider", () => {
   it("does not activate live from credentials alone", () => {
     expect(() =>
       resolveResearchProvider({
-        env: {
+        env: testEnv({
           RESEARCH_PROVIDER_MODE: "disabled",
           DATAFORSEO_LOGIN: "login",
           DATAFORSEO_PASSWORD: "password",
-        },
+        }),
       }),
     ).toThrow(ResearchGateError);
   });
@@ -77,12 +78,12 @@ describe("resolveResearchProvider", () => {
       );
     });
     const provider = resolveResearchProvider({
-      env: {
+      env: testEnv({
         RESEARCH_PROVIDER_MODE: "live",
         RESEARCH_LIVE_ENABLED: "true",
         DATAFORSEO_LOGIN: "login",
         DATAFORSEO_PASSWORD: "password",
-      },
+      }),
       fetchImpl,
     });
     expect(provider).toBeInstanceOf(DataForSeoLiveResearchProvider);

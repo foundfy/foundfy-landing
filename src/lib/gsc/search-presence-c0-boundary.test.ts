@@ -88,7 +88,7 @@ describe("C0 Search Presence boundaries", () => {
     expect(observe).toMatch(/google_oauth_tokens is Google-identity-scoped/);
     expect(observe).toMatch(/remaining === 0 && token/);
     const verificationClient = read("./site-verification.ts");
-    expect(verificationClient).toMatch(/if \(response\.status === 400\) \{\s*return "pending";/s);
+    expect(verificationClient).toMatch(/if \(response\.status === 400\) \{\s*return "pending";/);
     expect(verificationClient).toMatch(/throwForGoogleSetupFailure/);
     expect(setup).toMatch(/addResult === "conflict"/);
   });

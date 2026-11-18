@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { testEnv } from "@/lib/testing/env";
 import { executeResearchLedger } from "./execute";
 import { ResearchProviderError } from "./errors";
 import { createFencedResearchStore } from "./fence";
@@ -633,7 +634,7 @@ describe("executeResearchLedger GSC queryKeys contract", () => {
         queryKeys: null,
         provider,
         ownerGoogleIdentityId: googleIdentityId,
-        env: {},
+        env: testEnv({}),
         store: createFencedResearchStore({ runs: [run] }),
       }),
     ).rejects.toMatchObject({ code: "no_gsc_live_not_authorized" });
@@ -663,7 +664,7 @@ describe("executeResearchLedger GSC queryKeys contract", () => {
       queryKeys: null,
       provider,
       ownerGoogleIdentityId: googleIdentityId,
-      env: { RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteId}:${googleIdentityId}` },
+      env: testEnv({ RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteId}:${googleIdentityId}` }),
       store: createFencedResearchStore({ runs: [run], ideas }),
     });
     expect(provider.relatedKeywordIdeas).toHaveBeenCalled();
@@ -712,7 +713,7 @@ describe("executeResearchLedger GSC queryKeys contract", () => {
         hostname: "example.com",
         queryKeys: null,
         provider,
-        env: {},
+        env: testEnv({}),
         store: createFencedResearchStore({ runs: [run] }),
       }),
     ).rejects.toMatchObject({ code: "no_gsc_live_not_authorized" });
@@ -727,9 +728,9 @@ describe("executeResearchLedger GSC queryKeys contract", () => {
         queryKeys: null,
         provider: wrongWebsite,
         ownerGoogleIdentityId: googleIdentityId,
-        env: {
+        env: testEnv({
           RESEARCH_NO_GSC_LIVE_ALLOWLIST: `22222222-2222-4222-8222-222222222222:${googleIdentityId}`,
-        },
+        }),
         store: createFencedResearchStore({ runs: [run] }),
       }),
     ).rejects.toMatchObject({ code: "no_gsc_live_not_authorized" });
@@ -744,9 +745,9 @@ describe("executeResearchLedger GSC queryKeys contract", () => {
         queryKeys: null,
         provider: wrongIdentity,
         ownerGoogleIdentityId: googleIdentityId,
-        env: {
+        env: testEnv({
           RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteId}:bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb`,
-        },
+        }),
         store: createFencedResearchStore({ runs: [run] }),
       }),
     ).rejects.toMatchObject({ code: "no_gsc_live_not_authorized" });
@@ -776,7 +777,7 @@ describe("executeResearchLedger GSC queryKeys contract", () => {
       queryKeys: null,
       provider,
       ownerGoogleIdentityId: googleIdentityId,
-      env: { RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteId}:${googleIdentityId}` },
+      env: testEnv({ RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteId}:${googleIdentityId}` }),
       store: createFencedResearchStore({ runs: [run], ideas }),
     });
     expect(provider.relatedKeywordIdeas).toHaveBeenCalledTimes(1);
@@ -807,7 +808,7 @@ describe("executeResearchLedger GSC queryKeys contract", () => {
       hostname: "example.com",
       queryKeys: new Set(),
       provider,
-      env: {},
+      env: testEnv({}),
       store: createFencedResearchStore({ runs: [run] }),
     });
     expect(provider.relatedKeywordIdeas).toHaveBeenCalledTimes(1);
@@ -840,7 +841,7 @@ describe("executeResearchLedger GSC queryKeys contract", () => {
       hostname: "example.com",
       queryKeys: null,
       provider,
-      env: {},
+      env: testEnv({}),
       store: createFencedResearchStore({ runs: [run] }),
     });
     expect(provider.relatedKeywordIdeas).not.toHaveBeenCalled();

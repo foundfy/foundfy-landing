@@ -46,7 +46,7 @@ describe("T1 RPC foundation contract (SQL; no live database)", () => {
 
   it("keeps T1 identity distinct from T0 by observation id", () => {
     expect(t1).toMatch(
-      /p_research_idea_id::text \|\| ':' \|\|\s+p_crawl_run_id::text \|\| ':' \|\|\s+coalesce\(p_gsc_search_sync_id::text, 'no-gsc'\) \|\| ':' \|\|\s+p_targeted_observation_id::text/s,
+      /p_research_idea_id::text \|\| ':' \|\|\s+p_crawl_run_id::text \|\| ':' \|\|\s+coalesce\(p_gsc_search_sync_id::text, 'no-gsc'\) \|\| ':' \|\|\s+p_targeted_observation_id::text/,
     );
     expect(t0).toMatch(/dr\.targeted_observation_id is null/);
     expect(t0).not.toMatch(/p_targeted_observation_id/);

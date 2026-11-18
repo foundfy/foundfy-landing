@@ -27,6 +27,7 @@ describe("scheduleExplanationEnrichmentIfNeeded", () => {
       findingsSummary: {
         totalCount: 1,
         highlightedFindingIds: ["finding-1"],
+        highlightGroups: [],
       },
     });
 
@@ -62,6 +63,7 @@ describe("scheduleExplanationEnrichmentIfNeeded", () => {
       findingsSummary: {
         totalCount: 1,
         highlightedFindingIds: [],
+        highlightGroups: [],
       },
     });
 
