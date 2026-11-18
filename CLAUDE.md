@@ -38,7 +38,7 @@ This is a live production app at www.foundfy.me. It is not a greenfield project.
 - Supabase Postgres 17, accessed only server-side through `src/lib/db/supabase-admin.ts`. Never expose privileged database access to the browser.
 - Hosting: Vercel. `main` auto-deploys to Production.
 - `npm test` runs the full Vitest suite. `npm run build` is the production build.
-- TypeScript: `npx tsc --noEmit` has known pre-existing errors. Compare its output with the same command on `main`. Any error that is new, anywhere, is a blocker, not noise. Do not add to the existing debt.
+- TypeScript: `npm run typecheck` (`tsc --noEmit`) must report 0 errors. Any error is a blocker, not noise.
 - `npm run <script>` tasks run with `tsx --env-file=.env.local`. Treat the configured database as Production: do not run scripts that write data without explicit approval.
 - Disposable Postgres gates (Docker, synthetic data, migrations 001→latest):
   - `node scripts/observe-pg-gate.mjs`
@@ -92,7 +92,7 @@ This is a live production app at www.foundfy.me. It is not a greenfield project.
 2. Inspect existing patterns.
 3. Propose the smallest change.
 4. Implement only what is authorized.
-5. Run focused tests, then the full suite, then the build, then the TypeScript comparison against `main`, then a Postgres gate if the change touches the DB.
+5. Run focused tests, then the full suite, then the build, then `npm run typecheck`, then a Postgres gate if the change touches the DB.
 6. Open one focused PR and report its HEAD and tree.
 7. Wait for authorization, then merge with a merge commit pinned to the approved head (`gh pr merge --merge --match-head-commit <sha>`).
 8. Verify Production separately.
