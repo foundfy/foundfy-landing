@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { RESEARCH_TEST_NOW, pinResearchTestClock } from "./test-clock";
 import { RESEARCH_STALE_COPY } from "./display";
 import { RESEARCH_REUSE_WINDOW_MS } from "./config";
 import {
@@ -49,6 +50,9 @@ const FOUND_FY_LIVE = {
   offering: "SEO audit for small businesses",
   completedAt: "2026-10-13T22:59:14.62+00:00",
 };
+
+// Fixtures are dated mid-October 2026; see test-clock.ts (issue #62).
+pinResearchTestClock();
 
 describe("RESEARCH staleness and reuse", () => {
   it("stales after 30 days, business-context change, or offering change, but not GSC sync alone", () => {
@@ -325,5 +329,35 @@ describe("RESEARCH staleness and reuse", () => {
         })?.id,
       ).toBe("es");
     }
+  });
+  it("uses the pinned test clock, not the real date (issue #62)", () => {
+    expect(Date.now()).toBe(RESEARCH_TEST_NOW.getTime());
+  });
+
+  it("treats exactly 30 days as fresh and anything older as stale", () => {
+    const completedAt = "2026-10-10T00:00:01.000Z";
+    const completedMs = Date.parse(completedAt);
+    const reasonsAt = (offsetMs: number) =>
+      researchStaleReasons({
+        run: run({ completedAt }),
+        confirmedAt: "2026-10-01T00:00:00.000Z",
+        confirmedOffers: ["silk paint"],
+        currentFingerprintRunId: "run-1",
+        now: new Date(completedMs + offsetMs),
+      });
+    expect(reasonsAt(RESEARCH_REUSE_WINDOW_MS)).not.toContain("older_than_30_days");
+    expect(reasonsAt(RESEARCH_REUSE_WINDOW_MS + 1)).toContain("older_than_30_days");
+  });
+
+  it("stops provider reuse at the 30-day boundary", () => {
+    const completed = run({ completedAt: "2026-10-10T00:00:01.000Z" });
+    const completedMs = Date.parse("2026-10-10T00:00:01.000Z");
+    const fingerprint = completed.requestFingerprint;
+    expect(
+      isReusableCompletedRun({ run: completed, fingerprint, now: new Date(completedMs + RESEARCH_REUSE_WINDOW_MS - 1) }),
+    ).toBe(true);
+    expect(
+      isReusableCompletedRun({ run: completed, fingerprint, now: new Date(completedMs + RESEARCH_REUSE_WINDOW_MS) }),
+    ).toBe(false);
   });
 });
