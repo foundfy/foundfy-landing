@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { testEnv } from "@/lib/testing/env";
 import { pinResearchTestClock } from "./test-clock";
 
 const requireObserveOwnerMock = vi.fn();
@@ -1001,12 +1002,12 @@ describe("startResearchForOwner", () => {
         countryKey: "ES",
         languages: ["en"],
         selectedOfferings: ["silk paint"],
-        env: {
+        env: testEnv({
           RESEARCH_PROVIDER_MODE: "live",
           RESEARCH_LIVE_ENABLED: "false",
           DATAFORSEO_LOGIN: "login",
           DATAFORSEO_PASSWORD: "password",
-        },
+        }),
         fetchImpl,
       }),
     ).rejects.toMatchObject({ name: "ResearchGateError", code: "live_not_enabled" });
@@ -1137,12 +1138,12 @@ describe("startResearchForOwner", () => {
         languages: ["en"],
         selectedOfferings: ["silk paint"],
         provider,
-        env: {
+        env: testEnv({
           RESEARCH_PROVIDER_MODE: "live",
           RESEARCH_LIVE_ENABLED: "true",
           DATAFORSEO_LOGIN: "login",
           DATAFORSEO_PASSWORD: "password",
-        },
+        }),
       }),
     ).rejects.toMatchObject({ code: "no_gsc_live_not_authorized" });
     expect(provider.listCountries).not.toHaveBeenCalled();
@@ -1165,13 +1166,13 @@ describe("startResearchForOwner", () => {
       languages: ["en"],
       selectedOfferings: ["silk paint"],
       provider,
-      env: {
+      env: testEnv({
         RESEARCH_PROVIDER_MODE: "live",
         RESEARCH_LIVE_ENABLED: "true",
         DATAFORSEO_LOGIN: "login",
         DATAFORSEO_PASSWORD: "password",
         RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteId}:${googleIdentityId}`,
-      },
+      }),
     });
     expect(claimResearchRunMock).toHaveBeenCalledWith(expect.objectContaining({ gscSyncId: null }));
     expect(provider.relatedKeywordIdeas).toHaveBeenCalled();
@@ -1202,13 +1203,13 @@ describe("startResearchForOwner", () => {
         languages: ["en"],
         selectedOfferings: ["silk paint"],
         provider: otherSiteProvider,
-        env: {
+        env: testEnv({
           RESEARCH_PROVIDER_MODE: "live",
           RESEARCH_LIVE_ENABLED: "true",
           DATAFORSEO_LOGIN: "login",
           DATAFORSEO_PASSWORD: "password",
           RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteId}:${googleIdentityId}`,
-        },
+        }),
       }),
     ).rejects.toMatchObject({ code: "no_gsc_live_not_authorized" });
     expect(otherSiteProvider.listCountries).not.toHaveBeenCalled();
@@ -1226,13 +1227,13 @@ describe("startResearchForOwner", () => {
         languages: ["en"],
         selectedOfferings: ["silk paint"],
         provider: otherIdentityProvider,
-        env: {
+        env: testEnv({
           RESEARCH_PROVIDER_MODE: "live",
           RESEARCH_LIVE_ENABLED: "true",
           DATAFORSEO_LOGIN: "login",
           DATAFORSEO_PASSWORD: "password",
           RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteId}:${googleIdentityId}`,
-        },
+        }),
       }),
     ).rejects.toMatchObject({ code: "no_gsc_live_not_authorized" });
     expect(otherIdentityProvider.relatedKeywordIdeas).not.toHaveBeenCalled();

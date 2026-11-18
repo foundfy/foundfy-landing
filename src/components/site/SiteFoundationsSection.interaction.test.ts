@@ -6,7 +6,7 @@
  */
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import type {
   GoogleIndexingEvidenceInput,
   StoredGoogleIndexingEvidence,
@@ -125,7 +125,7 @@ function snapshot(
 describe("SiteFoundationsSection Google indexing owner states", () => {
   let container: HTMLDivElement;
   let root: Root;
-  let onCheckIndexing: ReturnType<typeof vi.fn>;
+  let onCheckIndexing: Mock<() => void>;
 
   function render(props: {
     websiteId?: string;
@@ -159,7 +159,7 @@ describe("SiteFoundationsSection Google indexing owner states", () => {
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
-    onCheckIndexing = vi.fn();
+    onCheckIndexing = vi.fn<() => void>();
   });
 
   afterEach(() => {

@@ -4,7 +4,9 @@ const getWebsiteByIdMock = vi.fn();
 const findActiveCrawlRunForWebsiteMock = vi.fn();
 const resolveRescanSeedUrlMock = vi.fn();
 const resolveRescanPriorityUrlsMock = vi.fn();
-const resolveOwnerGscVisibilityPagesMock = vi.fn(async () => []);
+const resolveOwnerGscVisibilityPagesMock = vi.fn<
+  (...args: unknown[]) => Promise<Array<{ url: string; impressions: number; clicks: number }>>
+>(async () => []);
 const createAndEnqueueCrawlMock = vi.fn();
 const processCrawlRunMock = vi.fn();
 const afterMock = vi.fn((callback: () => Promise<void>) => {

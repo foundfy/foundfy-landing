@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { testEnv } from "@/lib/testing/env";
 import {
   GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV,
   isGoogleIndexingPilotAllowed,
@@ -12,33 +13,33 @@ const identityB = "11111111-1111-4111-8111-111111111111";
 
 describe("GOOGLE_INDEXING_PILOT_ALLOWLIST", () => {
   it("fails closed when the env is missing, empty, or malformed", () => {
-    expect(parseGoogleIndexingPilotAllowlist({}).ok).toBe(false);
-    expect(parseGoogleIndexingPilotAllowlist({ [GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV]: "" }).ok).toBe(
+    expect(parseGoogleIndexingPilotAllowlist(testEnv({})).ok).toBe(false);
+    expect(parseGoogleIndexingPilotAllowlist(testEnv({ [GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV]: "" })).ok).toBe(
       false,
     );
     expect(
-      parseGoogleIndexingPilotAllowlist({ [GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV]: "   " }).ok,
+      parseGoogleIndexingPilotAllowlist(testEnv({ [GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV]: "   " })).ok,
     ).toBe(false);
     expect(
-      parseGoogleIndexingPilotAllowlist({
+      parseGoogleIndexingPilotAllowlist(testEnv({
         [GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV]: `${websiteA}:${identityA},not-a-uuid:${identityB}`,
-      }).ok,
+      })).ok,
     ).toBe(false);
     expect(
-      parseGoogleIndexingPilotAllowlist({
+      parseGoogleIndexingPilotAllowlist(testEnv({
         [GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV]: `${websiteA}:${identityA},`,
-      }).ok,
+      })).ok,
     ).toBe(false);
     expect(
-      parseGoogleIndexingPilotAllowlist({
+      parseGoogleIndexingPilotAllowlist(testEnv({
         [GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV]: `${websiteA}`,
-      }).ok,
+      })).ok,
     ).toBe(false);
     expect(
       isGoogleIndexingPilotAllowed({
         websiteId: websiteA,
         googleIdentityId: identityA,
-        env: { [GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV]: `${websiteA}:${identityA},bad` },
+        env: testEnv({ [GOOGLE_INDEXING_PILOT_ALLOWLIST_ENV]: `${websiteA}:${identityA},bad` }),
       }),
     ).toBe(false);
   });
@@ -51,28 +52,28 @@ describe("GOOGLE_INDEXING_PILOT_ALLOWLIST", () => {
       isGoogleIndexingPilotAllowed({
         websiteId: websiteA,
         googleIdentityId: identityA,
-        env,
+        env: testEnv(env),
       }),
     ).toBe(true);
     expect(
       isGoogleIndexingPilotAllowed({
         websiteId: websiteB,
         googleIdentityId: identityA,
-        env,
+        env: testEnv(env),
       }),
     ).toBe(false);
     expect(
       isGoogleIndexingPilotAllowed({
         websiteId: websiteA,
         googleIdentityId: identityB,
-        env,
+        env: testEnv(env),
       }),
     ).toBe(false);
     expect(
       isGoogleIndexingPilotAllowed({
         websiteId: websiteA,
         googleIdentityId: null,
-        env,
+        env: testEnv(env),
       }),
     ).toBe(false);
   });

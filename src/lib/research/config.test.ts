@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { testEnv } from "@/lib/testing/env";
 import {
   isResearchLiveEnabled,
   readResearchProviderMode,
@@ -49,8 +50,8 @@ describe("RESEARCH provider config", () => {
       RESEARCH_PROVIDER_MODE: "disabled",
       RESEARCH_LIVE_ENABLED: "false",
     };
-    expect(researchSurfaceVisible(productionDisabled)).toBe(false);
-    expect(researchReadEnvironment(productionDisabled)).toBeNull();
+    expect(researchSurfaceVisible(testEnv(productionDisabled))).toBe(false);
+    expect(researchReadEnvironment(testEnv(productionDisabled))).toBeNull();
 
     expect(
       researchSurfaceVisible({
@@ -74,9 +75,9 @@ describe("RESEARCH provider config", () => {
       DATAFORSEO_LOGIN: "login",
       DATAFORSEO_PASSWORD: "password",
     };
-    expect(researchSurfaceVisible(productionLiveDisabled)).toBe(true);
-    expect(researchReadEnvironment(productionLiveDisabled)).toBe("live");
-    expect(researchExecutionAvailable(productionLiveDisabled)).toBe(false);
+    expect(researchSurfaceVisible(testEnv(productionLiveDisabled))).toBe(true);
+    expect(researchReadEnvironment(testEnv(productionLiveDisabled))).toBe("live");
+    expect(researchExecutionAvailable(testEnv(productionLiveDisabled))).toBe(false);
     expect(
       researchReadEnvironment({
         NODE_ENV: "production",

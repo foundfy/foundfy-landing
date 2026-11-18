@@ -72,10 +72,10 @@ describe("RESEARCH persist_research_request_result PostgREST compatibility", () 
 
   it("keeps the 10-arg and 11-arg functions as thin wrappers that delegate NULL provenance", () => {
     expect(tenArg?.body).toMatch(
-      /return public\.persist_research_request_result\(\s*p_run_id,\s*p_website_id,\s*p_execution_generation,\s*p_request_key,\s*p_status,\s*p_provider_task_id,\s*p_idea_count,\s*p_provider_cost,\s*p_failure_code,\s*p_ideas,\s*null::integer,\s*null::jsonb\s*\)/s,
+      /return public\.persist_research_request_result\(\s*p_run_id,\s*p_website_id,\s*p_execution_generation,\s*p_request_key,\s*p_status,\s*p_provider_task_id,\s*p_idea_count,\s*p_provider_cost,\s*p_failure_code,\s*p_ideas,\s*null::integer,\s*null::jsonb\s*\)/,
     );
     expect(elevenArg?.body).toMatch(
-      /return public\.persist_research_request_result\(\s*p_run_id,\s*p_website_id,\s*p_execution_generation,\s*p_request_key,\s*p_status,\s*p_provider_task_id,\s*p_idea_count,\s*p_provider_cost,\s*p_failure_code,\s*p_ideas,\s*p_provider_result_count,\s*null::jsonb\s*\)/s,
+      /return public\.persist_research_request_result\(\s*p_run_id,\s*p_website_id,\s*p_execution_generation,\s*p_request_key,\s*p_status,\s*p_provider_task_id,\s*p_idea_count,\s*p_provider_cost,\s*p_failure_code,\s*p_ideas,\s*p_provider_result_count,\s*null::jsonb\s*\)/,
     );
     expect(tenArg?.body).not.toMatch(/insert into public\.research_ideas/);
     expect(elevenArg?.body).not.toMatch(/insert into public\.research_ideas/);
@@ -88,7 +88,7 @@ describe("RESEARCH persist_research_request_result PostgREST compatibility", () 
     expect(OLD_PERSIST_RPC_PARAMS).not.toContain("p_provider_result_count");
     expect(OLD_PERSIST_RPC_PARAMS).not.toContain("p_filter_reason_counts");
     expect(migration021).toMatch(
-      /create or replace function public\.persist_research_request_result\(\s*p_run_id uuid,\s*p_website_id uuid,\s*p_execution_generation bigint,\s*p_request_key text,\s*p_status text,\s*p_provider_task_id text,\s*p_idea_count integer,\s*p_provider_cost numeric,\s*p_failure_code text,\s*p_ideas jsonb\s*\)/s,
+      /create or replace function public\.persist_research_request_result\(\s*p_run_id uuid,\s*p_website_id uuid,\s*p_execution_generation bigint,\s*p_request_key text,\s*p_status text,\s*p_provider_task_id text,\s*p_idea_count integer,\s*p_provider_cost numeric,\s*p_failure_code text,\s*p_ideas jsonb\s*\)/,
     );
   });
 

@@ -39,7 +39,7 @@ describe("migration 026 targeted observation claim", () => {
   it("adds source_inspect_run_id NOT NULL FK RESTRICT", () => {
     expect(migration026).toMatch(/add column source_inspect_run_id uuid not null/);
     expect(migration026).toMatch(
-      /references public\.decision_runs \(id\)\s+on delete restrict/s,
+      /references public\.decision_runs \(id\)\s+on delete restrict/,
     );
   });
 
@@ -47,7 +47,7 @@ describe("migration 026 targeted observation claim", () => {
     expect(migration026).toMatch(/add column source_research_idea_id uuid not null/);
     expect(migration026).toMatch(/targeted_observations_source_research_idea_website_fk/);
     expect(migration026).toMatch(
-      /foreign key \(source_research_idea_id, website_id\)\s+references public\.research_ideas \(id, website_id\)\s+on delete restrict/s,
+      /foreign key \(source_research_idea_id, website_id\)\s+references public\.research_ideas \(id, website_id\)\s+on delete restrict/,
     );
   });
 
@@ -64,13 +64,13 @@ describe("migration 026 targeted observation claim", () => {
       /create unique index if not exists targeted_observations_analyzed_reuse_uidx/,
     );
     expect(migration026).toMatch(
-      /create unique index targeted_observations_analyzed_reuse_uidx\s+on public\.targeted_observations \(\s+website_id,\s+source_crawl_run_id,\s+source_research_idea_id,\s+requested_url_key\s+\)\s+where status = 'analyzed'/s,
+      /create unique index targeted_observations_analyzed_reuse_uidx\s+on public\.targeted_observations \(\s+website_id,\s+source_crawl_run_id,\s+source_research_idea_id,\s+requested_url_key\s+\)\s+where status = 'analyzed'/,
     );
   });
 
   it("defines claim with exactly seven args and no caller URL or idea", () => {
     expect(migration026).toMatch(
-      /create or replace function public\.claim_targeted_observation\(\s+p_website_id uuid,\s+p_source_crawl_run_id uuid,\s+p_source_queue_id uuid,\s+p_source_inspect_run_id uuid,\s+p_requested_url_key text,\s+p_requested_by uuid,\s+p_selection_mode text\s+\)/s,
+      /create or replace function public\.claim_targeted_observation\(\s+p_website_id uuid,\s+p_source_crawl_run_id uuid,\s+p_source_queue_id uuid,\s+p_source_inspect_run_id uuid,\s+p_requested_url_key text,\s+p_requested_by uuid,\s+p_selection_mode text\s+\)/,
     );
     expect(migration026).not.toMatch(/p_requested_url /);
     expect(migration026).not.toMatch(/p_source_research_idea_id/);
@@ -88,7 +88,7 @@ describe("migration 026 targeted observation claim", () => {
     expect(migration026).toMatch(/cr\.status = 'completed'/);
     expect(migration026).toMatch(/cr\.pages_crawled > 0/);
     expect(migration026).toMatch(
-      /order by cr\.completed_at desc nulls last,\s+cr\.created_at desc/s,
+      /order by cr\.completed_at desc nulls last,\s+cr\.created_at desc/,
     );
   });
 
@@ -107,7 +107,7 @@ describe("migration 026 targeted observation claim", () => {
     );
     expect(claim).toMatch(/insert into public\.crawl_runs/);
     expect(claim).toMatch(/insert into public\.targeted_observations/);
-    expect(claim).toMatch(/exception\s+when unique_violation then/s);
+    expect(claim).toMatch(/exception\s+when unique_violation then/);
     const rollbackAt = claim.indexOf("when unique_violation then");
     expect(claim.indexOf("insert into public.crawl_runs")).toBeGreaterThan(-1);
     expect(claim.indexOf("insert into public.targeted_observations")).toBeGreaterThan(-1);
@@ -118,7 +118,7 @@ describe("migration 026 targeted observation claim", () => {
   it("defines finalize with four args and writes both terminals", () => {
     expect(migration026).toContain(FINALIZE_IDENTITY.replace("public.", "function public."));
     expect(migration026).toMatch(
-      /create or replace function public\.finalize_targeted_observation\(\s+p_observation_id uuid,\s+p_status text,\s+p_result_page_id uuid,\s+p_failure_reason text\s+\)/s,
+      /create or replace function public\.finalize_targeted_observation\(\s+p_observation_id uuid,\s+p_status text,\s+p_result_page_id uuid,\s+p_failure_reason text\s+\)/,
     );
     expect(migration026).toMatch(/status = 'analyzed'/);
     expect(migration026).toMatch(/status = 'completed'/);
@@ -128,7 +128,7 @@ describe("migration 026 targeted observation claim", () => {
   });
 
   it("uses the same website-scoped lifecycle advisory lock in claim and finalize before row locks", () => {
-    const lock = /pg_advisory_xact_lock\(\s+hashtext\('targeted_observe_lifecycle'\),\s+hashtext\(v_website_id::text\)\s+\)/s;
+    const lock = /pg_advisory_xact_lock\(\s+hashtext\('targeted_observe_lifecycle'\),\s+hashtext\(v_website_id::text\)\s+\)/;
     expect(migration026.match(new RegExp(lock, "g"))?.length).toBe(2);
     expect(migration026).toMatch(/Does not serialize site_sample crawl completion/);
     const claim = migration026.slice(

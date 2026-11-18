@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { testEnv } from "@/lib/testing/env";
 
 const requireObserveOwnerMock = vi.fn();
 const findResearchRunForWebsiteMock = vi.fn();
@@ -43,6 +44,7 @@ import { createSerializedResearchRecovery } from "./claim";
 import { createFencedResearchStore } from "./fence";
 import { buildRequestPlan } from "./ledger";
 import { FixtureResearchProvider } from "./provider/fixture";
+import type { RelatedKeywordIdeasInput } from "./provider/types";
 import { recoverResearchForOwner } from "./recover";
 import { researchRequestKey } from "./request-key";
 import type { ResearchIdeaRecord, ResearchRunRecord } from "./types";
@@ -137,12 +139,12 @@ describe("recoverResearchForOwner", () => {
         runId: existing.id,
         sessionToken: "session",
         provider,
-        env: {
+        env: testEnv({
           RESEARCH_PROVIDER_MODE: "live",
           RESEARCH_LIVE_ENABLED: "false",
           DATAFORSEO_LOGIN: "login",
           DATAFORSEO_PASSWORD: "password",
-        },
+        }),
       }),
     ).rejects.toThrow(/not available/i);
     expect(claimResearchRecoveryMock).not.toHaveBeenCalled();
@@ -160,7 +162,7 @@ describe("recoverResearchForOwner", () => {
       runId: existing.id,
       sessionToken: "session",
       provider,
-      env: fixtureEnv,
+      env: testEnv(fixtureEnv),
     });
 
     expect(claimResearchRecoveryMock).toHaveBeenCalledWith({
@@ -188,7 +190,7 @@ describe("recoverResearchForOwner", () => {
         runId: existing.id,
         sessionToken: "session",
         provider,
-        env: fixtureEnv,
+        env: testEnv(fixtureEnv),
       }),
     ).rejects.toThrow(/cannot safely run it again/i);
     expect(claimResearchRecoveryMock).not.toHaveBeenCalled();
@@ -210,7 +212,7 @@ describe("recoverResearchForOwner", () => {
       runId: existing.id,
       sessionToken: "session",
       provider,
-      env: fixtureEnv,
+      env: testEnv(fixtureEnv),
     });
 
     expect(related).toHaveBeenCalledTimes(1);
@@ -237,7 +239,7 @@ describe("recoverResearchForOwner", () => {
         runId: "run-lock",
         sessionToken: "session",
         provider,
-        env: fixtureEnv,
+        env: testEnv(fixtureEnv),
       }),
     ).rejects.toThrow(/already continuing/i);
     expect(related).not.toHaveBeenCalled();
@@ -256,7 +258,7 @@ describe("recoverResearchForOwner", () => {
       runId: existing.id,
       sessionToken: "session",
       provider,
-      env: fixtureEnv,
+      env: testEnv(fixtureEnv),
     });
 
     expect(findSearchSyncByIdMock).not.toHaveBeenCalled();
@@ -285,7 +287,7 @@ describe("recoverResearchForOwner", () => {
       runId: existing.id,
       sessionToken: "session",
       provider,
-      env: fixtureEnv,
+      env: testEnv(fixtureEnv),
     });
 
     expect(findSearchSyncByIdMock).toHaveBeenCalledWith("sync-original");
@@ -309,7 +311,7 @@ describe("recoverResearchForOwner", () => {
         runId: existing.id,
         sessionToken: "session",
         provider,
-        env: fixtureEnv,
+        env: testEnv(fixtureEnv),
       }),
     ).rejects.toMatchObject({ code: "not_recoverable" });
     expect(claimResearchRecoveryMock).not.toHaveBeenCalled();
@@ -346,12 +348,12 @@ describe("recoverResearchForOwner", () => {
         runId: existing.id,
         sessionToken: "session",
         provider,
-        env: {
+        env: testEnv({
           RESEARCH_PROVIDER_MODE: "live",
           RESEARCH_LIVE_ENABLED: "true",
           DATAFORSEO_LOGIN: "login",
           DATAFORSEO_PASSWORD: "password",
-        },
+        }),
       }),
     ).rejects.toMatchObject({ code: "no_gsc_live_not_authorized" });
     expect(claimResearchRecoveryMock).not.toHaveBeenCalled();
@@ -393,7 +395,7 @@ describe("recoverResearchForOwner", () => {
       environment: "live" as const,
       listCountries: vi.fn(async () => [{ key: "US", name: "United States", locationCode: 2840 }]),
       listLanguages: vi.fn(async () => [{ code: "en", name: "English" }]),
-      relatedKeywordIdeas: vi.fn(async () => ({
+      relatedKeywordIdeas: vi.fn(async (_input: RelatedKeywordIdeasInput) => ({
         taskId: "live-task",
         ideas: [
           { keyword: "silk paint", searchVolume: 12, providerOrder: 0 },
@@ -427,7 +429,7 @@ describe("recoverResearchForOwner", () => {
         runId: existing.id,
         sessionToken: "session",
         provider,
-        env: liveEnv,
+        env: testEnv(liveEnv),
       }),
     ).rejects.toMatchObject({ code: "no_gsc_live_not_authorized" });
     expect(claimResearchRecoveryMock).not.toHaveBeenCalled();
@@ -460,10 +462,10 @@ describe("recoverResearchForOwner", () => {
       runId: existing.id,
       sessionToken: "session",
       provider,
-      env: {
+      env: testEnv({
         ...liveEnv,
         RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteId}:${googleIdentityId}`,
-      },
+      }),
     });
 
     expect(provider.relatedKeywordIdeas).toHaveBeenCalledTimes(1);
@@ -499,7 +501,7 @@ describe("recoverResearchForOwner", () => {
       runId: existing.id,
       sessionToken: "session",
       provider,
-      env: liveEnv,
+      env: testEnv(liveEnv),
     });
 
     expect(findSearchSyncByIdMock).toHaveBeenCalledWith("sync-1");
@@ -528,10 +530,10 @@ describe("recoverResearchForOwner", () => {
         runId: existing.id,
         sessionToken: "session",
         provider,
-        env: {
+        env: testEnv({
           ...liveEnv,
           RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteId}:${googleIdentityId},not-a-uuid:${googleIdentityId}`,
-        },
+        }),
       }),
     ).rejects.toMatchObject({ code: "no_gsc_live_not_authorized" });
     expect(claimResearchRecoveryMock).not.toHaveBeenCalled();

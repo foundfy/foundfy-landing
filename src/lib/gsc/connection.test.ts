@@ -7,11 +7,14 @@ vi.mock("./db", () => ({
 }));
 
 import { findOwnerSearchConsoleConnection, isOwnerSearchConsoleConnection } from "./connection";
+import type { GscPropertyConnectionRecord } from "./types";
 
 const WEBSITE_ID = "cb01711e-7945-4a88-9998-e78fec411509";
 const owner = { googleIdentityId: "identity-1" };
 
-function connectedProperty(overrides: Record<string, unknown> = {}) {
+function connectedProperty(
+  overrides: Partial<GscPropertyConnectionRecord> = {},
+): GscPropertyConnectionRecord {
   return {
     id: "2d401e8b-5fcc-4452-acfb-146bddb2f4cb",
     websiteId: WEBSITE_ID,

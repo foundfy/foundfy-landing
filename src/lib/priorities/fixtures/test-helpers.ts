@@ -10,6 +10,8 @@ export function buildStoredObservation(input: {
   pageUrl?: string | null;
   severity?: StoredObservation["severity"];
   evidence?: Record<string, unknown>;
+  title?: string;
+  description?: string;
 }): StoredObservation {
   observationCounter += 1;
   const definition = RULE_DEFINITIONS[input.ruleKey];
@@ -21,8 +23,8 @@ export function buildStoredObservation(input: {
     ruleKey: input.ruleKey,
     category: definition.category,
     severity: input.severity ?? definition.severity,
-    title: definition.title,
-    description: definition.description,
+    title: input.title ?? definition.title,
+    description: input.description ?? definition.description,
     pageUrl: input.pageUrl ?? null,
     subjectKey: input.subjectKey,
     evidence: input.evidence ?? {},

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { setTestNodeEnv } from "@/lib/testing/env";
 import { pinResearchTestClock } from "@/lib/research/test-clock";
 import { ObserveAuthError } from "@/lib/gsc/types";
 import { opportunityCompactKey } from "@/lib/opportunities/normalize";
@@ -584,7 +585,7 @@ describe("inspectRelatedDemandForOwner", () => {
 
   it("inspects persisted evidence while live execution is disabled", async () => {
     const original = { ...process.env };
-    process.env.NODE_ENV = "production";
+    setTestNodeEnv("production");
     process.env.RESEARCH_PROVIDER_MODE = "live";
     process.env.RESEARCH_LIVE_ENABLED = "false";
     process.env.DATAFORSEO_LOGIN = "login";

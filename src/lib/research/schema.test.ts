@@ -12,7 +12,7 @@ describe("RESEARCH migration 020 constraints", () => {
     expect(migration).toMatch(/constraint research_runs_id_website_id_key unique \(id, website_id\)/);
     expect(migration).toMatch(/constraint research_ideas_run_website_fk/);
     expect(migration).toMatch(
-      /foreign key \(run_id, website_id\)\s+references public\.research_runs \(id, website_id\)/s,
+      /foreign key \(run_id, website_id\)\s+references public\.research_runs \(id, website_id\)/,
     );
   });
 
@@ -38,7 +38,7 @@ describe("RESEARCH migration 020 constraints", () => {
   it("allows at most one active run per website fingerprint", () => {
     expect(migration).toMatch(/research_runs_active_fingerprint_uidx/);
     expect(migration).toMatch(
-      /unique index[\s\S]*\(website_id, request_fingerprint\)[\s\S]*status in \('requested', 'running'\)/s,
+      /unique index[\s\S]*\(website_id, request_fingerprint\)[\s\S]*status in \('requested', 'running'\)/,
     );
   });
 

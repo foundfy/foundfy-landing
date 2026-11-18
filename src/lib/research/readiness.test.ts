@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { testEnv } from "@/lib/testing/env";
 import { evaluateResearchReadiness } from "./readiness";
 import type { SiteModelRecord } from "@/lib/site-model/types";
 
@@ -59,7 +60,7 @@ describe("RESEARCH readiness", () => {
     const readiness = evaluateResearchReadiness({
       model: model(),
       hasCompletedGscSync: true,
-      env: { RESEARCH_PROVIDER_MODE: "fixture" },
+      env: testEnv({ RESEARCH_PROVIDER_MODE: "fixture" }),
     });
     expect(readiness.gate).toBeNull();
     expect(readiness.validOfferings).toEqual(["silk paint"]);
@@ -88,7 +89,7 @@ describe("RESEARCH readiness", () => {
     const readiness = evaluateResearchReadiness({
       model: model(),
       hasCompletedGscSync: true,
-      env: { RESEARCH_PROVIDER_MODE: "fixture" },
+      env: testEnv({ RESEARCH_PROVIDER_MODE: "fixture" }),
     });
     expect(readiness.countries.some((country) => country.name === "Barcelona")).toBe(false);
     expect(readiness.countries.some((country) => country.key === "ES")).toBe(true);
@@ -99,7 +100,7 @@ describe("RESEARCH readiness", () => {
       evaluateResearchReadiness({
         model: null,
         hasCompletedGscSync: true,
-        env: { RESEARCH_PROVIDER_MODE: "fixture" },
+        env: testEnv({ RESEARCH_PROVIDER_MODE: "fixture" }),
       }).gate?.code,
     ).toBe("no_confirmed_site_model");
 
@@ -119,14 +120,14 @@ describe("RESEARCH readiness", () => {
           },
         }),
         hasCompletedGscSync: true,
-        env: { RESEARCH_PROVIDER_MODE: "fixture" },
+        env: testEnv({ RESEARCH_PROVIDER_MODE: "fixture" }),
       }).gate?.code,
     ).toBe("no_valid_offering");
 
     const fixtureNoGsc = evaluateResearchReadiness({
       model: model(),
       hasCompletedGscSync: false,
-      env: { RESEARCH_PROVIDER_MODE: "fixture" },
+      env: testEnv({ RESEARCH_PROVIDER_MODE: "fixture" }),
     });
     expect(fixtureNoGsc.gate).toBeNull();
     expect(fixtureNoGsc.executionAvailable).toBe(true);
@@ -147,7 +148,7 @@ describe("RESEARCH readiness", () => {
       hasCompletedGscSync: false,
       websiteId,
       googleIdentityId,
-      env: liveEnv,
+      env: testEnv(liveEnv),
     });
     expect(denied.gate?.code).toBe("no_gsc_live_not_authorized");
     expect(denied.executionAvailable).toBe(false);
@@ -158,10 +159,10 @@ describe("RESEARCH readiness", () => {
       hasCompletedGscSync: false,
       websiteId,
       googleIdentityId,
-      env: {
+      env: testEnv({
         ...liveEnv,
         RESEARCH_NO_GSC_LIVE_ALLOWLIST: `${websiteId}:${googleIdentityId}`,
-      },
+      }),
     });
     expect(allowed.gate).toBeNull();
     expect(allowed.executionAvailable).toBe(true);
