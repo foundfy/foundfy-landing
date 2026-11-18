@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { pinResearchTestClock } from "./test-clock";
 
 const requireObserveOwnerMock = vi.fn();
 const findLatestConfirmedSiteModelForWebsiteMock = vi.fn();
@@ -129,6 +130,9 @@ function bindFenceStore() {
   skipUnattemptedResearchRequestsMock.mockImplementation((input) => fence.skipUnattempted(input));
   finalizeFencedResearchRunMock.mockImplementation((input) => fence.finalize(input));
 }
+
+// Fixtures are dated mid-October 2026; see test-clock.ts (issue #62).
+pinResearchTestClock();
 
 describe("startResearchForOwner", () => {
   beforeEach(() => {

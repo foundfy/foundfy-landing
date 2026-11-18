@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { pinResearchTestClock } from "./test-clock";
 
 const requireObserveOwnerMock = vi.fn();
 const findLatestConfirmedSiteModelForWebsiteMock = vi.fn();
@@ -55,6 +56,9 @@ function setRunHistory(runs: Array<Record<string, unknown>>) {
     runs.filter((run) => run.status === "completed" && run.closedAt == null),
   );
 }
+
+// Fixtures are dated mid-October 2026; see test-clock.ts (issue #62).
+pinResearchTestClock();
 
 describe("loadResearchForOwner", () => {
   afterEach(() => {

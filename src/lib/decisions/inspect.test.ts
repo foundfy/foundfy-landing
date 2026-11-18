@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { pinResearchTestClock } from "@/lib/research/test-clock";
 import { ObserveAuthError } from "@/lib/gsc/types";
 import { opportunityCompactKey } from "@/lib/opportunities/normalize";
 import {
@@ -252,6 +253,9 @@ function bindPersistToStoredDecision() {
     });
   });
 }
+
+// Fixtures are dated mid-October 2026; see test-clock.ts (issue #62).
+pinResearchTestClock();
 
 describe("inspectRelatedDemandForOwner", () => {
   beforeEach(() => {
