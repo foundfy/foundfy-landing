@@ -132,8 +132,9 @@ export type LandingCopy = {
     headline: { lead: string; accent: string; tail?: string };
     footerText: string;
     /**
-     * Show the logo in the closing divider row. Spanish hides it (one logo at the
-     * end of the page); English keeps it until the same change is approved there.
+     * Show the logo in the closing divider row. Both languages hide it: the page
+     * footer right below already shows one, and a left-aligned tagline keeps the
+     * fixed Back to top button from covering it.
      */
     sectionFooterLogo: boolean;
   };
