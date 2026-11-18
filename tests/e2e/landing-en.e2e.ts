@@ -11,7 +11,8 @@ import {
 } from "./support";
 
 // The English experience must stay visually and functionally unchanged.
-// These baselines were captured from `main` before the Spanish work started.
+// Baselines were first captured from `main` before the Spanish work started and
+// refreshed on purpose only for the closing change (logo removed, tagline left).
 // The only expected pixel noise is the hero input's typing placeholder, which is
 // timer-driven and may be caught mid-word; the default tolerance absorbs it.
 
@@ -86,23 +87,16 @@ test("English hero input keeps its English copy", async ({ page }) => {
   await expect(page.getByText("Enter a valid website, such as example.com.")).toBeVisible();
 });
 
-test("English closing keeps its logo for now", async ({ page }) => {
-  await guardNetwork(page);
-  await page.goto("/");
-  // Pending owner decision: apply the Spanish change (no logo here, tagline on
-  // the left) to English too. Until then English stays as it was.
-  await expect(page.locator(".section-footer a")).toHaveCount(1);
-});
-
-// PENDING (owner decision 2026-11-17): in English the fixed Back to top button still
-// covers the closing tagline at 1280-1512 px wide. It is fixed together with the
-// pending English closing change above; enable this test then.
-test.fixme("English Back to top clears the closing tagline", async ({ page, isMobile }) => {
+test("English closing has no duplicate logo and Back to top clears the tagline", async ({
+  page,
+  isMobile,
+}) => {
   test.skip(isMobile, "desktop layout check");
   await guardNetwork(page);
   for (const viewport of BACK_TO_TOP_VIEWPORTS) {
     await page.setViewportSize(viewport);
     await page.goto("/");
+    await expect(page.locator(".section-footer a")).toHaveCount(0);
     expect(await backToTopOverlaps(page), `${viewport.width}x${viewport.height}`).toBe(false);
   }
 });
