@@ -17,10 +17,10 @@ export const EN_LANDING_COPY = {
   },
   hero: {
     navLinks: [
-      { href: "/product", label: "Product" },
-      { href: "/pricing", label: "Pricing" },
+      { href: "#how-it-works", label: "How it works" },
+      { href: "#the-loop", label: "The loop" },
+      { href: "#capabilities", label: "Capabilities" },
       { href: "/changelog", label: "Changelog" },
-      { href: "/resources", label: "Resources" },
     ],
     signIn: { href: "/sign-in", label: "Sign in" },
     getStarted: { href: "#early-access", label: "Get started" },
@@ -45,6 +45,7 @@ export const EN_LANDING_COPY = {
     },
   },
   whatWeBuilding: {
+    sectionId: "how-it-works",
     eyebrow: "How Foundfy works",
     heading: ["Know what matters.", "Know what to do next."],
     supporting:
@@ -96,6 +97,7 @@ export const EN_LANDING_COPY = {
     statements: ["More platforms", "New behaviors", "Bigger opportunities"],
   },
   productFlow: {
+    sectionId: "the-loop",
     eyebrow: "The loop",
     heading: { before: "From signal to ", accent: "verified", after: " change." },
     supporting:
@@ -161,6 +163,7 @@ export const EN_LANDING_COPY = {
     },
   },
   capabilityGrid: {
+    sectionId: "capabilities",
     eyebrow: "Capabilities",
     heading: "Everything you need to move search forward.",
     supporting:
