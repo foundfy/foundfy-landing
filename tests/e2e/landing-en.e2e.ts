@@ -101,6 +101,50 @@ test("English closing has no duplicate logo and Back to top clears the tagline",
   }
 });
 
+test("English placeholder pages stay reachable but out of search results", async ({
+  request,
+  isMobile,
+}) => {
+  test.skip(isMobile, "HTTP checks run once");
+  for (const pathname of ["/product", "/pricing", "/resources", "/sign-in"]) {
+    const response = await request.get(pathname);
+    expect(response.status(), pathname).toBe(200);
+    expect(await response.text(), pathname).toContain('<meta name="robots" content="noindex, follow"/>');
+  }
+  // Pages with content keep their indexing.
+  for (const pathname of ["/", "/changelog", "/privacy"]) {
+    const html = await (await request.get(pathname)).text();
+    expect(html, pathname).not.toMatch(/<meta name="robots" content="noindex/);
+  }
+});
+
+test("English navigation points at sections on the home page", async ({ page, isMobile }) => {
+  await guardNetwork(page);
+  await page.goto("/");
+  for (const id of ["how-it-works", "the-loop", "capabilities", "early-access"]) {
+    await expect(page.locator(`section#${id}`)).toHaveCount(1);
+  }
+  await expect(page.locator('a[href="/product"], a[href="/pricing"], a[href="/resources"]')).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Get started" })).toHaveAttribute("href", "#early-access");
+  if (isMobile) {
+    // The design hides the nav links on mobile; that behaviour is unchanged.
+    await expect(page.getByRole("navigation", { name: "Primary" })).toBeHidden();
+    return;
+  }
+  const nav = page.getByRole("navigation", { name: "Primary" });
+  for (const [label, href] of [
+    ["How it works", "#how-it-works"],
+    ["The loop", "#the-loop"],
+    ["Capabilities", "#capabilities"],
+    ["Changelog", "/changelog"],
+  ] as const) {
+    await expect(nav.getByRole("link", { name: label })).toHaveAttribute("href", href);
+  }
+  await nav.getByRole("link", { name: "The loop" }).click();
+  await expect(page).toHaveURL(/#the-loop$/);
+  await expect(page.locator("section#the-loop")).toBeInViewport();
+});
+
 test.describe("public routes", () => {
   test.skip(({ isMobile }) => isMobile, "route checks run once");
 

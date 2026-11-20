@@ -143,8 +143,31 @@ describe("landing copy dictionaries", () => {
     expect(ES_LANDING_COPY.notFound.metaTitle).toBe("Página no encontrada | Foundfy");
   });
 
+  it("points every English in-page link at a section that exists", () => {
+    const ids = new Set([
+      EN_LANDING_COPY.whatWeBuilding.sectionId,
+      EN_LANDING_COPY.productFlow.sectionId,
+      EN_LANDING_COPY.capabilityGrid.sectionId,
+      "early-access",
+    ]);
+    const anchors = [
+      ...EN_LANDING_COPY.hero.navLinks.map((link) => link.href),
+      EN_LANDING_COPY.hero.getStarted.href,
+    ].filter((href) => href.startsWith("#"));
+    expect(anchors.length).toBeGreaterThan(0);
+    for (const href of anchors) {
+      expect(ids.has(href.slice(1)), href).toBe(true);
+    }
+  });
+
+  it("does not link the English navigation to empty placeholder pages", () => {
+    const hrefs = EN_LANDING_COPY.hero.navLinks.map((link) => link.href);
+    for (const placeholder of ["/product", "/pricing", "/resources"]) {
+      expect(hrefs).not.toContain(placeholder);
+    }
+  });
+
   it("keeps English free of the Spanish-only additions", () => {
-    expect("sectionId" in EN_LANDING_COPY.whatWeBuilding).toBe(false);
     expect("exampleNote" in EN_LANDING_COPY.productFlow).toBe(false);
     expect(EN_LANDING_COPY.footer.privacy.href).toBe("/privacy");
     expect(ES_LANDING_COPY.footer.privacy.href).toBe("/es/privacidad");
