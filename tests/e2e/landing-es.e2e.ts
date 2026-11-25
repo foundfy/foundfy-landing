@@ -10,8 +10,8 @@ import {
   readHead,
 } from "./support";
 
-// Spanish experience (PR 1: foundation + homepage). It stays out of search
-// results until the whole Spanish experience is approved.
+// Spanish experience (PR 1: foundation + homepage; PR 3: "Cómo funciona" page).
+// It stays out of search results until the whole Spanish experience is approved.
 
 test("Spanish home matches its approved layout", async ({ page }) => {
   const { unexpectedApiCalls } = await guardNetwork(page);
@@ -39,13 +39,16 @@ test("Spanish home declares Spanish and stays out of search results", async ({ p
   expect(head.alternates).toEqual([]);
 });
 
-test("Spanish navigation points at sections on the page", async ({ page, isMobile }) => {
+test("Spanish navigation points at its page and sections", async ({ page, isMobile }) => {
   test.skip(isMobile, "the design hides the nav links on mobile, as in English");
   await guardNetwork(page);
   await page.goto("/es");
   const nav = page.getByRole("navigation", { name: "Principal" });
+  await expect(nav.getByRole("link", { name: "Cómo funciona" })).toHaveAttribute(
+    "href",
+    "/es/como-funciona",
+  );
   for (const [label, id] of [
-    ["Cómo funciona", "como-funciona"],
     ["El proceso", "el-proceso"],
     ["Capacidades", "capacidades"],
   ] as const) {
@@ -142,6 +145,115 @@ test("Spanish closing has no duplicate logo and Volver arriba clears the tagline
     await expect(page.locator(".section-footer a")).toHaveCount(0);
     expect(await backToTopOverlaps(page), `${viewport.width}x${viewport.height}`).toBe(false);
   }
+});
+
+test.describe("Spanish how-it-works page", () => {
+  const PATH = "/es/como-funciona";
+
+  test("matches its approved layout", async ({ page }) => {
+    const { unexpectedApiCalls } = await guardNetwork(page);
+    await openForScreenshot(page, PATH);
+    await expect(page).toHaveScreenshot("es-how-it-works.png", {
+      fullPage: true,
+      stylePath: SCREENSHOT_STYLE,
+    });
+    expectNoUnexpectedApiCalls(unexpectedApiCalls);
+  });
+
+  test("declares Spanish, its own metadata and stays out of search results", async ({
+    page,
+  }) => {
+    const { unexpectedApiCalls } = await guardNetwork(page);
+    const response = await page.goto(PATH, { waitUntil: "networkidle" });
+    expect(response?.status()).toBe(200);
+    const head = await readHead(page);
+    expect(head.lang).toBe("es");
+    expect(head.title).toBe("Cómo funciona | Foundfy");
+    expect(head.description).toBe(
+      "Qué hace Foundfy, qué decides tú y cómo comprobamos que cada cambio está publicado en tu web.",
+    );
+    expect(head.robots).toBe("noindex, follow");
+    expect(head.canonical).toBe("https://www.foundfy.me/es/como-funciona");
+    expect(head.ogLocale).toBe("es_ES");
+    expect(head.alternates).toEqual([]);
+    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+      "content",
+      "Cómo funciona | Foundfy",
+    );
+    await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
+      "content",
+      "https://www.foundfy.me/es/como-funciona",
+    );
+    expectNoUnexpectedApiCalls(unexpectedApiCalls);
+  });
+
+  test("has one h1, the agreed sections and five numbered steps", async ({ page }) => {
+    await guardNetwork(page);
+    await page.goto(PATH);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(["Cómo funciona Foundfy"]);
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText([
+      "Un servicio, no otra herramienta que aprender",
+      "Paso a paso",
+      "Qué hace Foundfy y qué decides tú",
+      "Cómo usamos la IA",
+      "Lo que no prometemos",
+      "Qué es gratis",
+      "¿Quieres que revisemos tu web?",
+    ]);
+    await expect(page.locator("main ol > li h3")).toHaveText([
+      "Analizamos tu web",
+      "Conectas Google Search Console, si quieres",
+      "Decidimos qué hacer primero",
+      "Tú apruebas y te ayudamos a publicarlo",
+      "Comprobamos que está publicado",
+    ]);
+    await expect(page.getByText(/piloto|ChatGPT|€/i)).toHaveCount(0);
+  });
+
+  test("links back to the Spanish home and the Spanish privacy page", async ({ page }) => {
+    await guardNetwork(page);
+    await page.goto(PATH);
+    await expect(page.getByRole("link", { name: "← Foundfy" })).toHaveAttribute("href", "/es");
+    await expect(page.locator("footer").getByRole("link", { name: "Privacidad" })).toHaveAttribute(
+      "href",
+      "/es/privacidad",
+    );
+  });
+
+  test("call to action opens the Spanish review form", async ({ page }) => {
+    const { unexpectedApiCalls } = await guardNetwork(page);
+    await page.goto(PATH);
+    const cta = page.getByRole("link", { name: "Solicitar una revisión" });
+    await expect(cta).toHaveAttribute("href", "/es#early-access");
+    await cta.click();
+    await page.waitForURL("**/es#early-access");
+    await expect(page.locator("#early-access")).toBeInViewport();
+    await expect(page.locator("#early-access select#role")).toBeVisible();
+    expectNoUnexpectedApiCalls(unexpectedApiCalls);
+  });
+
+  test("Volver arriba does not cover the footer links", async ({ page, isMobile }) => {
+    test.skip(isMobile, "desktop layout check");
+    await guardNetwork(page);
+    for (const viewport of BACK_TO_TOP_VIEWPORTS) {
+      await page.setViewportSize(viewport);
+      await page.goto(PATH);
+      expect(await backToTopOverlaps(page), `${viewport.width}x${viewport.height}`).toBe(false);
+    }
+  });
+
+  test("Spanish menu opens the page", async ({ page, isMobile }) => {
+    test.skip(isMobile, "the design hides the nav links on mobile, as in English");
+    const { unexpectedApiCalls } = await guardNetwork(page);
+    await page.goto("/es");
+    await page
+      .getByRole("navigation", { name: "Principal" })
+      .getByRole("link", { name: "Cómo funciona" })
+      .click();
+    await page.waitForURL("**/es/como-funciona");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Cómo funciona Foundfy");
+    expectNoUnexpectedApiCalls(unexpectedApiCalls);
+  });
 });
 
 test.describe("Spanish routes", () => {

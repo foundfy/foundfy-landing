@@ -20,7 +20,7 @@ export const ES_LANDING_COPY = {
   },
   hero: {
     navLinks: [
-      { href: "#como-funciona", label: "Cómo funciona" },
+      { href: "/es/como-funciona", label: "Cómo funciona" },
       { href: "#el-proceso", label: "El proceso" },
       { href: "#capacidades", label: "Capacidades" },
     ],
