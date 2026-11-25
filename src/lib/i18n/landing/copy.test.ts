@@ -100,10 +100,21 @@ describe("landing copy dictionaries", () => {
       ...ES_LANDING_COPY.hero.navLinks.map((link) => link.href),
       ES_LANDING_COPY.hero.getStarted.href,
       ES_LANDING_COPY.hero.announcement.href,
-    ];
+    ].filter((href) => href.startsWith("#"));
+    expect(anchors.length).toBeGreaterThan(0);
     for (const href of anchors) {
-      expect(href.startsWith("#"), href).toBe(true);
       expect(ids.has(href.slice(1)), href).toBe(true);
+    }
+  });
+
+  it("links the Spanish navigation only to Spanish sections and pages", () => {
+    const hrefs = ES_LANDING_COPY.hero.navLinks.map((link) => link.href);
+    expect(ES_LANDING_COPY.hero.navLinks[0]).toEqual({
+      href: "/es/como-funciona",
+      label: "Cómo funciona",
+    });
+    for (const href of hrefs) {
+      expect(href.startsWith("#") || href.startsWith("/es/"), href).toBe(true);
     }
   });
 
