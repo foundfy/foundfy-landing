@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- 16 px version of favicon.svg: same composition, snapped to the pixel grid. -->
+  <rect width="16" height="16" rx="3.9" fill="#292d63"/>
+  <path fill="#f1f2f6" d="M4 10h3v3H4a1 1 0 0 1-1-1v-1a1 1 0 0 1 1-1ZM6 7h4v3H6ZM10 4h3a1 1 0 0 1 1 1v2H9V5a1 1 0 0 1 1-1Z"/>
+  <path fill="#f99748" d="M4 13.5V10h3V9H6V7h3V5h3v1h-2v2H7v1h1v2H5v2.5ZM11.5 4h2a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 1 .5-.5Z"/>
+  <rect x="12" y="5" width="1" height="1" fill="#fff3e8"/>
+</svg>

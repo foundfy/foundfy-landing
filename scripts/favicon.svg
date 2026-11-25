@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="24 24 464 464">
+  <!-- Foundfy staircase icon (master). Coordinates follow the approved 512 px reference. -->
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="#292d63"/>
+  <path fill="#f1f2f6" d="M148 312h82v80h-82a32 32 0 0 1-32-32v-16a32 32 0 0 1 32-32ZM196 232h114v80H196ZM304 152h90a28 28 0 0 1 28 28v52H276v-52a28 28 0 0 1 28-28Z"/>
+  <g fill="none" stroke="#f99748" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M148 392v-32a32 32 0 0 1 32-32h50v-16h-18"/>
+    <path d="M196 292v-28a32 32 0 0 1 32-32h82v-16a32 32 0 0 1 32-32h47.5"/>
+  </g>
+  <path fill="#f99748" d="M214 282v12h12a12 12 0 0 1-12-12Z"/>
+  <circle cx="389.5" cy="184" r="26.5" fill="#f99748"/>
+  <circle cx="390" cy="184" r="9" fill="#fff3e8"/>
+</svg>
